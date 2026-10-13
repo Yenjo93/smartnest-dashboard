@@ -164,7 +164,7 @@ export class SnVisitors extends LitElement {
     let lastDay = "";
     return html`<div class="wrap glass">
       <h3><sn-icon icon="doorbell"></sn-icon>${ctx.t("widget_visitors")}</h3>
-      <div class="strip">
+      <div class="strip" data-no-swipe>
         ${this.visits && !visits.length ? html`<span class="empty">${ctx.t("no_visitors")}</span>` : nothing}
         ${visits.map((v, i) => {
           const d = new Date(v.time);

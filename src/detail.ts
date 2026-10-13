@@ -9,6 +9,7 @@ import { shared } from "./theme";
 import { hsToRgb, onColor, rgbCss, rgbHex } from "./color";
 import type { I18nKey } from "./i18n";
 import "./ui/icon";
+import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
 import "./ui/color-wheel";
 import "./widgets/vacuum";
@@ -48,10 +49,12 @@ export class SnEntityDetail extends LitElement {
   @state() private confirmUnlock = false;
   @state() private history?: { t: number; v: number }[];
   private tempTimer?: number;
+  private prevState?: string;
   private confirmTimer?: number;
 
   static styles = [
     shared,
+    livingStyles,
     css`
       :host {
         display: grid;
@@ -212,6 +215,12 @@ export class SnEntityDetail extends LitElement {
     super.disconnectedCallback();
     window.clearTimeout(this.tempTimer);
     window.clearTimeout(this.confirmTimer);
+  }
+
+  protected updated() {
+    const e = this.ctx.hass.states[this.entityId];
+    playStateChange(this.renderRoot.querySelector(".big-ic sn-icon"), e, this.prevState);
+    this.prevState = e?.state;
   }
 
   protected firstUpdated() {
@@ -533,7 +542,7 @@ export class SnEntityDetail extends LitElement {
     return html`
       <div class="head">
         <span class="big-ic ${on ? "on" : ""}" style=${toneStyle(e)}>
-          <sn-icon .icon=${entityIcon(e, this.entityId)}></sn-icon>
+          <sn-icon class=${livingClass(e)} .icon=${entityIcon(e, this.entityId)}></sn-icon>
         </span>
         <span class="state">${stateLabel(ctx.t, e, ctx.lang)}</span>
         <span class="sub">${ctx.t("last_changed")} ${relativeTime(ctx.t, e.last_changed)}</span>

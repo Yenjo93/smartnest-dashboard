@@ -110,6 +110,8 @@ export interface Room {
   name: string;
   /** Outline as [x, y] percentages of the plan image, like markers. */
   points: [number, number][];
+  /** The robot's room (Roborock segment or HA area) this outline is; empty = matched by name. */
+  robot_room?: string;
 }
 
 export interface Floor {

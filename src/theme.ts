@@ -95,6 +95,7 @@ export const shared = css`
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
     --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
     --dur-fast: 200ms;
     --dur: 400ms;
     --row-h: ${unsafeCSS(ROW_H)}px;

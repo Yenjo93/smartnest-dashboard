@@ -3,10 +3,13 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { DashboardConfig, Floor, Marker, Room, Widget } from "../types";
 import { centroid, clipPath, inside, snap, type Pt } from "../geometry";
-import { toneStyle, domainOf, entityIcon, entityName, isActive, runTap, shortValue, tapKind } from "../entities";
+import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, tapKind } from "../entities";
 import { findWidget, newFloor, uid, uploadImage } from "../config";
 import { shared } from "../theme";
 import "../ui/icon";
+import { rolling } from "../ui/num";
+import { livingClass, livingStyles, playStateChange } from "../motion";
+import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import "../ui/entity-picker";
 
 interface Drag {
@@ -41,10 +44,21 @@ export class SnFloorplan extends LitElement {
   @state() private selRoom?: string;
   @state() private vtx?: { room: string; idx: number; pointerId: number; p: Pt };
   private ro?: ResizeObserver;
+  private prevStates = new Map<string, string>();
+  // Pinch-zoom (view mode): scale and pan of the stage, in stage pixels.
+  @state() private zoom = { s: 1, x: 0, y: 0 };
+  @state() private settling = false;
+  private pointers = new Map<number, { x: number; y: number }>();
+  private pinch?: { d: number; mx: number; my: number; s: number; x: number; y: number };
+  private pan?: { x: number; y: number; zx: number; zy: number };
+  private lastTap?: { t: number; x: number; y: number };
+  @state() private heat = false;
+  @state() private robotRooms?: RoomChoice[];
   private press?: { id: string; x: number; y: number; timer: number };
 
   static styles = [
     shared,
+    livingStyles,
     css`
       :host {
         display: block;
@@ -91,7 +105,7 @@ export class SnFloorplan extends LitElement {
       }
       .marker {
         position: absolute;
-        transform: translate(-50%, -50%);
+        transform: translate(-50%, -50%) scale(var(--inv, 1));
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -110,7 +124,7 @@ export class SnFloorplan extends LitElement {
         z-index: 1;
       }
       .marker:active {
-        transform: translate(-50%, -50%) scale(0.92);
+        transform: translate(-50%, -50%) scale(calc(var(--inv, 1) * 0.92));
       }
       .marker .ic {
         display: grid;
@@ -169,7 +183,7 @@ export class SnFloorplan extends LitElement {
       }
       .marker.dragging {
         cursor: grabbing;
-        transform: translate(-50%, -50%) scale(1.15);
+        transform: translate(-50%, -50%) scale(calc(var(--inv, 1) * 1.15));
         box-shadow: var(--shadow-lift);
         z-index: 3;
         transition: none;
@@ -305,7 +319,7 @@ export class SnFloorplan extends LitElement {
       }
       .room-label {
         position: absolute;
-        transform: translate(-50%, -50%);
+        transform: translate(-50%, -50%) scale(var(--inv, 1));
         padding: 3px 10px;
         border-radius: 999px;
         background: var(--surface-solid);
@@ -351,6 +365,65 @@ export class SnFloorplan extends LitElement {
         padding-inline: 8px;
         max-width: 280px;
       }
+      .stage {
+        transform-origin: 0 0;
+      }
+      .stage.settle {
+        transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .area.zoomable {
+        touch-action: pan-y; /* fitted: vertical drags still scroll the page, pinches reach us */
+        overflow: hidden;
+      }
+      .area.zoomed {
+        touch-action: none; /* zoomed in: every drag pans the plan */
+      }
+      .heat {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        transition: background-color 600ms cubic-bezier(0.22, 1, 0.36, 1), opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .heat-label {
+        position: absolute;
+        transform: translate(-50%, -50%) scale(var(--inv, 1));
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--surface-solid);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 700;
+        box-shadow: var(--shadow);
+        pointer-events: none;
+        z-index: 2;
+        direction: ltr;
+      }
+      .corner-btns {
+        position: absolute;
+        top: 12px;
+        inset-inline-end: 12px;
+        z-index: 4;
+        display: flex;
+        gap: 6px;
+      }
+      .corner-btns button {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--surface);
+        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
+        box-shadow: var(--shadow);
+        color: var(--text-2);
+        --icon-size: 20px;
+        transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+      }
+      .corner-btns button[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
       input[type="file"] {
         display: none;
       }
@@ -359,6 +432,11 @@ export class SnFloorplan extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    try {
+      this.heat = localStorage.getItem(this.heatKey) === "1";
+    } catch {
+      /* per-device preference only */
+    }
     this.ro = new ResizeObserver(() => this.measure());
     this.updateComplete.then(() => {
       const area = this.renderRoot.querySelector(".area");
@@ -401,7 +479,17 @@ export class SnFloorplan extends LitElement {
     });
   }
 
+  protected updated() {
+    for (const m of this.floor?.markers ?? []) {
+      const e = this.ctx.hass.states[m.entity];
+      playStateChange(this.renderRoot.querySelector(`[data-m="${m.id}"] sn-icon`), e, this.prevStates.get(m.id));
+      if (e) this.prevStates.set(m.id, e.state);
+    }
+  }
+
   protected willUpdate(changed: Map<string, unknown>) {
+    if (changed.has("ctx") && this.ctx.editing && this.zoom.s !== 1) this.zoom = { s: 1, x: 0, y: 0 };
+    if (changed.has("floorIdx")) this.zoom = { s: 1, x: 0, y: 0 };
     if (changed.has("ctx") && !this.ctx.editing) {
       this.selected = undefined;
       this.roomMode = false;
@@ -414,6 +502,10 @@ export class SnFloorplan extends LitElement {
   }
 
   // ---- pointer handling ----
+
+  private markerEl(m: Marker) {
+    return this.renderRoot.querySelector(`[data-m="${m.id}"]`) ?? undefined;
+  }
 
   private onDown(e: PointerEvent, m: Marker) {
     if (e.button !== 0) return;
@@ -432,7 +524,7 @@ export class SnFloorplan extends LitElement {
       timer: window.setTimeout(() => {
         this.press = undefined;
         navigator.vibrate?.(8);
-        this.ctx.openEntity(m.entity);
+        this.ctx.openEntity(m.entity, this.markerEl(m));
       }, 450),
     };
   }
@@ -483,7 +575,7 @@ export class SnFloorplan extends LitElement {
 
   private tap(m: Marker) {
     const e = this.ctx.hass.states[m.entity];
-    if (!e || e.state === "unavailable" || tapKind(m.entity) === "sheet") return this.ctx.openEntity(m.entity);
+    if (!e || e.state === "unavailable" || tapKind(m.entity) === "sheet") return this.ctx.openEntity(m.entity, this.markerEl(m));
     navigator.vibrate?.(5);
     runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
@@ -601,6 +693,149 @@ export class SnFloorplan extends LitElement {
         <span class="hint">${t("display_name_hint")}</span>
       </label>`,
     });
+  }
+
+  // ---- heat map ----
+
+  private get heatKey() {
+    return `smartnest-heat-${this.widget.id}`;
+  }
+
+  /** Temperature per room: the average of temperature sensors and AC readings placed inside it. */
+  private roomTemps(floor: Floor): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const r of floor.rooms ?? []) {
+      const vals = floor.markers
+        .filter((m) => inside([m.x, m.y], r.points))
+        .map((m) => {
+          const e = this.ctx.hass.states[m.entity];
+          if (!e) return NaN;
+          if (domainOf(m.entity) === "climate") return Number(e.attributes.current_temperature);
+          return e.attributes.device_class === "temperature" ? Number(e.state) : NaN;
+        })
+        .filter((v) => !Number.isNaN(v));
+      if (vals.length) out.set(r.id, vals.reduce((a, b) => a + b, 0) / vals.length);
+    }
+    return out;
+  }
+
+  /** Cool blue → comfortable green → warm gold → hot coral, from the brand palette. */
+  private heatColor(t: number): string {
+    const stops: [number, [number, number, number]][] = [
+      [17, [24, 188, 242]],
+      [21.5, [47, 181, 122]],
+      [25.5, [233, 151, 29]],
+      [29, [242, 107, 104]],
+    ];
+    if (t <= stops[0][0]) return `rgb(${stops[0][1].join(",")})`;
+    for (let i = 1; i < stops.length; i++) {
+      const [t1, c1] = stops[i];
+      const [t0, c0] = stops[i - 1];
+      if (t <= t1) {
+        const k = (t - t0) / (t1 - t0);
+        return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * k)).join(",")})`;
+      }
+    }
+    return `rgb(${stops[stops.length - 1][1].join(",")})`;
+  }
+
+  private renderHeat(floor: Floor) {
+    const temps = this.roomTemps(floor);
+    return (floor.rooms ?? []).map((r) => {
+      const t = temps.get(r.id);
+      if (t === undefined) return nothing;
+      const [cx, cy] = centroid(r.points);
+      return html`<div class="heat" style="clip-path:${clipPath(r.points)};background-color:${this.heatColor(t)};opacity:${this.ctx.dark ? 0.42 : 0.34}"></div>
+        <span class="heat-label" style="left:${cx}%;top:${cy}%">${formatNumber(t, this.ctx.lang, 1)}°</span>`;
+    });
+  }
+
+  // ---- pinch zoom ----
+
+  private canZoom() {
+    return !this.ctx.editing && !!this.floor?.image;
+  }
+
+  private local(e: PointerEvent) {
+    const stage = this.renderRoot.querySelector<HTMLElement>(".stage");
+    const area = this.renderRoot.querySelector<HTMLElement>(".area")!.getBoundingClientRect();
+    return { x: e.clientX - area.left - (stage?.offsetLeft ?? 0), y: e.clientY - area.top - (stage?.offsetTop ?? 0) };
+  }
+
+  /** Keeps the zoomed plan covering its box, so you can't pan it off into nothing. */
+  private clampZoom(z: { s: number; x: number; y: number }) {
+    const { w, h } = this.stageSize();
+    const s = Math.min(4, Math.max(1, z.s));
+    return { s, x: Math.min(0, Math.max(w - w * s, z.x)), y: Math.min(0, Math.max(h - h * s, z.y)) };
+  }
+
+  private zoomAround(px: number, py: number, s: number, animate: boolean) {
+    const z = this.zoom;
+    const next = this.clampZoom({ s, x: px - ((px - z.x) / z.s) * s, y: py - ((py - z.y) / z.s) * s });
+    this.settling = animate;
+    this.zoom = next;
+  }
+
+  private onAreaDown(e: PointerEvent) {
+    if (!this.canZoom()) return;
+    this.pointers.set(e.pointerId, this.local(e));
+    if (this.pointers.size === 2) {
+      // The first finger may already have started a page swipe; a pinch cancels it.
+      this.dispatchEvent(new Event("sn-cancel-swipe", { bubbles: true, composed: true }));
+      const [a, b] = [...this.pointers.values()];
+      this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, ...this.zoom };
+      this.pan = undefined;
+    } else if (this.pointers.size === 1) {
+      const p = this.local(e);
+      // Double-tap toggles between fitted and 2.5x around the finger.
+      const now = performance.now();
+      if (this.lastTap && now - this.lastTap.t < 300 && Math.hypot(p.x - this.lastTap.x, p.y - this.lastTap.y) < 30) {
+        this.lastTap = undefined;
+        this.zoomAround(p.x, p.y, this.zoom.s > 1 ? 1 : 2.5, true);
+        e.stopPropagation();
+        return;
+      }
+      this.lastTap = { t: now, ...p };
+      if (this.zoom.s > 1) this.pan = { x: p.x, y: p.y, zx: this.zoom.x, zy: this.zoom.y };
+    }
+    // Zoomed in, the plan owns horizontal drags: don't let them flip the page.
+    if (this.zoom.s > 1 || this.pointers.size > 1) {
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  }
+
+  private onAreaMove(e: PointerEvent) {
+    if (!this.pointers.has(e.pointerId)) return;
+    this.pointers.set(e.pointerId, this.local(e));
+    if (this.pinch && this.pointers.size >= 2) {
+      const [a, b] = [...this.pointers.values()];
+      const p = this.pinch;
+      const s = Math.min(4, Math.max(1, (p.s * Math.hypot(a.x - b.x, a.y - b.y)) / p.d));
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      this.settling = false;
+      this.zoom = this.clampZoom({ s, x: mx - ((p.mx - p.x) / p.s) * s, y: my - ((p.my - p.y) / p.s) * s });
+    } else if (this.pan) {
+      const q = this.local(e);
+      this.settling = false;
+      this.zoom = this.clampZoom({ s: this.zoom.s, x: this.pan.zx + q.x - this.pan.x, y: this.pan.zy + q.y - this.pan.y });
+    }
+  }
+
+  private onAreaUp(e: PointerEvent) {
+    this.pointers.delete(e.pointerId);
+    if (this.pointers.size < 2) this.pinch = undefined;
+    if (!this.pointers.size) this.pan = undefined;
+  }
+
+  private onWheel(e: WheelEvent) {
+    // Trackpad pinch arrives as ctrl+wheel.
+    if (!e.ctrlKey || !this.canZoom()) return;
+    e.preventDefault();
+    const area = this.renderRoot.querySelector<HTMLElement>(".area")!.getBoundingClientRect();
+    const stage = this.renderRoot.querySelector<HTMLElement>(".stage");
+    this.zoomAround(e.clientX - area.left - (stage?.offsetLeft ?? 0), e.clientY - area.top - (stage?.offsetTop ?? 0), this.zoom.s * Math.exp(-e.deltaY / 200), false);
   }
 
   // ---- rooms ----
@@ -763,6 +998,23 @@ export class SnFloorplan extends LitElement {
     if (room)
       return html`<div class="tools glass" @pointerdown=${stop}>
         <span class="label">${room.name}</span>
+        ${this.robotRooms?.length
+          ? html`<select
+              aria-label=${t("widget_vacuum")}
+              title=${t("widget_vacuum")}
+              style="width:auto;min-height:40px"
+              @change=${(e: any) =>
+                this.edit((_f, fl) => {
+                  const r = fl?.rooms?.find((x) => x.id === room.id);
+                  if (!r) return;
+                  if (e.target.value) r.robot_room = e.target.value;
+                  else delete r.robot_room;
+                })}
+            >
+              <option value="" ?selected=${!room.robot_room}>🤖 ${this.robotRooms.find((r) => r.id === robotRoomFor({ ...room, robot_room: undefined }, this.robotRooms!))?.name ?? "–"}</option>
+              ${this.robotRooms.map((r) => html`<option value=${r.id} ?selected=${room.robot_room === r.id}>🤖 ${r.name}</option>`)}
+            </select>`
+          : nothing}
         <button class="icon-btn pressable" aria-label=${t("room_name")} @click=${() => this.renameRoom(room)}>
           <sn-icon icon="pencil" style="--icon-size:20px"></sn-icon>
         </button>
@@ -810,6 +1062,7 @@ export class SnFloorplan extends LitElement {
     ].join(" ");
     return html`<div
       class=${cls}
+      data-m=${m.id}
       style="left:${x}%;top:${y}%;${toneStyle(e)}"
       role="button"
       tabindex="0"
@@ -821,8 +1074,8 @@ export class SnFloorplan extends LitElement {
       @contextmenu=${(ev: Event) => ev.preventDefault()}
       @keydown=${(ev: KeyboardEvent) => ev.key === "Enter" && !ctx.editing && this.tap(m)}
     >
-      <span class="ic"><sn-icon .icon=${entityIcon(e, m.entity)}></sn-icon></span>
-      ${m.display === "value" ? html`<span class="val">${shortValue(ctx.t, e, ctx.lang)}</span>` : nothing}
+      <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, m.entity)}></sn-icon></span>
+      ${m.display === "value" ? html`<span class="val">${rolling(shortValue(ctx.t, e, ctx.lang))}</span>` : nothing}
       ${ctx.editing && this.selected === m.id && !dragging
         ? html`<span class="tag">${entityName(ctx.hass, ctx.config, m.entity)}</span>`
         : nothing}
@@ -876,6 +1129,8 @@ export class SnFloorplan extends LitElement {
       <button class="btn pressable" ?disabled=${!floor?.image} @click=${() => {
         this.roomMode = true;
         this.selected = undefined;
+        const robot = Object.keys(this.ctx.hass.states).find((id) => id.startsWith("vacuum."));
+        if (robot && !this.robotRooms) loadRobotRooms(this.ctx.hass, robot).then((r) => (this.robotRooms = r.rooms));
       }}>
         <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("rooms")}
       </button>
@@ -893,6 +1148,7 @@ export class SnFloorplan extends LitElement {
     const floors = this.floors;
     const stage = this.stageSize();
     const ratio = this.natural ? this.natural.w / this.natural.h : 16 / 10;
+    const hasHeat = !!floor && this.roomTemps(floor).size > 0;
     return html`<div class="wrap glass">
       ${floors.length > 1 || ctx.editing
         ? html`<div class="floors" @pointerdown=${(e: Event) => e.stopPropagation()}>
@@ -918,11 +1174,39 @@ export class SnFloorplan extends LitElement {
             </div>
           </div>`
         : nothing}
-      <div class="area" style=${ctx.narrow ? `aspect-ratio:${ratio}` : ""}>
+      ${floor?.image && !ctx.editing && hasHeat
+        ? html`<div class="corner-btns" @pointerdown=${(e: Event) => e.stopPropagation()}>
+            <button
+              class="pressable"
+              aria-pressed=${this.heat}
+              aria-label=${t("heat_map")}
+              title=${t("heat_map")}
+              @click=${() => {
+                this.heat = !this.heat;
+                try {
+                  localStorage.setItem(this.heatKey, this.heat ? "1" : "0");
+                } catch {
+                  /* fine */
+                }
+              }}
+            >
+              <sn-icon icon="thermometer"></sn-icon>
+            </button>
+          </div>`
+        : nothing}
+      <div
+        class="area ${this.canZoom() ? "zoomable" : ""} ${this.zoom.s > 1 ? "zoomed" : ""}"
+        style=${ctx.narrow ? `aspect-ratio:${ratio}` : ""}
+        @pointerdown=${(e: PointerEvent) => this.onAreaDown(e)}
+        @pointermove=${(e: PointerEvent) => this.onAreaMove(e)}
+        @pointerup=${(e: PointerEvent) => this.onAreaUp(e)}
+        @pointercancel=${(e: PointerEvent) => this.onAreaUp(e)}
+        @wheel=${(e: WheelEvent) => this.onWheel(e)}
+      >
         ${floor?.image
           ? html`<div
-              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""}"
-              style="width:${stage.w}px;height:${stage.h}px"
+              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""}"
+              style="width:${stage.w}px;height:${stage.h}px;transform:translate(${this.zoom.x}px, ${this.zoom.y}px) scale(${this.zoom.s});--inv:${1 / this.zoom.s}"
               @pointerdown=${(e: PointerEvent) => this.onStageDown(e)}
             >
               <img
@@ -935,7 +1219,8 @@ export class SnFloorplan extends LitElement {
                   this.measure();
                 }}
               />
-              ${this.renderGlow(floor, stage.w)} ${floor.markers.map((m) => this.renderMarker(m))}
+              ${this.heat && !ctx.editing ? this.renderHeat(floor) : this.renderGlow(floor, stage.w)}
+              ${floor.markers.map((m) => this.renderMarker(m))}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
             </div>`
           : html`<div class="empty">

@@ -21,6 +21,7 @@ import "./ui/pinpad";
 import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./kiosk";
 import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
 import { buildChips, chipSheet } from "./chips";
+import { rolling } from "./ui/num";
 
 declare const __SN_VERSION__: string;
 export const VERSION = typeof __SN_VERSION__ === "string" ? __SN_VERSION__ : "dev";
@@ -72,6 +73,9 @@ export class SmartNestPanel extends LitElement {
   @state() private silentBell = false;
   @state() private scene?: string;
   @state() private morning = false;
+  // Page changes slide in from the side they came from (+1 = the next page).
+  private enterDir = 0;
+  private swipe?: { x: number; y: number; t: number; id: number; active: boolean; dx: number };
   // Fully Kiosk: what we last told the tablet, so we act on changes instead of fighting manual tweaks.
   private nightApplied?: boolean;
   private screenOffSent = false;
@@ -222,17 +226,62 @@ export class SmartNestPanel extends LitElement {
         padding-bottom: 120px;
         max-width: 1600px;
         margin: 0 auto;
-        animation: page-in 420ms var(--ease-out);
+        touch-action: pan-y; /* vertical scroll stays native; horizontal drags become page swipes */
       }
       .compact main {
         padding: 14px;
         padding-bottom: 120px;
       }
-      @keyframes page-in {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
+      .tabbar {
+        position: fixed;
+        z-index: 25;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        gap: 2px;
+        padding: 6px 8px max(8px, env(safe-area-inset-bottom));
+        border-radius: 0;
+        border-width: 1px 0 0 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .tabbar::-webkit-scrollbar {
+        display: none;
+      }
+      .tabbar button {
+        flex: 1 0 64px;
+        display: grid;
+        justify-items: center;
+        gap: 2px;
+        padding: 6px 4px;
+        border-radius: 12px;
+        color: var(--text-2);
+        font-size: 11px;
+        font-weight: 500;
+        --icon-size: 24px;
+        transition: color var(--dur-fast) var(--ease-out);
+      }
+      .tabbar button span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tabbar button.on {
+        color: var(--accent-text);
+      }
+      .tabbar button:active sn-icon {
+        transform: scale(0.88);
+      }
+      .tabbar sn-icon {
+        transition: transform 120ms var(--ease-out);
+      }
+      .compact main {
+        padding-bottom: calc(110px + env(safe-area-inset-bottom));
+      }
+      .compact .dock {
+        bottom: calc(76px + env(safe-area-inset-bottom));
       }
       .dock {
         position: fixed;
@@ -556,8 +605,9 @@ export class SmartNestPanel extends LitElement {
         fn(next);
         this.draft = next;
       },
-      openEntity: (entityId) =>
+      openEntity: (entityId, origin) =>
         this.pushSheet({
+          origin,
           title: this.current!.names[entityId] || this.hass.states[entityId]?.attributes.friendly_name || entityId,
           render: (c) => html`<sn-entity-detail .ctx=${c} .entityId=${entityId}></sn-entity-detail>`,
         }),
@@ -571,11 +621,100 @@ export class SmartNestPanel extends LitElement {
     };
   }
 
+  private goToPage(id: string) {
+    const pages = this.current?.pages ?? [];
+    const from = pages.findIndex((p) => p.id === this.pageId);
+    const to = pages.findIndex((p) => p.id === id);
+    if (to < 0 || id === this.pageId) return;
+    this.enterDir = Math.sign(to - from);
+    this.pageId = id;
+  }
+
+  /** The page a horizontal drag leads to. Forward is a drag toward the reading end: left in LTR, right in RTL. */
+  private neighbour(dx: number): string | undefined {
+    const pages = this.current?.pages ?? [];
+    const i = pages.findIndex((p) => p.id === this.pageId);
+    const forward = isRtl(this.uiLang) ? dx > 0 : dx < 0;
+    return pages[i + (forward ? 1 : -1)]?.id;
+  }
+
+  private onSwipeDown = (e: PointerEvent) => {
+    if (e.pointerType === "mouse" || this.draft || this.sheets.length) return;
+    // Anything that drags sideways itself keeps the gesture: sliders, segmented controls, the colour wheel, scrollers.
+    const owns = (e.composedPath() as Element[]).some(
+      (el) => el instanceof HTMLElement && (el.dataset.noSwipe !== undefined || el.classList.contains("seg") || /^(SN-VSLIDER|SN-COLOR-WHEEL|INPUT)$/.test(el.tagName))
+    );
+    if (!owns) this.swipe = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, active: false, dx: 0 };
+  };
+
+  private onSwipeMove = (e: PointerEvent) => {
+    const s = this.swipe;
+    if (!s || e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    const main = e.currentTarget as HTMLElement;
+    if (!s.active) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        this.swipe = undefined; // it's a scroll
+        return;
+      }
+      if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      s.active = true;
+      main.setPointerCapture(e.pointerId);
+    }
+    s.dx = dx;
+    // Rubber-band at the first and last page.
+    const pull = this.neighbour(dx) ? dx : dx * 0.3;
+    main.style.transform = `translateX(${pull}px)`;
+    main.style.opacity = String(1 - Math.min(Math.abs(pull) / 900, 0.3));
+  };
+
+  private onSwipeUp = (e: PointerEvent) => {
+    const s = this.swipe;
+    this.swipe = undefined;
+    if (!s?.active) return;
+    const main = e.currentTarget as HTMLElement;
+    const target = this.neighbour(s.dx);
+    const pull = target ? s.dx : s.dx * 0.3;
+    const velocity = s.dx / Math.max(1, performance.now() - s.t);
+    const reset = () => {
+      main.style.transform = "";
+      main.style.opacity = "";
+    };
+    if (target && (Math.abs(s.dx) > 90 || Math.abs(velocity) > 0.45)) {
+      navigator.vibrate?.(6);
+      main
+        .animate([{ transform: `translateX(${pull}px)`, opacity: main.style.opacity || "1" }, { transform: `translateX(${Math.sign(s.dx) * main.offsetWidth * 0.35}px)`, opacity: 0 }], {
+          duration: 160,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          fill: "forwards",
+        })
+        .finished.then(() => {
+          reset();
+          this.goToPage(target);
+        });
+    } else {
+      reset();
+      main.animate([{ transform: `translateX(${pull}px)` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+    }
+  };
+
   private pushSheet(spec: SheetSpec) {
     this.sheets = [...this.sheets, spec];
   }
 
   protected updated() {
+    if (this.enterDir) {
+      // New page slides in from the side it lives on; 260ms ease-out, opacity + transform only.
+      const main = this.renderRoot.querySelector("main");
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const from = (isRtl(this.uiLang) ? -1 : 1) * this.enterDir * 48;
+      main?.animate([{ transform: reduce ? "none" : `translateX(${from}px)`, opacity: 0 }, { transform: "none", opacity: 1 }], {
+        duration: reduce ? 160 : 260,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      });
+      this.enterDir = 0;
+    }
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
     const vars = themeVars(this.dark, this.current?.settings.accent ?? "");
     for (const [k, v] of Object.entries(vars)) this.style.setProperty(k, v);
@@ -603,23 +742,17 @@ export class SmartNestPanel extends LitElement {
         <img src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg" alt="" />
         <span>${name}</span>
       </div>
-      <nav>
-        <div class="seg" role="tablist">
-          ${cfg.pages.map(
-            (p) => html`<button
-              role="tab"
-              aria-pressed=${p.id === this.pageId}
-              aria-selected=${p.id === this.pageId}
-              @click=${() => {
-                if (p.id === this.pageId && ctx.editing) return pageSettingsSheet(ctx, p.id, () => (this.pageId = this.current!.pages[0]?.id ?? ""));
-                this.pageId = p.id;
-              }}
-            >
-              <sn-icon .icon=${p.icon} style="--icon-size:18px"></sn-icon>${p.title}
-            </button>`
-          )}
-        </div>
-      </nav>
+      ${ctx.narrow
+        ? nothing
+        : html`<nav>
+            <div class="seg" role="tablist">
+              ${cfg.pages.map(
+                (p) => html`<button role="tab" aria-pressed=${p.id === this.pageId} aria-selected=${p.id === this.pageId} @click=${() => this.tabClick(ctx, p.id)}>
+                  <sn-icon .icon=${p.icon} style="--icon-size:18px"></sn-icon>${p.title}
+                </button>`
+              )}
+            </div>
+          </nav>`}
       <div class="actions">
         ${this.kiosk
           ? html`<button class="icon-btn primary pressable" aria-label=${t("kiosk_unlock")} title=${t("kiosk_unlock")} @click=${() => this.unlockSheet()}>
@@ -647,13 +780,29 @@ export class SmartNestPanel extends LitElement {
     </header>`;
   }
 
+  private tabClick(ctx: Ctx, id: string) {
+    if (id === this.pageId && ctx.editing) return pageSettingsSheet(ctx, id, () => (this.pageId = this.current!.pages[0]?.id ?? ""));
+    this.goToPage(id);
+  }
+
+  /** Phone: pages live in a bottom tab bar, within thumb reach, like any iPhone app. */
+  private renderTabbar(ctx: Ctx) {
+    return html`<nav class="tabbar glass" role="tablist">
+      ${ctx.config.pages.map(
+        (p) => html`<button role="tab" aria-selected=${p.id === this.pageId} class=${p.id === this.pageId ? "on" : ""} @click=${() => this.tabClick(ctx, p.id)}>
+          <sn-icon .icon=${p.icon}></sn-icon><span>${p.title}</span>
+        </button>`
+      )}
+    </nav>`;
+  }
+
   private renderChips(ctx: Ctx) {
     const chips = buildChips(ctx);
     if (!chips.length) return nothing;
     return html`<div class="chips" role="list">
       ${chips.map(
         (c) => html`<button class="chip pressable ${c.tone}" role="listitem" @click=${() => (c.entities.length ? chipSheet(ctx, c.type) : undefined)}>
-          <sn-icon .icon=${c.icon}></sn-icon>${c.label}
+          <sn-icon .icon=${c.icon}></sn-icon>${rolling(c.label)}
         </button>`
       )}
     </div>`;
@@ -701,8 +850,23 @@ export class SmartNestPanel extends LitElement {
     const page = ctx.config.pages.find((p) => p.id === this.pageId) ?? ctx.config.pages[0];
     return html`<div class="app ${ctx.narrow ? "compact" : ""}">
       ${this.renderWeather(ctx)} ${this.renderBar(ctx)}
-      ${page ? keyed(page.id, html`<main><sn-page-grid .ctx=${ctx} .page=${page}></sn-page-grid></main>`) : nothing}
+      ${page
+        ? keyed(
+            page.id,
+            html`<main
+              @sn-cancel-swipe=${(e: Event) => {
+                this.swipe = undefined;
+                const m = e.currentTarget as HTMLElement;
+                m.style.transform = "";
+                m.style.opacity = "";
+              }}
+              @pointerdown=${this.onSwipeDown} @pointermove=${this.onSwipeMove} @pointerup=${this.onSwipeUp} @pointercancel=${this.onSwipeUp}>
+              <sn-page-grid .ctx=${ctx} .page=${page}></sn-page-grid>
+            </main>`
+          )
+        : nothing}
       ${ctx.editing ? this.renderDock(ctx) : nothing}
+      ${ctx.narrow && ctx.config.pages.length > 1 ? this.renderTabbar(ctx) : nothing}
       <sn-sheet-host .ctx=${ctx} .sheets=${this.sheets}></sn-sheet-host>
       ${this.ringingAt
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`

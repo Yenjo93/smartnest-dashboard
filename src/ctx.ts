@@ -5,6 +5,8 @@ import type { Translate } from "./i18n";
 export interface SheetSpec {
   title?: string;
   render: (ctx: Ctx) => TemplateResult;
+  /** The tile or marker it was opened from: the sheet grows out of it and shrinks back into it. */
+  origin?: Element;
   /** Called when the sheet is dismissed by the scrim, Esc, or the close button. */
   onClose?: () => void;
 }
@@ -23,7 +25,7 @@ export interface Ctx {
   assetBase: string;
   /** Mutates the draft config while editing. */
   update(fn: (draft: DashboardConfig) => void): void;
-  openEntity(entityId: string): void;
+  openEntity(entityId: string, origin?: Element): void;
   showSheet(spec: SheetSpec): void;
   closeSheet(): void;
   toast(message: string): void;

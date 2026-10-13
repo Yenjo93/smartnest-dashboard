@@ -6,6 +6,8 @@ import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKin
 import { bindPress } from "../ui/press";
 import { shared } from "../theme";
 import "../ui/icon";
+import { rolling } from "../ui/num";
+import { livingClass, livingStyles, playStateChange } from "../motion";
 
 /** One device, Apple Home style: tap toggles, long-press opens the detail sheet. */
 @customElement("sn-w-tile")
@@ -13,9 +15,11 @@ export class SnTile extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
   private unbind?: () => void;
+  private prevState?: string;
 
   static styles = [
     shared,
+    livingStyles,
     css`
       :host {
         display: block;
@@ -93,11 +97,17 @@ export class SnTile extends LitElement {
 
   private bind() {
     const el = this.renderRoot.querySelector<HTMLElement>(".tile");
-    if (el && !this.unbind) this.unbind = bindPress(el, () => this.tap(), () => this.ctx.openEntity(this.widget.config.entity));
+    if (el && !this.unbind) this.unbind = bindPress(el, () => this.tap(), () => this.ctx.openEntity(this.widget.config.entity, el));
   }
 
   protected firstUpdated() {
     this.bind();
+  }
+
+  protected updated() {
+    const e = this.ctx.hass.states[this.widget.config.entity];
+    playStateChange(this.renderRoot.querySelector(".ic sn-icon"), e, this.prevState);
+    this.prevState = e?.state;
   }
 
   connectedCallback() {
@@ -115,7 +125,7 @@ export class SnTile extends LitElement {
     if (this.ctx.editing) return;
     const id = this.widget.config.entity as string;
     const e = this.ctx.hass.states[id];
-    if (!e || e.state === "unavailable" || tapKind(id) === "sheet") return this.ctx.openEntity(id);
+    if (!e || e.state === "unavailable" || tapKind(id) === "sheet") return this.ctx.openEntity(id, this.renderRoot.querySelector(".tile") ?? undefined);
     navigator.vibrate?.(5);
     runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
@@ -134,10 +144,10 @@ export class SnTile extends LitElement {
         tabindex="0"
         aria-pressed=${on}
       >
-        <span class="ic"><sn-icon .icon=${entityIcon(e, id)}></sn-icon></span>
+        <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, id)}></sn-icon></span>
         <span class="text">
           <span class="name">${entityName(ctx.hass, ctx.config, id)}</span>
-          <span class="state">${stateLabel(ctx.t, e, ctx.lang)}</span>
+          <span class="state">${rolling(stateLabel(ctx.t, e, ctx.lang))}</span>
         </span>
       </div>
     `;

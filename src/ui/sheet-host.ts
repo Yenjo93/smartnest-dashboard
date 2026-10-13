@@ -13,6 +13,7 @@ export class SnSheetHost extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) sheets: SheetSpec[] = [];
   @state() private closing = false;
+  private grown = new WeakSet<SheetSpec>();
 
   static styles = [
     shared,
@@ -30,7 +31,7 @@ export class SnSheetHost extends LitElement {
         animation: fade var(--dur) var(--ease-out);
       }
       .scrim.closing {
-        animation: fade-out var(--dur-fast) var(--ease-in) forwards;
+        animation: fade-out var(--dur-fast) var(--ease-out) forwards;
       }
       .sheet {
         position: relative;
@@ -43,10 +44,14 @@ export class SnSheetHost extends LitElement {
         color: var(--text);
         box-shadow: var(--shadow-lift);
         overflow: hidden;
-        animation: rise 520ms var(--spring);
+        animation: rise 380ms var(--ease-drawer);
       }
       .closing .sheet {
-        animation: sink var(--dur-fast) var(--ease-in) forwards;
+        animation: sink var(--dur-fast) var(--ease-out) forwards;
+      }
+      .sheet.from-origin,
+      .closing .sheet.from-origin {
+        animation: none; /* driven by WAAPI from the tile */
       }
       header {
         display: flex;
@@ -124,8 +129,56 @@ export class SnSheetHost extends LitElement {
     if (e.key === "Escape" && this.sheets.length) this.dismiss();
   };
 
+  /** Centred-dialog layout only; on a phone the sheet rises from the bottom edge instead. */
+  private useOrigin(spec: SheetSpec) {
+    return !!spec.origin?.isConnected && window.innerWidth > 600 && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  /** Transform that puts the sheet over its origin tile, same centre, uniform scale so text never stretches. */
+  private originTransform(sheet: HTMLElement, origin: Element) {
+    const f = sheet.getBoundingClientRect();
+    const o = origin.getBoundingClientRect();
+    const scale = Math.min(1, Math.max(0.2, o.width / f.width));
+    const dx = o.left + o.width / 2 - (f.left + f.width / 2);
+    const dy = o.top + o.height / 2 - (f.top + f.height / 2);
+    return `translate(${dx}px, ${dy}px) scale(${scale})`;
+  }
+
+  protected updated() {
+    // Grow each newly opened sheet out of the tile it came from. Spatial consistency: the window visibly
+    // comes from, and returns to, the device you pressed.
+    this.sheets.forEach((spec, i) => {
+      if (this.grown.has(spec)) return;
+      this.grown.add(spec);
+      if (!this.useOrigin(spec)) return;
+      const sheet = this.renderRoot.querySelectorAll<HTMLElement>(".sheet")[i];
+      if (!sheet) return;
+      sheet.classList.add("from-origin");
+      sheet.animate([{ transform: this.originTransform(sheet, spec.origin!), opacity: 0.4 }, { transform: "none", opacity: 1 }], {
+        duration: 380,
+        easing: "cubic-bezier(0.32, 0.72, 0, 1)",
+      });
+    });
+  }
+
   private dismiss() {
     const top = this.sheets[this.sheets.length - 1];
+    if (this.sheets.length === 1 && this.useOrigin(top)) {
+      const sheet = this.renderRoot.querySelectorAll<HTMLElement>(".sheet")[0];
+      this.closing = true; // fades the scrim
+      sheet
+        .animate([{ transform: "none", opacity: 1 }, { transform: this.originTransform(sheet, top.origin!), opacity: 0 }], {
+          duration: 240,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          fill: "forwards",
+        })
+        .finished.then(() => {
+          this.closing = false;
+          top.onClose?.();
+          this.ctx.closeSheet();
+        });
+      return;
+    }
     if (this.sheets.length === 1) {
       // Let the exit animation play before the panel drops the sheet.
       this.closing = true;

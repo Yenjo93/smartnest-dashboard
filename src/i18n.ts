@@ -116,6 +116,7 @@ const en = {
 
   floor: "Floor",
   add_floor: "Add floor",
+  heat_map: "Room temperatures",
   rooms: "Rooms",
   draw_room: "Draw room",
   draw_hint: "Tap each corner of the room, then tap the first corner to close it.",
@@ -441,6 +442,7 @@ const ar: Record<I18nKey, string> = {
 
   floor: "الطابق",
   add_floor: "طابق جديد",
+  heat_map: "حرارة الغرف",
   rooms: "الغرف",
   draw_room: "ارسم غرفة",
   draw_hint: "اضغط على كل زاوية بالغرفة، وبعدين اضغط على أول زاوية عشان تسكّرها.",
@@ -764,6 +766,7 @@ const he: Record<I18nKey, string> = {
 
   floor: "קומה",
   add_floor: "קומה חדשה",
+  heat_map: "טמפרטורת חדרים",
   rooms: "חדרים",
   draw_room: "ציור חדר",
   draw_hint: "הקישו על כל פינה של החדר, ואז על הפינה הראשונה כדי לסגור.",

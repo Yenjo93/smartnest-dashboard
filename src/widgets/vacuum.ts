@@ -1,7 +1,8 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
-import type { Hass, HassEntity, Widget } from "../types";
+import type { Floor, Hass, HassEntity, Room, Widget } from "../types";
+import { centroid } from "../geometry";
 import { hasKey, type I18nKey } from "../i18n";
 import { entityName, formatNumber, ltr, stateLabel } from "../entities";
 import { shared } from "../theme";
@@ -15,7 +16,7 @@ export const PARTS: { key: string; label: I18nKey; life: number }[] = [
   { key: "sensor_time_left", label: "sensors_part", life: 30 },
 ];
 
-interface RoomChoice {
+export interface RoomChoice {
   id: string; // segment id (as text) or HA area id
   name: string;
 }
@@ -53,6 +54,42 @@ export function hoursLeft(e: HassEntity | undefined): number | undefined {
   if (!e || Number.isNaN(v)) return undefined;
   const unit = e.attributes.unit_of_measurement;
   return unit === "s" ? v / 3600 : unit === "min" ? v / 60 : unit === "d" ? v * 24 : v;
+}
+
+export interface RobotRooms {
+  method: "segments" | "areas";
+  rooms: RoomChoice[];
+}
+
+/** Rooms from Roborock's own map; if that isn't available, Home Assistant areas (cleaned via vacuum.clean_area). */
+export async function loadRobotRooms(hass: Hass, entity: string): Promise<RobotRooms> {
+  try {
+    const res = await hass.callWS<{ response: Record<string, { maps?: { rooms?: Record<string, string> }[] }> }>({
+      type: "call_service",
+      domain: "roborock",
+      service: "get_maps",
+      target: { entity_id: entity },
+      return_response: true,
+    });
+    const rooms = Object.entries(res.response?.[entity]?.maps?.[0]?.rooms ?? {}).map(([id, name]) => ({ id, name }));
+    if (rooms.length) return { method: "segments", rooms };
+  } catch {
+    /* not Roborock, or an older integration */
+  }
+  return {
+    method: "areas",
+    rooms: Object.values(hass.areas ?? {})
+      .map((a) => ({ id: a.area_id, name: a.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** The robot room a drawn room stands for: set by the installer, or the one with the same name. */
+export function robotRoomFor(room: Room, rooms: RoomChoice[]): string | undefined {
+  if (room.robot_room) return rooms.some((r) => r.id === room.robot_room) ? room.robot_room : undefined;
+  return rooms.find((r) => norm(r.name) === norm(room.name))?.id;
 }
 
 /**
@@ -217,6 +254,68 @@ export class SnVacuum extends LitElement {
           transform: translateY(-50%) scale(0);
         }
       }
+      .mini {
+        position: relative;
+        border-radius: var(--r-md);
+        overflow: hidden;
+        background: var(--surface-2);
+        direction: ltr;
+      }
+      .mini img {
+        display: block;
+        width: 100%;
+        height: auto;
+        opacity: 0.85;
+      }
+      .mini img.dim {
+        filter: invert(0.88) hue-rotate(180deg);
+      }
+      .mini svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .mini polygon {
+        vector-effect: non-scaling-stroke;
+        stroke-width: 2;
+        transition: fill 200ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .mini polygon.pick {
+        fill: color-mix(in srgb, var(--accent) 14%, transparent);
+        stroke: color-mix(in srgb, var(--accent) 60%, transparent);
+        cursor: pointer;
+      }
+      .mini polygon.pick.on {
+        fill: color-mix(in srgb, var(--accent) 55%, transparent);
+        stroke: var(--accent);
+      }
+      .mini polygon.off {
+        fill: transparent;
+        stroke: transparent;
+      }
+      .mini .num {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 700;
+        font-size: 14px;
+        box-shadow: var(--shadow);
+        pointer-events: none;
+        animation: pop-in 300ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      @keyframes pop-in {
+        from {
+          transform: translate(-50%, -50%) scale(0.6);
+          opacity: 0;
+        }
+      }
       .opts {
         display: grid;
         gap: 10px;
@@ -287,29 +386,50 @@ export class SnVacuum extends LitElement {
   }
 
   private async loadRooms() {
-    const { hass } = this.ctx;
-    try {
-      const res = await hass.callWS<{ response: Record<string, { maps?: { flag?: number; name?: string; rooms?: Record<string, string> }[] }> }>({
-        type: "call_service",
-        domain: "roborock",
-        service: "get_maps",
-        target: { entity_id: this.entity },
-        return_response: true,
-      });
-      const maps = res.response?.[this.entity]?.maps ?? [];
-      const rooms = Object.entries(maps[0]?.rooms ?? {}).map(([id, name]) => ({ id, name }));
-      if (rooms.length) {
-        this.method = "segments";
-        this.rooms = rooms;
-        return;
-      }
-    } catch {
-      /* not Roborock, or an older integration: fall back to HA areas */
-    }
-    this.method = "areas";
-    this.rooms = Object.values(hass.areas ?? {})
-      .map((a) => ({ id: a.area_id, name: a.name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const r = await loadRobotRooms(this.ctx.hass, this.entity);
+    this.method = r.method;
+    this.rooms = r.rooms;
+  }
+
+  /** The drawn floor whose rooms best match the robot's rooms. */
+  private planFloor(): { floor: Floor; matches: Map<string, string> } | undefined {
+    let best: { floor: Floor; matches: Map<string, string> } | undefined;
+    for (const p of this.ctx.config.pages)
+      for (const w of p.widgets)
+        for (const f of (w.type === "floorplan" ? w.config.floors : []) as Floor[]) {
+          if (!f.image || !f.rooms?.length) continue;
+          const matches = new Map<string, string>();
+          for (const r of f.rooms) {
+            const id = robotRoomFor(r, this.rooms);
+            if (id) matches.set(r.id, id);
+          }
+          if (matches.size && (!best || matches.size > best.matches.size)) best = { floor: f, matches };
+        }
+    return best;
+  }
+
+  private renderPlan() {
+    const plan = this.planFloor();
+    if (!plan) return nothing;
+    const { floor, matches } = plan;
+    return html`<div class="mini" data-no-swipe>
+      <img src=${floor.image!} alt="" class=${this.ctx.dark ? "dim" : ""} />
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+        ${(floor.rooms ?? []).map((r) => {
+          const id = matches.get(r.id);
+          const picked = id ? this.picked.includes(id) : false;
+          return svg`<polygon class=${id ? (picked ? "pick on" : "pick") : "off"} points=${r.points.map((p) => p.join(",")).join(" ")}
+            @click=${() => id && this.toggleRoom(id)}></polygon>`;
+        })}
+      </svg>
+      ${(floor.rooms ?? []).map((r) => {
+        const id = matches.get(r.id);
+        const order = id ? this.picked.indexOf(id) : -1;
+        if (order < 0) return nothing;
+        const [x, y] = centroid(r.points);
+        return html`<span class="num" style="left:${x}%;top:${y}%">${order + 1}</span>`;
+      })}
+    </div>`;
   }
 
   private toggleRoom(id: string) {
@@ -371,6 +491,7 @@ export class SnVacuum extends LitElement {
 
     const right = html`<div class="col">
       <h3>${t("rooms")}</h3>
+      ${this.renderPlan()}
       ${this.rooms.length
         ? html`<div class="rooms">
             ${this.rooms.map((r) => {

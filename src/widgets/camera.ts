@@ -93,7 +93,7 @@ export class SnCamera extends LitElement {
     const id = this.widget.config.entity as string;
     const url = id ? snapshotUrl(ctx.hass, id, this.bust) : undefined;
     return html`
-      <button class="cam pressable" @click=${() => !ctx.editing && id && ctx.openEntity(id)}>
+      <button class="cam pressable" @click=${(e: Event) => !ctx.editing && id && ctx.openEntity(id, e.currentTarget as Element)}>
         ${url ? html`<img src=${url} alt="" draggable="false" />` : html`<span class="placeholder"><sn-icon icon="cctv"></sn-icon></span>`}
         <span class="label"><sn-icon icon="cctv" style="--icon-size:16px"></sn-icon>${id ? entityName(ctx.hass, ctx.config, id) : ctx.t("widget_camera")}</span>
       </button>
