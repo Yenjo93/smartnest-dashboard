@@ -6,6 +6,7 @@ import { DEFAULT_ACCENT, TEMPLATES, WIDGET_SIZES, findWidget, newFloor, newWidge
 import { LANGS, type I18nKey } from "./i18n";
 import { PAGE_ICONS } from "./icons";
 import { hashPin, newSalt } from "./kiosk";
+import { findTablets, thisTablet } from "./fully";
 import "./ui/entity-picker";
 import "./ui/icon";
 
@@ -134,6 +135,7 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "tile", icon: "lightbulb" },
   { type: "floorplan", icon: "layers" },
   { type: "camera", icon: "cctv" },
+  { type: "modes", icon: "leave" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -282,6 +284,19 @@ export function pageSettingsSheet(ctx: Ctx, pageId: string, onDeleted: () => voi
   });
 }
 
+function toggle(ctx: Ctx, value: boolean, onSet: (v: boolean) => void) {
+  return html`<div class="seg">
+    ${[true, false].map((v) => html`<button aria-pressed=${value === v} @click=${() => onSet(v)}>${ctx.t(v ? "on" : "off")}</button>`)}
+  </div>`;
+}
+
+function numberField(label: string, value: number, min: number, max: number, onSet: (v: number) => void) {
+  return html`<label class="field"
+    >${label}
+    <input type="number" min=${min} max=${max} .value=${String(value)} @change=${(e: any) => onSet(Math.min(max, Math.max(min, Number(e.target.value) || 0)))} />
+  </label>`;
+}
+
 const ACCENTS = [DEFAULT_ACCENT, "#18BCF2", "#2FB57A", "#F26B68", "#A78BFA", "#F5BE6A"];
 const THEMES: { id: ThemeMode; label: I18nKey }[] = [
   { id: "schedule", label: "theme_schedule" },
@@ -380,9 +395,29 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
                 </label>
                 ${entityField(c, t("temp_entity"), s.screensaver.temp_entity, { domains: ["sensor", "climate", "weather"] }, (id) =>
                   set((d) => (d.settings.screensaver.temp_entity = id)), true
-                )}`
+                )}
+                <div class="field">${t("photos")} ${toggle(c, s.screensaver.photos, (v) => set((d) => (d.settings.screensaver.photos = v)))}</div>
+                ${s.screensaver.photos
+                  ? html`<label class="field"
+                        >${t("photo_folder")}
+                        <input
+                          type="text"
+                          class="ltr"
+                          .value=${s.screensaver.photo_folder}
+                          @change=${(e: any) => set((d) => (d.settings.screensaver.photo_folder = e.target.value.trim().replace(/^\/+|\/+$/g, "") || "smartnest-photos"))}
+                        />
+                        <span class="hint">${t("photos_hint", { folder: s.screensaver.photo_folder })}</span>
+                      </label>
+                      ${numberField(t("photo_seconds"), s.screensaver.photo_seconds, 5, 600, (v) => set((d) => (d.settings.screensaver.photo_seconds = v)))}`
+                  : nothing}`
             : nothing
         ),
+        section(
+          t("weather"),
+          entityField(c, t("weather_entity"), s.weather.entity, { domains: ["weather"] }, (id) => set((d) => (d.settings.weather.entity = id)), true),
+          html`<div class="field">${t("weather_bg")} ${toggle(c, s.weather.background, (v) => set((d) => (d.settings.weather.background = v)))}</div>`
+        ),
+        tabletSection(c, set),
         section(
           t("doorbell"),
           entityField(c, t("doorbell_trigger"), s.doorbell.trigger_entity, { domains: ["event", "binary_sensor"] }, (id) =>
@@ -441,4 +476,29 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
       );
     },
   });
+}
+
+function tabletSection(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void) {
+  const t = c.t;
+  const f = c.config.settings.fully;
+  const tablets = findTablets(c.hass);
+  if (!tablets.length) return section(t("tablet"), html`<p class="muted" style="margin:0;font-size:14px">${t("tablet_none")}</p>`);
+  const here = thisTablet(c.hass);
+  return section(
+    t("tablet"),
+    html`<p class="muted" style="margin:0;font-size:14px">
+      ${t("tablet_found", { names: tablets.map((x) => x.name).join(c.lang === "ar" ? "، " : ", ") })} ·
+      ${here ? html`<strong style="color:var(--success)">✓ ${t("tablet_this")}</strong>` : t("tablet_not_this")}
+    </p>`,
+    !window.fully ? html`<p class="muted" style="margin:0;font-size:13px">${t("tablet_js_hint")}</p>` : nothing,
+    html`<div class="field">${t("night_dim")} ${toggle(c, f.night_dim, (v) => set((d) => (d.settings.fully.night_dim = v)))}</div>`,
+    f.night_dim
+      ? html`${numberField(t("night_brightness"), f.night_brightness, 1, 100, (v) => set((d) => (d.settings.fully.night_brightness = v)))}
+        ${numberField(t("night_off"), f.night_off_min, 0, 240, (v) => set((d) => (d.settings.fully.night_off_min = v)))}`
+      : nothing,
+    html`<div class="field">
+      ${t("motion_wake")} ${toggle(c, f.motion_wake, (v) => set((d) => (d.settings.fully.motion_wake = v)))}
+      <span class="hint">${t("motion_wake_hint")}</span>
+    </div>`
+  );
 }

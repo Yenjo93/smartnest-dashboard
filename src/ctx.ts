@@ -27,4 +27,6 @@ export interface Ctx {
   showSheet(spec: SheetSpec): void;
   closeSheet(): void;
   toast(message: string): void;
+  /** Full-screen moment after a house mode is triggered. */
+  cinematic(mode: string): void;
 }

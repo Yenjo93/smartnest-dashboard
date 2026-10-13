@@ -7,8 +7,24 @@ export interface HassEntity {
   last_updated: string;
 }
 
+/** Entity registry entry as the frontend exposes it (hass.entities). */
+export interface HassEntityReg {
+  entity_id: string;
+  device_id?: string;
+  platform?: string;
+  translation_key?: string;
+}
+
+export interface HassDevice {
+  id: string;
+  name?: string;
+  identifiers?: [string, string][];
+}
+
 export interface Hass {
   states: Record<string, HassEntity>;
+  entities?: Record<string, HassEntityReg>;
+  devices?: Record<string, HassDevice>;
   user?: { id: string; name: string; is_admin: boolean };
   language: string;
   callService(domain: string, service: string, data?: Record<string, any>): Promise<any>;
@@ -35,12 +51,14 @@ export interface Settings {
   dark_from: string; // "HH:MM", used when theme === "schedule"
   dark_to: string;
   default_page: string;
-  screensaver: { enabled: boolean; timeout_min: number; temp_entity?: string };
+  screensaver: { enabled: boolean; timeout_min: number; temp_entity?: string; photos: boolean; photo_folder: string; photo_seconds: number };
+  weather: { entity?: string; background: boolean };
+  fully: { night_dim: boolean; night_brightness: number; night_off_min: number; motion_wake: boolean };
   doorbell: { trigger_entity?: string; camera_entity?: string; lock_entity?: string };
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
 }
 
-export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock";
+export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes";
 
 export interface Widget {
   id: string;
@@ -69,11 +87,19 @@ export interface Marker {
   display: MarkerDisplay;
 }
 
+export interface Room {
+  id: string;
+  name: string;
+  /** Outline as [x, y] percentages of the plan image, like markers. */
+  points: [number, number][];
+}
+
 export interface Floor {
   id: string;
   name: string;
   image?: string;
   markers: Marker[];
+  rooms?: Room[];
 }
 
 export interface DashboardConfig {

@@ -17,6 +17,9 @@ STATIC_URL = "/smartnest_static"
 FILES_DIR = "smartnest"
 FILES_URL = "/smartnest_files"
 
+# Family photos for the screensaver, inside HA's local media folder (Media → My media).
+PHOTOS_DIR = "smartnest-photos"
+
 STORAGE_KEY = "smartnest.dashboard"
 STORAGE_VERSION = 1
 

@@ -13,8 +13,11 @@ import "./grid";
 import "./detail";
 import "./doorbell";
 import "./screensaver";
+import "./weather-bg";
+import "./cinematic";
 import "./ui/pinpad";
 import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./kiosk";
+import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
 
 declare const __SN_VERSION__: string;
 export const VERSION = typeof __SN_VERSION__ === "string" ? __SN_VERSION__ : "dev";
@@ -63,6 +66,12 @@ export class SmartNestPanel extends LitElement {
   private ticker?: number;
   private toastTimer?: number;
   private bellSeen?: string;
+  @state() private silentBell = false;
+  @state() private scene?: string;
+  // Fully Kiosk: what we last told the tablet, so we act on changes instead of fighting manual tweaks.
+  private nightApplied?: boolean;
+  private screenOffSent = false;
+  private screenSeen?: string;
   private mql = matchMedia("(prefers-color-scheme: dark)");
 
   static styles = [
@@ -148,6 +157,8 @@ export class SmartNestPanel extends LitElement {
         width: 100%;
       }
       main {
+        position: relative;
+        z-index: 1; /* above the weather layer */
         padding: 20px;
         padding-bottom: 120px;
         max-width: 1600px;
@@ -249,6 +260,7 @@ export class SmartNestPanel extends LitElement {
 
   private onActivity = () => {
     this.lastActive = Date.now();
+    this.screenOffSent = false;
   };
   private onResize = () => {
     this.wide = window.innerWidth >= 768;
@@ -262,6 +274,34 @@ export class SmartNestPanel extends LitElement {
     const s = this.config?.settings.screensaver;
     if (s?.enabled && this.wide && !this.draft && !this.sheets.length && !this.ringingAt && !this.sleeping)
       if (Date.now() - this.lastActive > s.timeout_min * 60_000) this.sleeping = true;
+    this.fullyTick();
+  }
+
+  /** Night dimming, screen off after idle, and camera wake, on the wall tablet only. */
+  private fullyTick() {
+    const cfg = this.config?.settings;
+    const tab = this.hass && cfg ? thisTablet(this.hass) : undefined;
+    if (!tab || !cfg) return;
+    const f = cfg.fully;
+    const fail = () => undefined;
+    setMotionWake(this.hass, tab, f.motion_wake).catch(fail);
+    const night = f.night_dim && inWindow(this.now, cfg.dark_from, cfg.dark_to);
+    if (night !== this.nightApplied && !this.ringingAt) {
+      this.nightApplied = night;
+      setBrightness(this.hass, tab, night ? f.night_brightness : 100).catch(fail);
+    }
+    if (night && f.night_off_min > 0 && !this.screenOffSent && !this.ringingAt && Date.now() - this.lastActive > f.night_off_min * 60_000) {
+      this.screenOffSent = true;
+      setScreen(this.hass, tab, false).catch(fail);
+    }
+  }
+
+  /** The screen came back on (camera motion, power button): treat it as activity so it isn't switched straight off. */
+  private watchScreen() {
+    const tab = thisTablet(this.hass);
+    const state = tab?.screen ? this.hass.states[tab.screen]?.state : undefined;
+    if (state === "on" && this.screenSeen === "off") this.onActivity();
+    this.screenSeen = state;
   }
 
   private get assetBase() {
@@ -296,7 +336,10 @@ export class SmartNestPanel extends LitElement {
 
   protected willUpdate(changed: Map<string, unknown>) {
     if (changed.has("hass") && this.hass && !this.initStarted) this.init();
-    if (changed.has("hass")) this.watchDoorbell();
+    if (changed.has("hass")) {
+      this.watchDoorbell();
+      this.watchScreen();
+    }
     // PIN removed from another screen: a lock nobody can open must not stay on.
     if (changed.has("config") && this.kiosk && this.config && !this.config.settings.kiosk.pin_hash) this.setKiosk(false);
   }
@@ -351,7 +394,20 @@ export class SmartNestPanel extends LitElement {
 
   private ring() {
     this.sleeping = false;
-    this.lastActive = Date.now();
+    this.onActivity();
+    this.silentBell = false;
+    const tab = thisTablet(this.hass);
+    if (tab) {
+      // Wake the wall tablet at full brightness and ring through its own speaker.
+      const fail = () => undefined;
+      setScreen(this.hass, tab, true).catch(fail);
+      setBrightness(this.hass, tab, 100).catch(fail);
+      this.nightApplied = undefined; // re-apply night dimming once the popup is gone
+      if (tab.media) {
+        this.silentBell = true;
+        playSound(this.hass, tab, this.hass.hassUrl(`${this.assetBase}sounds/chime.wav`)).catch(() => (this.silentBell = false));
+      }
+    }
     this.ringingAt = new Date();
     const at = this.ringingAt;
     window.setTimeout(() => this.ringingAt === at && (this.ringingAt = undefined), 90_000);
@@ -439,6 +495,10 @@ export class SmartNestPanel extends LitElement {
       showSheet: (spec) => this.pushSheet(spec),
       closeSheet: () => (this.sheets = this.sheets.slice(0, -1)),
       toast: (m) => this.toast(m),
+      cinematic: (mode) => {
+        this.sleeping = false;
+        this.scene = mode;
+      },
     };
   }
 
@@ -514,6 +574,15 @@ export class SmartNestPanel extends LitElement {
     </header>`;
   }
 
+  private renderWeather(ctx: Ctx) {
+    const w = ctx.config.settings.weather;
+    const e = w.background && w.entity ? this.hass.states[w.entity] : undefined;
+    if (!e) return nothing;
+    const sun = this.hass.states["sun.sun"]?.state;
+    const night = e.state === "clear-night" || (sun ? sun === "below_horizon" : inWindow(this.now, ctx.config.settings.dark_from, ctx.config.settings.dark_to));
+    return html`<sn-weather-bg .condition=${e.state} ?night=${night} ?dark=${ctx.dark}></sn-weather-bg>`;
+  }
+
   private renderDock(ctx: Ctx) {
     const { t } = ctx;
     return html`<div class="dock glass">
@@ -546,13 +615,14 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const page = ctx.config.pages.find((p) => p.id === this.pageId) ?? ctx.config.pages[0];
     return html`<div class="app ${ctx.narrow ? "compact" : ""}">
-      ${this.renderBar(ctx)}
+      ${this.renderWeather(ctx)} ${this.renderBar(ctx)}
       ${page ? keyed(page.id, html`<main><sn-page-grid .ctx=${ctx} .page=${page}></sn-page-grid></main>`) : nothing}
       ${ctx.editing ? this.renderDock(ctx) : nothing}
       <sn-sheet-host .ctx=${ctx} .sheets=${this.sheets}></sn-sheet-host>
       ${this.ringingAt
-        ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
+        ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
+      ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}
       ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} .onWake=${() => (this.sleeping = false)}></sn-screensaver>` : nothing}
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
     </div>`;

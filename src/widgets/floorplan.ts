@@ -1,7 +1,8 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
-import type { DashboardConfig, Floor, Marker, Widget } from "../types";
+import type { DashboardConfig, Floor, Marker, Room, Widget } from "../types";
+import { centroid, clipPath, inside, snap, type Pt } from "../geometry";
 import { toneStyle, domainOf, entityIcon, entityName, isActive, runTap, shortValue, tapKind } from "../entities";
 import { findWidget, newFloor, uid, uploadImage } from "../config";
 import { shared } from "../theme";
@@ -34,6 +35,11 @@ export class SnFloorplan extends LitElement {
   @state() private natural?: { w: number; h: number };
   @state() private area = { w: 0, h: 0 };
   @state() private uploading = false;
+  // Room outlines (edit mode)
+  @state() private roomMode = false;
+  @state() private drawing?: Pt[];
+  @state() private selRoom?: string;
+  @state() private vtx?: { room: string; idx: number; pointerId: number; p: Pt };
   private ro?: ResizeObserver;
   private press?: { id: string; x: number; y: number; timer: number };
 
@@ -261,6 +267,90 @@ export class SnFloorplan extends LitElement {
         color: var(--text);
         font-size: 17px;
       }
+      /* Rooms that glow with their lights. Clipped to the room so light never spills through walls. */
+      .glow {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        transition: opacity 900ms var(--ease-out);
+      }
+      :host([dark]) .glow {
+        mix-blend-mode: screen;
+      }
+      .rooms-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        z-index: 2;
+      }
+      .rooms-svg polygon {
+        fill: color-mix(in srgb, var(--accent) 12%, transparent);
+        stroke: var(--accent);
+        stroke-width: 2;
+        stroke-dasharray: 6 5;
+        vector-effect: non-scaling-stroke;
+        cursor: pointer;
+      }
+      .rooms-svg polygon.sel {
+        fill: color-mix(in srgb, var(--accent) 26%, transparent);
+        stroke-dasharray: none;
+      }
+      .rooms-svg polyline {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 2.5;
+        vector-effect: non-scaling-stroke;
+      }
+      .room-label {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--surface-solid);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 3;
+        box-shadow: var(--shadow);
+      }
+      .vtx {
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        margin: -11px 0 0 -11px;
+        border-radius: 999px;
+        background: var(--surface-solid);
+        border: 3px solid var(--accent);
+        z-index: 4;
+        touch-action: none;
+        cursor: grab;
+      }
+      .vtx.first {
+        background: var(--accent);
+        animation: beckon 1.2s ease-in-out infinite alternate;
+      }
+      @keyframes beckon {
+        to {
+          transform: scale(1.35);
+        }
+      }
+      .stage.drawing {
+        cursor: crosshair;
+      }
+      .stage.room-mode .marker {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      .tools .hint {
+        font-size: 13px;
+        color: var(--text-2);
+        padding-inline: 8px;
+        max-width: 280px;
+      }
       input[type="file"] {
         display: none;
       }
@@ -314,6 +404,9 @@ export class SnFloorplan extends LitElement {
   protected willUpdate(changed: Map<string, unknown>) {
     if (changed.has("ctx") && !this.ctx.editing) {
       this.selected = undefined;
+      this.roomMode = false;
+      this.drawing = undefined;
+      this.selRoom = undefined;
     }
     this.toggleAttribute("editing", this.ctx.editing);
     this.toggleAttribute("narrow", this.ctx.narrow);
@@ -510,6 +603,192 @@ export class SnFloorplan extends LitElement {
     });
   }
 
+  // ---- rooms ----
+
+  private pct(e: PointerEvent): Pt {
+    const r = this.renderRoot.querySelector<HTMLElement>(".stage")!.getBoundingClientRect();
+    return [Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100)), Math.min(100, Math.max(0, ((e.clientY - r.top) / r.height) * 100))];
+  }
+
+  private corners(except?: string): Pt[] {
+    return (this.floor?.rooms ?? []).filter((r) => r.id !== except).flatMap((r) => r.points);
+  }
+
+  private onStageDown(e: PointerEvent) {
+    if (!this.roomMode || e.button !== 0) return;
+    e.stopPropagation();
+    if (!this.drawing) {
+      this.selRoom = undefined;
+      return;
+    }
+    const pts = this.drawing;
+    const p = this.pct(e);
+    // Tapping the first corner again closes the room.
+    if (pts.length >= 3 && Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]) < 3) return this.finishRoom();
+    this.drawing = [...pts, snap(p, this.corners())];
+  }
+
+  private finishRoom() {
+    const pts = this.drawing;
+    if (!pts || pts.length < 3) return;
+    const id = uid();
+    const n = (this.floor?.rooms?.length ?? 0) + 1;
+    const room: Room = { id, name: this.ctx.t("room_default", { n }), points: pts };
+    this.edit((_f, fl) => {
+      if (!fl) return;
+      fl.rooms = [...(fl.rooms ?? []), room];
+    });
+    this.drawing = undefined;
+    this.selRoom = id;
+  }
+
+  private onVtxDown(e: PointerEvent, room: Room, idx: number) {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    this.selRoom = room.id;
+    this.vtx = { room: room.id, idx, pointerId: e.pointerId, p: room.points[idx] };
+  }
+
+  private onVtxMove(e: PointerEvent) {
+    if (!this.vtx || e.pointerId !== this.vtx.pointerId) return;
+    this.vtx = { ...this.vtx, p: snap(this.pct(e), this.corners(this.vtx.room)) };
+  }
+
+  private onVtxUp(e: PointerEvent) {
+    const v = this.vtx;
+    if (!v || e.pointerId !== v.pointerId) return;
+    this.vtx = undefined;
+    this.edit((_f, fl) => {
+      const r = fl?.rooms?.find((x) => x.id === v.room);
+      if (r) r.points[v.idx] = v.p;
+    });
+  }
+
+  private renameRoom(room: Room) {
+    this.ctx.showSheet({
+      title: this.ctx.t("room_name"),
+      render: (ctx) => html`<label class="field"
+        >${ctx.t("room_name")}
+        <input
+          type="text"
+          .value=${room.name}
+          @change=${(e: any) =>
+            this.edit((_f, fl) => {
+              const r = fl?.rooms?.find((x) => x.id === room.id);
+              if (r) r.name = e.target.value.trim() || room.name;
+            })}
+        />
+      </label>`,
+    });
+  }
+
+  /** Points of a room, with the corner being dragged right now. */
+  private livePoints(r: Room): Pt[] {
+    return this.vtx?.room === r.id ? r.points.map((p, i) => (i === this.vtx!.idx ? this.vtx!.p : p)) : r.points;
+  }
+
+  private renderGlow(floor: Floor, stageW: number) {
+    const { hass } = this.ctx;
+    const radius = Math.max(120, stageW * 0.3);
+    return (floor.rooms ?? []).map((room) => {
+      const lights = floor.markers.filter((m) => domainOf(m.entity) === "light" && inside([m.x, m.y], room.points));
+      const lit = lights.filter((m) => hass.states[m.entity]?.state === "on");
+      const layers = lit.map((m) => {
+        const a = hass.states[m.entity]!.attributes;
+        const [r, g, b] = Array.isArray(a.rgb_color) ? a.rgb_color : [255, 196, 120];
+        const level = typeof a.brightness === "number" ? a.brightness / 255 : 1;
+        const alpha = (this.ctx.dark ? 0.35 : 0.22) + (this.ctx.dark ? 0.45 : 0.25) * level;
+        return `radial-gradient(circle ${radius}px at ${m.x}% ${m.y}%, rgba(${r},${g},${b},${alpha.toFixed(2)}) 0%, rgba(${r},${g},${b},${(alpha * 0.45).toFixed(2)}) 45%, rgba(${r},${g},${b},${(alpha * 0.18).toFixed(2)}) 100%)`;
+      });
+      return html`<div
+        class="glow"
+        style="clip-path:${clipPath(this.livePoints(room))};opacity:${lit.length ? 1 : 0};${layers.length ? `background:${layers.join(",")}` : ""}"
+      ></div>`;
+    });
+  }
+
+  private renderRoomEditor(floor: Floor) {
+    const rooms = floor.rooms ?? [];
+    const draw = this.drawing;
+    return html`<svg class="rooms-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        ${rooms.map(
+          (r) => svg`<polygon
+            class=${r.id === this.selRoom ? "sel" : ""}
+            points=${this.livePoints(r).map((p) => p.join(",")).join(" ")}
+            @pointerdown=${(e: PointerEvent) => {
+              if (this.drawing) return;
+              e.stopPropagation();
+              this.selRoom = r.id;
+            }}
+          ></polygon>`
+        )}
+        ${draw ? svg`<polyline points=${draw.map((p) => p.join(",")).join(" ")}></polyline>` : nothing}
+      </svg>
+      ${rooms.map((r) => {
+        const [x, y] = centroid(this.livePoints(r));
+        return html`<span class="room-label" style="left:${x}%;top:${y}%">${r.name}</span>`;
+      })}
+      ${draw?.map((p, i) => html`<span class="vtx ${i === 0 && draw.length >= 3 ? "first" : ""}" style="left:${p[0]}%;top:${p[1]}%;pointer-events:none"></span>`)}
+      ${!draw
+        ? rooms
+            .filter((r) => r.id === this.selRoom)
+            .flatMap((r) =>
+              this.livePoints(r).map(
+                (p, i) => html`<span
+                  class="vtx"
+                  style="left:${p[0]}%;top:${p[1]}%"
+                  @pointerdown=${(e: PointerEvent) => this.onVtxDown(e, r, i)}
+                  @pointermove=${(e: PointerEvent) => this.onVtxMove(e)}
+                  @pointerup=${(e: PointerEvent) => this.onVtxUp(e)}
+                  @pointercancel=${() => (this.vtx = undefined)}
+                ></span>`
+              )
+            )
+        : nothing}`;
+  }
+
+  private renderRoomTools() {
+    const { t } = this.ctx;
+    const stop = (e: Event) => e.stopPropagation();
+    if (this.drawing)
+      return html`<div class="tools glass" @pointerdown=${stop}>
+        <span class="hint">${t("draw_hint")}</span>
+        <button class="icon-btn pressable" aria-label=${t("undo_point")} ?disabled=${!this.drawing.length} @click=${() => (this.drawing = this.drawing!.slice(0, -1))}>
+          <sn-icon icon="undo" style="--icon-size:20px"></sn-icon>
+        </button>
+        <button class="btn pressable" @click=${() => (this.drawing = undefined)}>${t("cancel")}</button>
+        <button class="btn primary pressable" ?disabled=${this.drawing.length < 3} @click=${() => this.finishRoom()}>${t("finish")}</button>
+      </div>`;
+    const room = this.floor?.rooms?.find((r) => r.id === this.selRoom);
+    if (room)
+      return html`<div class="tools glass" @pointerdown=${stop}>
+        <span class="label">${room.name}</span>
+        <button class="icon-btn pressable" aria-label=${t("room_name")} @click=${() => this.renameRoom(room)}>
+          <sn-icon icon="pencil" style="--icon-size:20px"></sn-icon>
+        </button>
+        <button
+          class="icon-btn pressable"
+          aria-label=${t("delete_room")}
+          @click=${() => {
+            this.edit((_f, fl) => fl && (fl.rooms = (fl.rooms ?? []).filter((r) => r.id !== room.id)));
+            this.selRoom = undefined;
+          }}
+        >
+          <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>
+        </button>
+        <button class="icon-btn primary pressable" aria-label=${t("done")} @click=${() => (this.selRoom = undefined)}>
+          <sn-icon icon="check" style="--icon-size:20px"></sn-icon>
+        </button>
+      </div>`;
+    return html`<div class="tools glass" @pointerdown=${stop}>
+      <span class="hint">${t("rooms_hint")}</span>
+      <button class="btn primary pressable" @click=${() => (this.drawing = [])}>
+        <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("draw_room")}
+      </button>
+      <button class="btn pressable" @click=${() => (this.roomMode = false)}>${t("done")}</button>
+    </div>`;
+  }
+
   // ---- render ----
 
   private renderMarker(m: Marker) {
@@ -554,6 +833,7 @@ export class SnFloorplan extends LitElement {
     const { ctx } = this;
     const { t } = ctx;
     const floor = this.floor;
+    if (this.roomMode) return this.renderRoomTools();
     const sel = floor?.markers.find((m) => m.id === this.selected);
     if (sel)
       return html`<div class="tools glass" @pointerdown=${(e: Event) => e.stopPropagation()}>
@@ -592,6 +872,12 @@ export class SnFloorplan extends LitElement {
       <button class="btn pressable" ?disabled=${this.uploading} @click=${() => this.pickFile()}>
         <sn-icon icon="image-plus" style="--icon-size:20px"></sn-icon>
         ${this.uploading ? t("loading") : floor?.image ? t("replace_plan") : t("upload_plan")}
+      </button>
+      <button class="btn pressable" ?disabled=${!floor?.image} @click=${() => {
+        this.roomMode = true;
+        this.selected = undefined;
+      }}>
+        <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("rooms")}
       </button>
       <button class="btn primary pressable" ?disabled=${!floor?.image} @click=${() => this.addDevice()}>
         <sn-icon icon="marker-plus" style="--icon-size:20px"></sn-icon>${t("add_device")}
@@ -634,7 +920,11 @@ export class SnFloorplan extends LitElement {
         : nothing}
       <div class="area" style=${ctx.narrow ? `aspect-ratio:${ratio}` : ""}>
         ${floor?.image
-          ? html`<div class="stage" style="width:${stage.w}px;height:${stage.h}px">
+          ? html`<div
+              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""}"
+              style="width:${stage.w}px;height:${stage.h}px"
+              @pointerdown=${(e: PointerEvent) => this.onStageDown(e)}
+            >
               <img
                 class=${this.widget.config.invert_dark ? "plan-light" : ""}
                 src=${floor.image}
@@ -645,7 +935,8 @@ export class SnFloorplan extends LitElement {
                   this.measure();
                 }}
               />
-              ${floor.markers.map((m) => this.renderMarker(m))}
+              ${this.renderGlow(floor, stage.w)} ${floor.markers.map((m) => this.renderMarker(m))}
+              ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
             </div>`
           : html`<div class="empty">
               <sn-icon icon="image"></sn-icon>

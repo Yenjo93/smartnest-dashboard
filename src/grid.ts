@@ -12,6 +12,7 @@ import "./widgets/floorplan";
 import "./widgets/camera";
 import "./widgets/heading";
 import "./widgets/clock";
+import "./widgets/modes";
 
 interface Gesture {
   id: string;
@@ -269,6 +270,8 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-heading .ctx=${ctx} .widget=${w}></sn-w-heading>`;
       case "clock":
         return html`<sn-w-clock .ctx=${ctx} .widget=${w}></sn-w-clock>`;
+      case "modes":
+        return html`<sn-w-modes .ctx=${ctx} .widget=${w}></sn-w-modes>`;
       default:
         return nothing;
     }

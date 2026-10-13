@@ -16,6 +16,7 @@ from .const import (
     FILES_DIR,
     FILES_URL,
     FRONTEND_DIR,
+    PHOTOS_DIR,
     PANEL_COMPONENT,
     PANEL_ICON,
     PANEL_TITLE,
@@ -42,6 +43,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     files_dir = hass.config.path(FILES_DIR)
     await hass.async_add_executor_job(_ensure_dir, files_dir)
+    # Ready-made folder for screensaver photos, so the installer just drops pictures in.
+    if media := hass.config.media_dirs.get("local"):
+        await hass.async_add_executor_job(_ensure_dir, f"{media}/{PHOTOS_DIR}")
 
     if not hass.data.get(_REGISTERED):
         await hass.http.async_register_static_paths(

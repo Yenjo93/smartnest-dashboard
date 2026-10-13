@@ -36,6 +36,8 @@ export class SnDoorbell extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) at = new Date();
   @property({ attribute: false }) onDismiss!: () => void;
+  /** The wall tablet already rang through its own speaker. */
+  @property({ type: Boolean }) silent = false;
   @state() private confirm = false;
   private timer?: number;
 
@@ -164,7 +166,7 @@ export class SnDoorbell extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    chime();
+    if (!this.silent) chime();
     navigator.vibrate?.([120, 80, 120]);
   }
 

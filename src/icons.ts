@@ -88,6 +88,11 @@ import {
   mdiCrosshairsGps,
   mdiImageOutline,
   mdiBackspaceOutline,
+  mdiHomeExportOutline,
+  mdiFloorLamp,
+  mdiCheckCircle,
+  mdiVectorSquare,
+  mdiUndo,
 } from "@mdi/js";
 
 export const ICONS: Record<string, string> = {
@@ -179,6 +184,11 @@ export const ICONS: Record<string, string> = {
   night: mdiWeatherNight,
   crosshairs: mdiCrosshairsGps,
   backspace: mdiBackspaceOutline,
+  leave: mdiHomeExportOutline,
+  lamp: mdiFloorLamp,
+  "check-circle": mdiCheckCircle,
+  rooms: mdiVectorSquare,
+  undo: mdiUndo,
 };
 
 /** Icons offered when naming a page. */

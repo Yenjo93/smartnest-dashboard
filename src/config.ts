@@ -14,6 +14,7 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   camera: { w: 6, h: 5, minW: 3, minH: 3 },
   heading: { w: 12, h: 1, minW: 2, minH: 1 },
   clock: { w: 4, h: 3, minW: 3, minH: 2 },
+  modes: { w: 12, h: 2, minW: 4, minH: 2 },
 };
 
 export function defaultSettings(lang: Lang): Settings {
@@ -25,7 +26,9 @@ export function defaultSettings(lang: Lang): Settings {
     dark_from: "19:00",
     dark_to: "06:30",
     default_page: "",
-    screensaver: { enabled: true, timeout_min: 5 },
+    screensaver: { enabled: true, timeout_min: 5, photos: true, photo_folder: "smartnest-photos", photo_seconds: 20 },
+    weather: { entity: "weather.forecast_home", background: true },
+    fully: { night_dim: true, night_brightness: 20, night_off_min: 15, motion_wake: false },
     doorbell: {},
     kiosk: {},
   };
@@ -112,7 +115,10 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
   let widgets: Widget[] = [];
   switch (id) {
     case "home":
-      widgets = [newWidget("floorplan", { floors: [newFloor(t("floor_default"))] })];
+      widgets = [
+        ...(hass.states["script.smartnest_mode_away"] ? [newWidget("modes")] : []),
+        newWidget("floorplan", { floors: [newFloor(t("floor_default"))] }, { y: 2 }),
+      ];
       break;
     case "power":
       widgets = flow([
@@ -160,6 +166,8 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.screensaver = { ...base.screensaver, ...(raw?.settings?.screensaver ?? {}) };
   settings.doorbell = { ...(raw?.settings?.doorbell ?? {}) };
   settings.kiosk = { ...(raw?.settings?.kiosk ?? {}) };
+  settings.weather = { ...base.weather, ...(raw?.settings?.weather ?? {}) };
+  settings.fully = { ...base.fully, ...(raw?.settings?.fully ?? {}) };
   return { version: 1, settings, names: { ...(raw?.names ?? {}) }, pages: Array.isArray(raw?.pages) ? raw.pages : [] };
 }
 

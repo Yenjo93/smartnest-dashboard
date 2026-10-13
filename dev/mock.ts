@@ -1,6 +1,6 @@
 // A fake Home Assistant for local development: devices, services, the SmartNest WebSocket API and uploads.
 // Nothing here ships to clients; the build only bundles src/.
-import type { Hass, HassEntity } from "../src/types";
+import type { Hass, HassDevice, HassEntity } from "../src/types";
 import { hsToRgb } from "../src/color";
 
 const now = () => new Date().toISOString();
@@ -12,6 +12,7 @@ const ent = (entity_id: string, state: string, attributes: Record<string, any>):
   last_updated: now(),
 });
 
+const params = new URLSearchParams(location.search);
 const states: Record<string, HassEntity> = {};
 const add = (e: HassEntity) => (states[e.entity_id] = e);
 const dim = { supported_color_modes: ["brightness"] };
@@ -53,6 +54,26 @@ add(ent("sensor.energy_today", "12.4", { friendly_name: "استهلاك اليو
 add(ent("event.doorbell", new Date(Date.now() - 7_200_000).toISOString(), { friendly_name: "جرس الباب", device_class: "doorbell", event_types: ["ring"] }));
 add(ent("cover.living_blinds", "open", { friendly_name: "برادي الصالة", current_position: 100, current_tilt_position: 50, supported_features: 255 }));
 add(ent("scene.movie_night", "scening", { friendly_name: "سهرة فيلم" }));
+add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
+add(ent("sun.sun", "above_horizon", { friendly_name: "Sun" }));
+add(ent("input_select.house_mode", "home", { friendly_name: "House mode", options: ["home", "away", "sleep", "evening"] }));
+for (const m of ["away", "home", "sleep", "evening"]) add(ent(`script.smartnest_mode_${m}`, "off", { friendly_name: `SmartNest · ${m}` }));
+
+// A Fully Kiosk tablet, as the HA integration exposes it.
+add(ent("switch.wall_tablet_screen", "on", { friendly_name: "تابلت الحيط Screen" }));
+add(ent("number.wall_tablet_screen_brightness", "255", { friendly_name: "تابلت الحيط Screen brightness", min: 0, max: 255 }));
+add(ent("switch.wall_tablet_motion_detection", "off", { friendly_name: "تابلت الحيط Motion detection" }));
+add(ent("media_player.wall_tablet", "idle", { friendly_name: "تابلت الحيط" }));
+add(ent("sensor.wall_tablet_battery", "100", { friendly_name: "تابلت الحيط Battery", unit_of_measurement: "%", device_class: "battery" }));
+const FULLY_DEVICE = "dev-fully-device";
+const entityRegistry: Record<string, any> = Object.fromEntries(
+  ["switch.wall_tablet_screen", "number.wall_tablet_screen_brightness", "switch.wall_tablet_motion_detection", "media_player.wall_tablet", "sensor.wall_tablet_battery"].map(
+    (entity_id) => [entity_id, { entity_id, device_id: FULLY_DEVICE, platform: "fully_kiosk" }]
+  )
+);
+const deviceRegistry: Record<string, HassDevice> = { [FULLY_DEVICE]: { id: FULLY_DEVICE, name: "تابلت الحيط", identifiers: [["fully_kiosk", "dev-tablet-1"]] } };
+// ?fully=1 pretends this browser is the tablet (Fully's JavaScript Interface).
+if (params.get("fully") === "1") (window as any).fully = { getDeviceId: () => "dev-tablet-1" };
 
 // Where the demo devices sit on dev/floorplan.svg (percent of 1200×800).
 const DEMO_MARKERS: [string, number, number, "icon" | "value"][] = [
@@ -76,10 +97,20 @@ const DEMO_MARKERS: [string, number, number, "icon" | "value"][] = [
   ["climate.bedroom_ac", 80, 59, "value"],
 ];
 
+// Room outlines on dev/floorplan.svg, so rooms glow when their lights are on.
+export const DEMO_ROOMS = [
+  { id: "r-living", name: "الصالة", points: [[3.3, 5], [51.7, 5], [51.7, 55], [3.3, 55]] },
+  { id: "r-kitchen", name: "المطبخ", points: [[51.7, 5], [75, 5], [75, 42.5], [51.7, 42.5]] },
+  { id: "r-bath", name: "الحمام", points: [[75, 5], [96.7, 5], [96.7, 42.5], [75, 42.5]] },
+  { id: "r-hall", name: "الممر", points: [[51.7, 42.5], [96.7, 42.5], [96.7, 55], [51.7, 55]] },
+  { id: "r-entry", name: "المدخل", points: [[3.3, 55], [25, 55], [25, 95], [3.3, 95]] },
+  { id: "r-dining", name: "السفرة", points: [[25, 55], [63.3, 55], [63.3, 95], [25, 95]] },
+  { id: "r-bed", name: "غرفة النوم", points: [[63.3, 55], [96.7, 55], [96.7, 95], [63.3, 95]] },
+];
+
 type Listener = (msg: any) => void;
 const configListeners = new Set<Listener>();
 const KEY = "smartnest-dev-config";
-const params = new URLSearchParams(location.search);
 const isAdmin = params.get("role") !== "client";
 
 let onChange: (hass: Hass) => void = () => undefined;
@@ -104,6 +135,7 @@ function seedDemo(config: any) {
   if (!plan) return config;
   const floor = plan.config.floors[0];
   floor.image = "/dev/floorplan.svg";
+  floor.rooms = DEMO_ROOMS;
   floor.markers = DEMO_MARKERS.map(([entity, x, y, display], i) => ({ id: `m${i}`, entity, x, y, display }));
   const home = config.pages[0];
   plan.w = 9;
@@ -178,6 +210,25 @@ async function callService(domain: string, service: string, data: Record<string,
     case "lock.lock":
       set(id, "locking");
       return later(900, () => set(id, "locked"));
+    case "script.turn_on": {
+      const mode = id.replace("script.smartnest_mode_", "");
+      if (mode === "away" || mode === "sleep") {
+        for (const l of Object.keys(states).filter((k) => k.startsWith("light."))) set(l, "off");
+        set("lock.front_door", "locked");
+      }
+      if (mode === "home") set("light.entrance", "on");
+      if (mode === "evening") set("light.living_room", "on", { brightness: 77, color_mode: "color_temp", color_temp_kelvin: 2700, rgb_color: [255, 180, 107] });
+      return set("input_select.house_mode", mode);
+    }
+    case "switch.turn_on":
+      return set(id, "on");
+    case "switch.turn_off":
+      return set(id, "off");
+    case "number.set_value":
+      return set(id, String(data.value));
+    case "media_player.play_media":
+      console.info("[mock] tablet plays", data.media_content_id);
+      return new Audio(data.media_content_id).play().catch(() => undefined);
     case "scene.turn_on":
       set("light.living_room", "on", { brightness: 60 });
       return set("cover.living_blinds", "closed", { current_position: 0 });
@@ -214,6 +265,16 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       configListeners.forEach((cb) => cb({ config }));
       return null;
     }
+    case "media_source/browse_media": {
+      const photos = ["photo-1.svg", "photo-2.svg", "photo-3.svg"];
+      return {
+        title: "smartnest-photos",
+        media_content_id: msg.media_content_id,
+        children: photos.map((f) => ({ title: f, media_class: "image", media_content_type: "image/svg+xml", media_content_id: `${msg.media_content_id}/${f}` })),
+      };
+    }
+    case "media_source/resolve_media":
+      return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
     case "history/history_during_period":
       return history(msg.entity_ids[0]);
     default:
@@ -224,6 +285,8 @@ async function callWS(msg: Record<string, any>): Promise<any> {
 function snapshot(): Hass {
   return {
     states: { ...states },
+    entities: entityRegistry,
+    devices: deviceRegistry,
     user: { id: "dev", name: isAdmin ? "Installer" : "Client", is_admin: isAdmin },
     language: lang,
     config: { location_name: "Home" },

@@ -1,0 +1,112 @@
+# SmartNest: house modes (طالع / راجع / نوم / سهرة)
+#
+# Copy this file to /config/packages/ on the client's Home Assistant and make sure configuration.yaml has:
+#
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Then restart HA. The dashboard finds these scripts by name and shows the mode buttons by itself.
+# Edit the actions below for each house: lines marked ✏️ name devices you should replace.
+# Keep the last step of every script (input_select.select_option) so the dashboard knows the current mode.
+
+input_select:
+  house_mode:
+    name: House mode
+    icon: mdi:home-heart
+    options:
+      - home
+      - away
+      - sleep
+      - evening
+
+script:
+  smartnest_mode_away:
+    alias: "SmartNest · طالع"
+    icon: mdi:home-export-outline
+    mode: restart
+    sequence:
+      - action: light.turn_off
+        target:
+          entity_id: all
+      - action: climate.turn_off
+        target:
+          entity_id: all
+      - action: lock.lock
+        target:
+          entity_id: all
+      # ✏️ Cameras recording, alarm armed, robot starts cleaning... add what this house needs:
+      # - action: vacuum.start
+      #   target:
+      #     entity_id: vacuum.robot
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.house_mode
+        data:
+          option: away
+
+  smartnest_mode_home:
+    alias: "SmartNest · راجع"
+    icon: mdi:home-import-outline
+    mode: restart
+    sequence:
+      # ✏️ The entrance light and the main AC:
+      - action: light.turn_on
+        target:
+          entity_id: light.entrance
+      # - action: climate.set_hvac_mode
+      #   target:
+      #     entity_id: climate.living_ac
+      #   data:
+      #     hvac_mode: cool
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.house_mode
+        data:
+          option: home
+
+  smartnest_mode_sleep:
+    alias: "SmartNest · نوم"
+    icon: mdi:weather-night
+    mode: restart
+    sequence:
+      - action: light.turn_off
+        target:
+          entity_id: all
+      - action: lock.lock
+        target:
+          entity_id: all
+      - action: media_player.turn_off
+        target:
+          entity_id: all
+      # ✏️ Dim the wall tablet (Fully Kiosk), 0-255:
+      # - action: number.set_value
+      #   target:
+      #     entity_id: number.wall_tablet_screen_brightness
+      #   data:
+      #     value: 20
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.house_mode
+        data:
+          option: sleep
+
+  smartnest_mode_evening:
+    alias: "SmartNest · سهرة"
+    icon: mdi:floor-lamp
+    mode: restart
+    sequence:
+      # ✏️ Warm, low light in the living room:
+      - action: light.turn_on
+        target:
+          entity_id: light.living_room
+        data:
+          brightness_pct: 30
+          color_temp_kelvin: 2700
+      - action: cover.close_cover
+        target:
+          entity_id: all
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.house_mode
+        data:
+          option: evening
