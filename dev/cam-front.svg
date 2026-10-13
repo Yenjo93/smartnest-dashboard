@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
+  <defs><radialGradient id="g" cx=".5" cy=".25" r=".7"><stop offset="0" stop-color="#F5BE6A" stop-opacity=".55"/><stop offset="1" stop-color="#1E252B" stop-opacity="0"/></radialGradient></defs>
+  <rect width="640" height="360" fill="#2A333B"/>
+  <rect y="290" width="640" height="70" fill="#3A454F"/>
+  <rect width="640" height="360" fill="url(#g)"/>
+  <rect x="250" y="80" width="140" height="220" rx="6" fill="#55616C"/>
+  <rect x="262" y="92" width="116" height="196" rx="4" fill="#74808B"/>
+  <circle cx="362" cy="196" r="6" fill="#E9971D"/>
+  <rect x="300" y="36" width="40" height="22" rx="6" fill="#F5BE6A"/>
+  <rect x="140" y="60" width="80" height="120" rx="4" fill="#151A1E" opacity=".6"/>
+  <rect x="420" y="60" width="80" height="120" rx="4" fill="#151A1E" opacity=".6"/>
+  <ellipse cx="320" cy="320" rx="120" ry="14" fill="#151A1E" opacity=".35"/>
+  <text x="16" y="28" fill="#fff" font-family="monospace" font-size="14" opacity=".8">FRONT DOOR  ● REC</text>
+</svg>

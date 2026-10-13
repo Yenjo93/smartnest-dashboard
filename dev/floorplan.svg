@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <!-- Demo apartment plan. Neutral greys so it reads on both light and dark themes. -->
+  <defs>
+    <pattern id="tile" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#9AA4AD" stroke-opacity=".18" stroke-width="1"/></pattern>
+    <pattern id="wood" width="60" height="14" patternUnits="userSpaceOnUse"><path d="M0 14H60M30 0V14" fill="none" stroke="#9AA4AD" stroke-opacity=".12" stroke-width="1"/></pattern>
+  </defs>
+  <g fill-opacity=".14" fill="#9AA4AD">
+    <rect x="40" y="40" width="580" height="400" fill="url(#wood)" fill-opacity="1"/>
+    <rect x="40" y="40" width="580" height="400"/>
+    <rect x="620" y="40" width="280" height="300" fill="url(#tile)" fill-opacity="1"/>
+    <rect x="900" y="40" width="260" height="300" fill="url(#tile)" fill-opacity="1"/>
+    <rect x="300" y="440" width="460" height="320" fill="url(#wood)" fill-opacity="1"/>
+    <rect x="760" y="440" width="400" height="320" fill="url(#wood)" fill-opacity="1"/>
+    <rect x="760" y="440" width="400" height="320"/>
+  </g>
+  <!-- furniture -->
+  <g fill="none" stroke="#9AA4AD" stroke-width="3" stroke-linejoin="round" stroke-opacity=".75">
+    <rect x="120" y="300" width="300" height="90" rx="18"/><rect x="120" y="300" width="300" height="26" rx="10"/>
+    <rect x="200" y="190" width="150" height="70" rx="10"/>
+    <rect x="460" y="120" width="120" height="240" rx="8"/>
+    <circle cx="520" cy="240" r="34"/>
+    <path d="M632 52H888V112H632Z"/><path d="M632 112V320H690V112"/>
+    <circle cx="780" cy="230" r="38"/><circle cx="780" cy="230" r="10"/>
+    <rect x="920" y="60" width="220" height="110" rx="40"/>
+    <rect x="1060" y="230" width="80" height="90" rx="10"/><circle cx="960" cy="290" r="26"/>
+    <rect x="860" y="560" width="220" height="180" rx="12"/><rect x="880" y="570" width="80" height="40" rx="10"/><rect x="980" y="570" width="80" height="40" rx="10"/>
+    <rect x="400" y="540" width="260" height="120" rx="14"/>
+    <circle cx="430" cy="520" r="16"/><circle cx="530" cy="520" r="16"/><circle cx="630" cy="520" r="16"/>
+    <circle cx="430" cy="680" r="16"/><circle cx="530" cy="680" r="16"/><circle cx="630" cy="680" r="16"/>
+    <rect x="60" y="470" width="90" height="200" rx="8"/>
+  </g>
+  <!-- walls -->
+  <g fill="none" stroke="#74808B" stroke-width="14" stroke-linecap="square">
+    <path d="M40 40H1160V760H260M120 760H40V40"/>
+    <path d="M620 40V250M620 330V440"/>
+    <path d="M900 40V180M900 260V340"/>
+    <path d="M620 340H700M780 340H1160"/>
+    <path d="M40 440H190M270 440H620"/>
+    <path d="M300 440V560M300 640V760"/>
+    <path d="M760 440V520M760 600V760"/>
+    <path d="M620 440H1160"/>
+  </g>
+  <!-- door swings -->
+  <g fill="none" stroke="#9AA4AD" stroke-width="2" stroke-opacity=".8">
+    <path d="M120 760A140 140 0 0 1 260 620" stroke-dasharray="6 6"/><path d="M260 760V620"/>
+    <path d="M900 180A80 80 0 0 1 980 260"/><path d="M780 340A80 80 0 0 1 700 420"/>
+    <path d="M760 520A80 80 0 0 1 840 600"/><path d="M190 440A80 80 0 0 0 270 520"/>
+  </g>
+  <!-- windows -->
+  <g stroke="#18BCF2" stroke-width="6" stroke-opacity=".7">
+    <path d="M140 40H360M700 40H860M1160 520H1160V680M40 140V300M960 760H1100"/>
+  </g>
+</svg>

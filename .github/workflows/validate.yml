@@ -1,0 +1,32 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@22.5.0
+        with:
+          category: integration
+          ignore: brands
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  build:
+    # The built panel is committed (HACS doesn't build), so make sure it matches the source.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      - run: git diff --exit-code -- custom_components/smartnest/frontend/smartnest-panel.js

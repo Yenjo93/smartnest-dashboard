@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="348 173 554 547" width="554" height="547"><title>SmartNest symbol</title><g fill="#FFFFFF">
+<polyline points="410,372 620,215 840,375" fill="none" stroke="#FFFFFF" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="748" y="240" width="57" height="95" rx="9"/>
+<path d="M445 387 L620 260 L795 387 L795 472 L682 478 C600 462 520 436 445 404 Z" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round"/>
+</g><g fill="#E9971D"><rect x="573" y="348" width="39" height="42" rx="8"/><rect x="624" y="348" width="39" height="42" rx="8"/><rect x="573" y="400" width="39" height="41" rx="8"/><rect x="624" y="400" width="39" height="41" rx="8"/></g><g fill="#FFFFFF">
+<path d="M372 418 C470 440 590 495 682 508 C600 556 462 556 393 474 C375 450 362 430 372 418 Z"/>
+<path d="M878 425 C840 510 680 570 462 548 C560 600 760 615 850 520 C870 495 880 460 878 425 Z"/>
+<path d="M378 505 C395 630 520 702 630 700 C690 698 735 680 766 656 C650 668 480 630 378 505 Z"/>
+<path d="M865 524 C852 600 770 645 660 640 C750 612 830 578 865 524 Z"/>
+</g></svg>

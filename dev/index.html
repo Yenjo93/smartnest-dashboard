@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>SmartNest Dashboard · Dev</title>
+    <link rel="icon" href="/static/logo/smartnest-symbol-color.svg" />
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: #151a1e; }
+      #dev {
+        position: fixed; bottom: 12px; left: 8px; z-index: 1000;
+        display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 12px; opacity: .55;
+        background: rgba(21,26,30,.85); font: 12px/1 ui-monospace, Menlo, monospace;
+      }
+      #dev button, #dev a {
+        all: unset; cursor: pointer; padding: 7px 10px; border-radius: 8px; color: #fff; background: #3a454f;
+      }
+      #dev button:hover, #dev a:hover { background: #55616c; }
+      #dev:hover { opacity: 1; }
+      #dev .label { color: #9aa4ad; padding: 7px 4px; }
+    </style>
+  </head>
+  <body>
+    <smartnest-panel></smartnest-panel>
+    <div id="dev" dir="ltr">
+      <span class="label">DEV</span>
+      <button data-a="ring">🔔 Ring</button>
+      <button data-a="motion">🚶 Motion</button>
+      <a id="role"></a>
+      <button data-a="reset">↺ Reset</button>
+    </div>
+    <script type="module">
+      import "../src/main.ts";
+      import { startMock, devActions } from "./mock.ts";
+
+      const panel = document.querySelector("smartnest-panel");
+      panel.panel = { config: { asset_base: "/static/" } };
+      panel.narrow = window.innerWidth < 870;
+      startMock((hass) => (panel.hass = hass));
+
+      document.querySelectorAll("#dev [data-a]").forEach((b) => b.addEventListener("click", () => devActions[b.dataset.a]()));
+      const params = new URLSearchParams(location.search);
+      const client = params.get("role") === "client";
+      const role = document.getElementById("role");
+      role.textContent = client ? "👤 Client → Admin" : "🛠 Admin → Client";
+      params.set("role", client ? "admin" : "client");
+      role.href = "?" + params.toString();
+    </script>
+  </body>
+</html>

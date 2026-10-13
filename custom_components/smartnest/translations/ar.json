@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SmartNest Dashboard",
+        "description": "بيضيف داشبورد SmartNest للقائمة الجانبية. الأدمن بيقدر يعدّل عليه، والباقي بيستخدموه بس."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "SmartNest Dashboard متركّب أصلاً."
+    }
+  }
+}

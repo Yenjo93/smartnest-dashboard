@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SmartNest Dashboard",
+        "description": "מוסיף את לוח הבקרה של SmartNest לסרגל הצד. מנהלים יכולים לערוך אותו, ושאר המשתמשים רק משתמשים בו."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "SmartNest Dashboard כבר מותקן."
+    }
+  }
+}
