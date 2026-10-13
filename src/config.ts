@@ -15,6 +15,9 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   heading: { w: 12, h: 1, minW: 2, minH: 1 },
   clock: { w: 4, h: 3, minW: 3, minH: 2 },
   modes: { w: 12, h: 2, minW: 4, minH: 2 },
+  vacuum: { w: 12, h: 9, minW: 6, minH: 6 },
+  visitors: { w: 12, h: 4, minW: 4, minH: 3 },
+  energy: { w: 6, h: 7, minW: 4, minH: 5 },
 };
 
 export function defaultSettings(lang: Lang): Settings {
@@ -29,8 +32,12 @@ export function defaultSettings(lang: Lang): Settings {
     screensaver: { enabled: true, timeout_min: 5, photos: true, photo_folder: "smartnest-photos", photo_seconds: 20 },
     weather: { entity: "weather.forecast_home", background: true },
     fully: { night_dim: true, night_brightness: 20, night_off_min: 15, motion_wake: false },
-    doorbell: {},
+    doorbell: { keep_days: 7 },
     kiosk: {},
+    greeting_name: "",
+    prayer: true,
+    morning: true,
+    chips_hidden: [],
   };
 }
 
@@ -94,7 +101,7 @@ function flow(widgets: Widget[], startY = 0): Widget[] {
   });
 }
 
-export type TemplateId = "blank" | "home" | "power" | "security" | "doorbell" | "climate";
+export type TemplateId = "blank" | "home" | "power" | "security" | "doorbell" | "climate" | "robot";
 
 export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "blank", icon: "dashboard", label: "template_blank" },
@@ -103,6 +110,7 @@ export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "security", icon: "shield-home", label: "template_security" },
   { id: "doorbell", icon: "doorbell", label: "template_doorbell" },
   { id: "climate", icon: "air-conditioner", label: "template_climate" },
+  { id: "robot", icon: "robot-vacuum", label: "template_robot" },
 ];
 
 /** Builds a page pre-filled with the client's matching devices, so a new install starts useful. */
@@ -122,6 +130,7 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
       break;
     case "power":
       widgets = flow([
+        ...(Object.keys(hass.states).some((id) => /solar|pv/.test(id)) ? [newWidget("energy")] : []),
         ...tiles(ents(["sensor"], ["power", "energy"])),
         ...tiles(ents(["switch"], undefined, 8)),
       ]);
@@ -140,9 +149,13 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
       widgets = flow([
         ...(cam ? cams([cam], 8, 7) : []),
         ...tiles([lock, ...bell].filter(Boolean)).map((w) => ({ ...w, w: 4 })),
+        newWidget("visitors"),
       ]);
       break;
     }
+    case "robot":
+      widgets = ents(["vacuum"], undefined, 2).map((entity, i) => newWidget("vacuum", { entity }, { y: i * 9 }));
+      break;
     case "climate":
       widgets = flow([...tiles(ents(["climate"])), ...tiles(ents(["sensor"], ["temperature", "humidity"]))]);
       break;
@@ -164,7 +177,8 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   const base = defaultSettings(fallbackLang);
   const settings = { ...base, ...(raw?.settings ?? {}) };
   settings.screensaver = { ...base.screensaver, ...(raw?.settings?.screensaver ?? {}) };
-  settings.doorbell = { ...(raw?.settings?.doorbell ?? {}) };
+  settings.doorbell = { ...base.doorbell, ...(raw?.settings?.doorbell ?? {}) };
+  settings.chips_hidden = Array.isArray(raw?.settings?.chips_hidden) ? raw.settings.chips_hidden : [];
   settings.kiosk = { ...(raw?.settings?.kiosk ?? {}) };
   settings.weather = { ...base.weather, ...(raw?.settings?.weather ?? {}) };
   settings.fully = { ...base.fully, ...(raw?.settings?.fully ?? {}) };

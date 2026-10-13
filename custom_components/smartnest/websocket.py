@@ -18,6 +18,9 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_config)
     websocket_api.async_register_command(hass, ws_save_config)
     websocket_api.async_register_command(hass, ws_subscribe_config)
+    from .visitors import ws_list_visitors
+
+    websocket_api.async_register_command(hass, ws_list_visitors)
 
 
 def _data(hass: HomeAssistant) -> dict[str, Any] | None:

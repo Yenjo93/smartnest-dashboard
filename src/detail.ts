@@ -11,6 +11,7 @@ import type { I18nKey } from "./i18n";
 import "./ui/icon";
 import "./ui/vslider";
 import "./ui/color-wheel";
+import "./widgets/vacuum";
 
 type LightTab = "brightness" | "color" | "temp";
 const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
@@ -379,22 +380,10 @@ export class SnEntityDetail extends LitElement {
     `;
   }
 
-  // ---- vacuum ----
+  // ---- vacuum: the same robot page as the widget, in one column ----
   private renderVacuum(e: HassEntity) {
-    const { t } = this.ctx;
-    const cleaning = e.state === "cleaning";
-    return html`
-      ${typeof e.attributes.battery_level === "number"
-        ? html`<div class="sub"><sn-icon icon="battery" style="--icon-size:16px;vertical-align:-3px"></sn-icon> ${t("battery")} ${ltr(`${e.attributes.battery_level}%`)}</div>`
-        : nothing}
-      <div class="actions">
-        ${cleaning
-          ? html`<button class="btn primary pressable" @click=${() => this.call("vacuum", "pause")}><sn-icon icon="pause"></sn-icon>${t("pause")}</button>`
-          : html`<button class="btn primary pressable" @click=${() => this.call("vacuum", "start")}><sn-icon icon="play"></sn-icon>${t("start")}</button>`}
-        <button class="btn pressable" @click=${() => this.call("vacuum", "return_to_base")}><sn-icon icon="home"></sn-icon>${t("return_home")}</button>
-        <button class="btn pressable" @click=${() => this.call("vacuum", "locate")}><sn-icon icon="locate"></sn-icon>${t("locate")}</button>
-      </div>
-    `;
+    const widget = { id: "sheet", type: "vacuum" as const, x: 0, y: 0, w: 12, h: 9, config: { entity: e.entity_id } };
+    return html`<sn-w-vacuum compact .ctx=${this.ctx} .widget=${widget} style="width:100%"></sn-w-vacuum>`;
   }
 
   // ---- cover ----
@@ -537,6 +526,8 @@ export class SnEntityDetail extends LitElement {
     const { ctx } = this;
     const e = ctx.hass.states[this.entityId];
     if (!e) return html`<div class="sub">${ctx.t("unavailable")}</div>`;
+    // The robot page has its own header.
+    if (domainOf(e.entity_id) === "vacuum" && e.state !== "unavailable") return this.renderVacuum(e);
     const on = isActive(e);
     const unavailable = e.state === "unavailable";
     return html`

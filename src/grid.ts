@@ -13,6 +13,9 @@ import "./widgets/camera";
 import "./widgets/heading";
 import "./widgets/clock";
 import "./widgets/modes";
+import "./widgets/vacuum";
+import "./widgets/visitors";
+import "./widgets/energy";
 
 interface Gesture {
   id: string;
@@ -272,6 +275,12 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-clock .ctx=${ctx} .widget=${w}></sn-w-clock>`;
       case "modes":
         return html`<sn-w-modes .ctx=${ctx} .widget=${w}></sn-w-modes>`;
+      case "vacuum":
+        return html`<sn-w-vacuum .ctx=${ctx} .widget=${w}></sn-w-vacuum>`;
+      case "visitors":
+        return html`<sn-w-visitors .ctx=${ctx} .widget=${w}></sn-w-visitors>`;
+      case "energy":
+        return html`<sn-w-energy .ctx=${ctx} .widget=${w}></sn-w-energy>`;
       default:
         return nothing;
     }

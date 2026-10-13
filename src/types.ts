@@ -21,11 +21,19 @@ export interface HassDevice {
   identifiers?: [string, string][];
 }
 
+export interface HassArea {
+  area_id: string;
+  name: string;
+  icon?: string;
+}
+
 export interface Hass {
   states: Record<string, HassEntity>;
+  areas?: Record<string, HassArea>;
   entities?: Record<string, HassEntityReg>;
   devices?: Record<string, HassDevice>;
   user?: { id: string; name: string; is_admin: boolean };
+  config?: { location_name?: string; time_zone?: string };
   language: string;
   callService(domain: string, service: string, data?: Record<string, any>): Promise<any>;
   callWS<T = any>(msg: Record<string, any>): Promise<T>;
@@ -54,11 +62,21 @@ export interface Settings {
   screensaver: { enabled: boolean; timeout_min: number; temp_entity?: string; photos: boolean; photo_folder: string; photo_seconds: number };
   weather: { entity?: string; background: boolean };
   fully: { night_dim: boolean; night_brightness: number; night_off_min: number; motion_wake: boolean };
-  doorbell: { trigger_entity?: string; camera_entity?: string; lock_entity?: string };
+  doorbell: { trigger_entity?: string; camera_entity?: string; lock_entity?: string; keep_days: number };
+  /** Name in the greeting; empty = the signed-in user's name. */
+  greeting_name: string;
+  /** Status chip types the installer switched off. */
+  chips_hidden: string[];
+  /** Prayer times from the Islamic Prayer Times integration, when installed. */
+  prayer: boolean;
+  /** Morning card the first time the screen is used after the night window. */
+  morning: boolean;
+  /** Whole-home power sensor for the status chip. */
+  power_entity?: string;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
 }
 
-export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes";
+export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy";
 
 export interface Widget {
   id: string;

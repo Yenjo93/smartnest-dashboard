@@ -93,6 +93,20 @@ import {
   mdiCheckCircle,
   mdiVectorSquare,
   mdiUndo,
+  mdiWeatherSunny,
+  mdiWeatherPartlyCloudy,
+  mdiWeatherCloudy,
+  mdiWeatherRainy,
+  mdiWeatherPouring,
+  mdiWeatherLightning,
+  mdiWeatherLightningRainy,
+  mdiWeatherSnowy,
+  mdiWeatherFog,
+  mdiWeatherWindy,
+  mdiWeatherNightPartlyCloudy,
+  mdiMosqueOutline,
+  mdiCoffeeOutline,
+  mdiTransmissionTower,
 } from "@mdi/js";
 
 export const ICONS: Record<string, string> = {
@@ -189,6 +203,21 @@ export const ICONS: Record<string, string> = {
   "check-circle": mdiCheckCircle,
   rooms: mdiVectorSquare,
   undo: mdiUndo,
+  "w-sunny": mdiWeatherSunny,
+  "w-clear-night": mdiWeatherNight,
+  "w-partlycloudy": mdiWeatherPartlyCloudy,
+  "w-partlycloudy-night": mdiWeatherNightPartlyCloudy,
+  "w-cloudy": mdiWeatherCloudy,
+  "w-rainy": mdiWeatherRainy,
+  "w-pouring": mdiWeatherPouring,
+  "w-lightning": mdiWeatherLightning,
+  "w-lightning-rainy": mdiWeatherLightningRainy,
+  "w-snowy": mdiWeatherSnowy,
+  "w-fog": mdiWeatherFog,
+  "w-windy": mdiWeatherWindy,
+  mosque: mdiMosqueOutline,
+  coffee: mdiCoffeeOutline,
+  tower: mdiTransmissionTower,
 };
 
 /** Icons offered when naming a page. */

@@ -7,6 +7,9 @@ import { LANGS, type I18nKey } from "./i18n";
 import { PAGE_ICONS } from "./icons";
 import { hashPin, newSalt } from "./kiosk";
 import { findTablets, thisTablet } from "./fully";
+import { CHIP_TYPES } from "./chips";
+import { guessEnergy } from "./widgets/energy";
+import { healthSheet } from "./health";
 import "./ui/entity-picker";
 import "./ui/icon";
 
@@ -80,6 +83,7 @@ function nameField(ctx: Ctx, entityId: string) {
 
 const ENTITY_FILTERS: Partial<Record<WidgetType, EntityFilter>> = {
   camera: { domains: ["camera"] },
+  vacuum: { domains: ["vacuum"] },
 };
 
 function editWidget(ctx: Ctx, widgetId: string, fn: (w: Widget, d: DashboardConfig) => void) {
@@ -99,12 +103,29 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
       switch (w.type) {
         case "tile":
         case "camera":
+        case "vacuum":
           return col(
             entityField(c, t("entity"), w.config.entity, ENTITY_FILTERS[w.type] ?? {}, (id) =>
               editWidget(c, widgetId, (x) => (x.config.entity = id))
             ),
             w.config.entity ? nameField(c, w.config.entity) : nothing
           );
+        case "energy": {
+          const g = guessEnergy(c.hass);
+          const field = (key: "solar" | "grid" | "battery" | "soc" | "home", label: I18nKey, classes: string[]) =>
+            entityField(c, t(label), w.config[key] ?? g[key], { domains: ["sensor"], deviceClasses: classes }, (id) => editWidget(c, widgetId, (x) => (x.config[key] = id)), true);
+          const flip = (key: "flip_grid" | "flip_battery") =>
+            html`<div class="field">${t("e_flip")} ${toggle(c, !!w.config[key], (v) => editWidget(c, widgetId, (x) => (x.config[key] = v)))}</div>`;
+          return col(
+            field("solar", "e_solar_entity", ["power"]),
+            field("grid", "e_grid_entity", ["power"]),
+            flip("flip_grid"),
+            field("battery", "e_battery_entity", ["power"]),
+            flip("flip_battery"),
+            field("soc", "e_soc_entity", ["battery"]),
+            field("home", "e_home_entity", ["power"])
+          );
+        }
         case "heading":
           return html`<label class="field"
             >${t("heading_text")}
@@ -136,6 +157,9 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "floorplan", icon: "layers" },
   { type: "camera", icon: "cctv" },
   { type: "modes", icon: "leave" },
+  { type: "vacuum", icon: "robot-vacuum" },
+  { type: "visitors", icon: "doorbell" },
+  { type: "energy", icon: "solar" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -160,7 +184,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
           class="glass pressable"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${() => {
-            if (choice.type === "tile" || choice.type === "camera") {
+            if (choice.type === "tile" || choice.type === "camera" || choice.type === "vacuum") {
               c.showSheet({
                 title: c.t("choose_entity"),
                 render: (c2) => html`<sn-entity-picker
@@ -313,6 +337,9 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
       const t = c.t;
       const set = (fn: (d: DashboardConfig) => void) => c.update(fn);
       return col(
+        html`<button class="btn pressable" style="justify-self:stretch" @click=${() => healthSheet(c)}>
+          <sn-icon icon="gauge" style="--icon-size:20px"></sn-icon>${t("health")}
+        </button>`,
         html`<label class="field"
           >${t("home_name")}
           <input
@@ -413,6 +440,43 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
             : nothing
         ),
         section(
+          t("greet_morning") + " ☀️",
+          html`<label class="field"
+            >${t("greeting_name")}
+            <input
+              type="text"
+              .value=${s.greeting_name}
+              placeholder=${c.hass.user?.name ?? ""}
+              @change=${(e: any) => set((d) => (d.settings.greeting_name = e.target.value.trim()))}
+            />
+            <span class="hint">${t("greeting_name_hint")}</span>
+          </label>`,
+          html`<div class="field">${t("prayer")} ${toggle(c, s.prayer, (v) => set((d) => (d.settings.prayer = v)))}</div>`,
+          html`<div class="field">${t("morning_summary")} ${toggle(c, s.morning, (v) => set((d) => (d.settings.morning = v)))}</div>`
+        ),
+        section(
+          t("status_bar"),
+          html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+            ${CHIP_TYPES.map((ct) => {
+              const on = !s.chips_hidden.includes(ct.id);
+              return html`<button
+                class="btn pressable ${on ? "primary" : ""}"
+                style="justify-content:flex-start;font-weight:500"
+                aria-pressed=${on}
+                @click=${() =>
+                  set((d) => {
+                    const h = new Set(d.settings.chips_hidden);
+                    on ? h.add(ct.id) : h.delete(ct.id);
+                    d.settings.chips_hidden = [...h];
+                  })}
+              >
+                <sn-icon icon=${on ? "check" : "close"} style="--icon-size:18px"></sn-icon>${t(ct.label)}
+              </button>`;
+            })}
+          </div>`,
+          entityField(c, t("power_entity"), s.power_entity, { domains: ["sensor"], deviceClasses: ["power"] }, (id) => set((d) => (d.settings.power_entity = id)), true)
+        ),
+        section(
           t("weather"),
           entityField(c, t("weather_entity"), s.weather.entity, { domains: ["weather"] }, (id) => set((d) => (d.settings.weather.entity = id)), true),
           html`<div class="field">${t("weather_bg")} ${toggle(c, s.weather.background, (v) => set((d) => (d.settings.weather.background = v)))}</div>`
@@ -429,6 +493,7 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
           entityField(c, t("doorbell_lock"), s.doorbell.lock_entity, { domains: ["lock"] }, (id) =>
             set((d) => (d.settings.doorbell.lock_entity = id)), true
           ),
+          numberField(t("keep_days"), s.doorbell.keep_days, 1, 30, (v) => set((d) => (d.settings.doorbell.keep_days = v))),
           html`<button class="btn pressable" style="justify-self:start" @click=${opts.testDoorbell}>
             <sn-icon icon="bell-ring" style="--icon-size:20px"></sn-icon>${t("doorbell_test")}
           </button>`

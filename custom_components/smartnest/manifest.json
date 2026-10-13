@@ -1,6 +1,9 @@
 {
   "domain": "smartnest",
   "name": "SmartNest Dashboard",
+  "after_dependencies": [
+    "camera"
+  ],
   "codeowners": [
     "@Yenjo93"
   ],

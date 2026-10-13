@@ -26,6 +26,7 @@ from .const import (
     STORAGE_VERSION,
 )
 from .upload import SmartNestUploadView
+from .visitors import VisitorLog
 from .websocket import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_register_commands(hass)
         hass.data[_REGISTERED] = True
 
+    visitors = VisitorLog(hass, files_dir)
+    await visitors.async_start()
+    hass.data[DOMAIN]["visitors"] = visitors
+
     integration = await async_get_integration(hass, DOMAIN)
     version = str(integration.version)
     stamp = await hass.async_add_executor_job(_build_stamp)
@@ -81,7 +86,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel; the saved dashboard stays on disk."""
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
-    hass.data.pop(DOMAIN, None)
+    data = hass.data.pop(DOMAIN, None) or {}
+    if visitors := data.get("visitors"):
+        visitors.async_stop()
     return True
 
 

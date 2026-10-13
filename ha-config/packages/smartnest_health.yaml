@@ -1,0 +1,84 @@
+# SmartNest: installer alerts on Telegram (تنبيهات للمركّب على Telegram)
+#
+# One Telegram bot for all your clients; every house sends to the same chat.
+#
+# 1. Once, on Telegram: talk to @BotFather → /newbot → keep the token.
+#    Send any message to your new bot, so it can write back to you.
+# 2. In this house: Settings → Devices & services → Add integration → Telegram bot.
+#    Paste the token, then add your chat. HA creates a notify entity for it.
+# 3. Copy this file to /config/packages/ (configuration.yaml needs `homeassistant: packages: !include_dir_named packages`).
+# 4. Replace notify.smartnest_installer below (✏️) with that notify entity, and fill the list of important devices.
+# 5. Restart Home Assistant.
+
+automation:
+  - id: smartnest_health_offline
+    alias: "SmartNest · important device offline"
+    mode: queued
+    trigger:
+      - trigger: state
+        # ✏️ Devices you want to hear about: locks, door sensors, leak/smoke sensors, cameras, the wall tablet...
+        entity_id:
+          - lock.front_door
+          - binary_sensor.front_door_contact
+          - camera.front_door
+        to: unavailable
+        for: "00:30:00"
+    action:
+      - action: notify.send_message
+        target:
+          entity_id: notify.smartnest_installer # ✏️
+        data:
+          message: >-
+            🏠 {{ states.zone.home.name }}: «{{ trigger.to_state.name }}» offline for 30 minutes.
+
+  - id: smartnest_health_daily
+    alias: "SmartNest · daily check"
+    mode: single
+    trigger:
+      - trigger: time
+        at: "09:00:00"
+    variables:
+      backup_days: >-
+        {% set b = states('sensor.backup_last_successful_automatic_backup') %}
+        {{ ((now() - as_datetime(b)).days) if b not in ['unknown', 'unavailable', 'none'] else 999 }}
+      low_batteries: >-
+        {% set ns = namespace(l=[]) %}
+        {% for s in states.sensor if s.attributes.device_class == 'battery' and s.state | is_number and s.state | float < 15 %}
+          {% set ns.l = ns.l + [s.name ~ ' ' ~ s.state | int ~ '%'] %}
+        {% endfor %}
+        {{ ns.l | join(', ') }}
+    condition:
+      - condition: template
+        value_template: "{{ backup_days | int > 7 or low_batteries | length > 0 }}"
+    action:
+      - action: notify.send_message
+        target:
+          entity_id: notify.smartnest_installer # ✏️
+        data:
+          message: >-
+            🏠 {{ states.zone.home.name }}
+            {%- if backup_days | int > 7 %}
+            💾 Last backup {{ backup_days }} days ago{% endif %}
+            {%- if low_batteries %}
+            🔋 Low: {{ low_batteries }}{% endif %}
+
+  - id: smartnest_health_weekly
+    alias: "SmartNest · weekly report"
+    mode: single
+    trigger:
+      - trigger: time
+        at: "10:00:00"
+    condition:
+      - condition: time
+        weekday: sun
+    action:
+      - action: notify.send_message
+        target:
+          entity_id: notify.smartnest_installer # ✏️
+        data:
+          message: >-
+            🏠 {{ states.zone.home.name }}, weekly report
+            🔌 Offline: {{ states | selectattr('state', 'eq', 'unavailable') | list | count }}
+            ⬆️ Updates waiting: {{ states.update | selectattr('state', 'eq', 'on') | list | count }}
+            💾 Last backup: {{ states('sensor.backup_last_successful_automatic_backup') | as_datetime | as_local
+              if states('sensor.backup_last_successful_automatic_backup') not in ['unknown', 'unavailable'] else '–' }}

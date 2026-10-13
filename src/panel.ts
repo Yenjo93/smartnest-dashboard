@@ -15,9 +15,12 @@ import "./doorbell";
 import "./screensaver";
 import "./weather-bg";
 import "./cinematic";
+import "./morning";
+import { markMorningShown, morningDue } from "./morning";
 import "./ui/pinpad";
 import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./kiosk";
 import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
+import { buildChips, chipSheet } from "./chips";
 
 declare const __SN_VERSION__: string;
 export const VERSION = typeof __SN_VERSION__ === "string" ? __SN_VERSION__ : "dev";
@@ -68,6 +71,7 @@ export class SmartNestPanel extends LitElement {
   private bellSeen?: string;
   @state() private silentBell = false;
   @state() private scene?: string;
+  @state() private morning = false;
   // Fully Kiosk: what we last told the tablet, so we act on changes instead of fighting manual tweaks.
   private nightApplied?: boolean;
   private screenOffSent = false;
@@ -116,6 +120,61 @@ export class SmartNestPanel extends LitElement {
       .home span {
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      .home img {
+        width: 28px;
+        height: 28px;
+        flex: none;
+      }
+      .chips {
+        order: 5;
+        flex-basis: 100%;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin: 2px -4px -2px;
+        padding: 2px 4px;
+      }
+      .chips::-webkit-scrollbar {
+        display: none;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 34px;
+        padding: 0 14px 0 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        unicode-bidi: plaintext;
+        --icon-size: 18px;
+        animation: chip-in 420ms var(--spring) both;
+      }
+      .chip sn-icon {
+        color: var(--accent-text);
+      }
+      .chip.cool sn-icon {
+        color: var(--cool);
+      }
+      .chip.alert {
+        background: color-mix(in srgb, var(--alert) 18%, transparent);
+        color: var(--alert-text);
+      }
+      .chip.alert sn-icon {
+        color: var(--alert-text);
+      }
+      .chip.neutral sn-icon {
+        color: var(--text-2);
+      }
+      @keyframes chip-in {
+        from {
+          opacity: 0;
+          transform: scale(0.85);
+        }
       }
       nav {
         flex: 1;
@@ -275,6 +334,16 @@ export class SmartNestPanel extends LitElement {
     if (s?.enabled && this.wide && !this.draft && !this.sheets.length && !this.ringingAt && !this.sleeping)
       if (Date.now() - this.lastActive > s.timeout_min * 60_000) this.sleeping = true;
     this.fullyTick();
+    this.checkMorning();
+  }
+
+  /** The morning card shows on the first touch of the day, never on an empty room. */
+  private checkMorning() {
+    if (this.morning || this.sleeping || this.ringingAt || !this.config || !this.hass) return;
+    if (Date.now() - this.lastActive > 15_000) return;
+    if (!morningDue(this.makeCtx(), new Date())) return;
+    markMorningShown();
+    this.morning = true;
   }
 
   /** Night dimming, screen off after idle, and camera wake, on the wall tablet only. */
@@ -530,7 +599,10 @@ export class SmartNestPanel extends LitElement {
             <sn-icon icon="grid"></sn-icon>
           </button>`
         : nothing}
-      <div class="home"><span>${name}</span></div>
+      <div class="home">
+        <img src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg" alt="" />
+        <span>${name}</span>
+      </div>
       <nav>
         <div class="seg" role="tablist">
           ${cfg.pages.map(
@@ -571,7 +643,20 @@ export class SmartNestPanel extends LitElement {
             </button>`
           : nothing}
       </div>
+      ${ctx.editing ? nothing : this.renderChips(ctx)}
     </header>`;
+  }
+
+  private renderChips(ctx: Ctx) {
+    const chips = buildChips(ctx);
+    if (!chips.length) return nothing;
+    return html`<div class="chips" role="list">
+      ${chips.map(
+        (c) => html`<button class="chip pressable ${c.tone}" role="listitem" @click=${() => (c.entities.length ? chipSheet(ctx, c.type) : undefined)}>
+          <sn-icon .icon=${c.icon}></sn-icon>${c.label}
+        </button>`
+      )}
+    </div>`;
   }
 
   private renderWeather(ctx: Ctx) {
@@ -622,8 +707,13 @@ export class SmartNestPanel extends LitElement {
       ${this.ringingAt
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
+      ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}
-      ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} .onWake=${() => (this.sleeping = false)}></sn-screensaver>` : nothing}
+      ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} .onWake=${() => {
+              this.sleeping = false;
+              this.onActivity();
+              this.checkMorning();
+            }}></sn-screensaver>` : nothing}
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
     </div>`;
   }

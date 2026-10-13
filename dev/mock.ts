@@ -37,7 +37,17 @@ add(ent("climate.bedroom_ac", "off", {
   friendly_name: "مكيف غرفة النوم", temperature: 24, current_temperature: 27,
   hvac_modes: ["off", "cool", "heat", "auto"], min_temp: 16, max_temp: 30, target_temp_step: 0.5,
 }));
-add(ent("vacuum.robot", "docked", { friendly_name: "روبوت التنظيف", battery_level: 92 }));
+add(ent("vacuum.robot", "docked", { friendly_name: "روبوت التنظيف", battery_level: 92, fan_speed: "balanced", fan_speed_list: ["quiet", "balanced", "turbo", "max"] }));
+// Roborock's sibling entities, found by the dashboard through the device registry.
+add(ent("image.robot_map", "2026-10-13T08:00:00Z", { friendly_name: "Robot map", entity_picture: "/dev/robot-map.svg" }));
+add(ent("select.robot_mop_intensity", "moderate", { friendly_name: "Mop intensity", options: ["off", "mild", "moderate", "intense"] }));
+add(ent("sensor.robot_cleaning_area", "42", { friendly_name: "Cleaning area", unit_of_measurement: "m²" }));
+add(ent("sensor.robot_cleaning_time", "38", { friendly_name: "Cleaning time", unit_of_measurement: "min", device_class: "duration" }));
+add(ent("sensor.robot_main_brush_time_left", "792000", { friendly_name: "Main brush time left", unit_of_measurement: "s", device_class: "duration" }));
+add(ent("sensor.robot_side_brush_time_left", "540000", { friendly_name: "Side brush time left", unit_of_measurement: "s", device_class: "duration" }));
+add(ent("sensor.robot_filter_time_left", "54000", { friendly_name: "Filter time left", unit_of_measurement: "s", device_class: "duration" }));
+add(ent("sensor.robot_sensor_time_left", "3600", { friendly_name: "Sensor time left", unit_of_measurement: "s", device_class: "duration" }));
+add(ent("button.robot_empty_dustbin", "unknown", { friendly_name: "Empty dustbin" }));
 add(ent("camera.front_door", "idle", { friendly_name: "كاميرا الباب", entity_picture: "/dev/cam-front.svg", access_token: "dev" }));
 add(ent("camera.garden", "idle", { friendly_name: "كاميرا الحديقة", entity_picture: "/dev/cam-garden.svg", access_token: "dev" }));
 add(ent("lock.front_door", "locked", { friendly_name: "قفل الباب" }));
@@ -50,12 +60,32 @@ add(ent("sensor.living_humidity", "48", { friendly_name: "رطوبة الصال�
 add(ent("sensor.home_power", "1840", { friendly_name: "استهلاك البيت", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.solar_power", "2310", { friendly_name: "الطاقة الشمسية", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.ac_power", "1220", { friendly_name: "استهلاك المكيفات", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.grid_power", "-170", { friendly_name: "الشبكة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.home_battery_power", "300", { friendly_name: "شحن البطارية", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.home_battery", "76", { friendly_name: "بطارية البيت", unit_of_measurement: "%", device_class: "battery" }));
+add(ent("sensor.backup_last_successful_automatic_backup", new Date(Date.now() - 2 * 86_400_000).toISOString(), { friendly_name: "Last backup", device_class: "timestamp" }));
+add(ent("sensor.disk_use_percent", "41", { friendly_name: "Disk use", unit_of_measurement: "%" }));
+add(ent("sensor.processor_temperature", "52", { friendly_name: "CPU temp", unit_of_measurement: "°C", device_class: "temperature" }));
+add(ent("sensor.front_door_lock_battery", "12", { friendly_name: "بطارية قفل الباب", unit_of_measurement: "%", device_class: "battery" }));
+add(ent("update.home_assistant_core_update", "on", { friendly_name: "Home Assistant Core", title: "Home Assistant Core", latest_version: "2026.10.2" }));
+add(ent("binary_sensor.wall_tablet_plugged_in", "on", { friendly_name: "Plugged in", device_class: "plug" }));
+add(ent("button.wall_tablet_load_start_url", "unknown", { friendly_name: "Load start URL" }));
 add(ent("sensor.energy_today", "12.4", { friendly_name: "استهلاك اليوم", unit_of_measurement: "kWh", device_class: "energy" }));
 add(ent("event.doorbell", new Date(Date.now() - 7_200_000).toISOString(), { friendly_name: "جرس الباب", device_class: "doorbell", event_types: ["ring"] }));
 add(ent("cover.living_blinds", "open", { friendly_name: "برادي الصالة", current_position: 100, current_tilt_position: 50, supported_features: 255 }));
 add(ent("scene.movie_night", "scening", { friendly_name: "سهرة فيلم" }));
 add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
 add(ent("sun.sun", "above_horizon", { friendly_name: "Sun" }));
+// Islamic Prayer Times sensors: timestamps for today.
+{
+  const at = (h: number, m: number) => {
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  };
+  for (const [p, h, m] of [["fajr", 4, 52], ["dhuhr", 11, 41], ["asr", 15, 2], ["maghrib", 17, 33], ["isha", 18, 51]] as const)
+    add(ent(`sensor.${p}_prayer`, at(h, m), { friendly_name: p, device_class: "timestamp" }));
+}
 add(ent("input_select.house_mode", "home", { friendly_name: "House mode", options: ["home", "away", "sleep", "evening"] }));
 for (const m of ["away", "home", "sleep", "evening"]) add(ent(`script.smartnest_mode_${m}`, "off", { friendly_name: `SmartNest · ${m}` }));
 
@@ -67,10 +97,12 @@ add(ent("media_player.wall_tablet", "idle", { friendly_name: "تابلت الح�
 add(ent("sensor.wall_tablet_battery", "100", { friendly_name: "تابلت الحيط Battery", unit_of_measurement: "%", device_class: "battery" }));
 const FULLY_DEVICE = "dev-fully-device";
 const entityRegistry: Record<string, any> = Object.fromEntries(
-  ["switch.wall_tablet_screen", "number.wall_tablet_screen_brightness", "switch.wall_tablet_motion_detection", "media_player.wall_tablet", "sensor.wall_tablet_battery"].map(
+  ["switch.wall_tablet_screen", "number.wall_tablet_screen_brightness", "switch.wall_tablet_motion_detection", "media_player.wall_tablet", "sensor.wall_tablet_battery", "binary_sensor.wall_tablet_plugged_in", "button.wall_tablet_load_start_url"].map(
     (entity_id) => [entity_id, { entity_id, device_id: FULLY_DEVICE, platform: "fully_kiosk" }]
   )
 );
+for (const id of ["vacuum.robot", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
+  entityRegistry[id] = { entity_id: id, device_id: "dev-robot", platform: "roborock" };
 const deviceRegistry: Record<string, HassDevice> = { [FULLY_DEVICE]: { id: FULLY_DEVICE, name: "تابلت الحيط", identifiers: [["fully_kiosk", "dev-tablet-1"]] } };
 // ?fully=1 pretends this browser is the tablet (Fully's JavaScript Interface).
 if (params.get("fully") === "1") (window as any).fully = { getDeviceId: () => "dev-tablet-1" };
@@ -151,7 +183,9 @@ function seedDemo(config: any) {
   return config;
 }
 
-async function callService(domain: string, service: string, data: Record<string, any> = {}) {
+async function callService(domain: string, service: string, data: Record<string, any> = {}): Promise<any> {
+  // Real HA accepts a list of entities in one call.
+  if (Array.isArray(data.entity_id)) return Promise.all(data.entity_id.map((entity_id: string) => callService(domain, service, { ...data, entity_id })));
   await new Promise((r) => later(120, () => r(null)));
   const id: string = data.entity_id;
   const e = states[id];
@@ -159,6 +193,8 @@ async function callService(domain: string, service: string, data: Record<string,
   const d = id.split(".")[0];
   const key = `${domain}.${service}`;
   switch (key) {
+    case "homeassistant.turn_off":
+      return set(id, d === "climate" ? "off" : "off");
     case "homeassistant.toggle":
       if (d === "light") return set(id, e.state === "on" ? "off" : "on", e.state === "on" ? {} : { brightness: e.attributes.brightness ?? 255 });
       return set(id, e.state === "on" ? "off" : "on");
@@ -192,6 +228,18 @@ async function callService(domain: string, service: string, data: Record<string,
       return later(4000, () => set(id, "docked"));
     case "vacuum.locate":
       return;
+    case "vacuum.set_fan_speed":
+      return set(id, e.state, { fan_speed: data.fan_speed });
+    case "vacuum.send_command":
+      console.info("[mock] robot command", data.command, JSON.stringify(data.params));
+      return set(id, "cleaning");
+    case "vacuum.clean_area":
+      console.info("[mock] clean areas", data.cleaning_area_id);
+      return set(id, "cleaning");
+    case "select.select_option":
+      return set(id, data.option);
+    case "button.press":
+      return console.info("[mock] pressed", id);
     case "cover.toggle":
       return set(id, e.state === "open" ? "closed" : "open", { current_position: e.state === "open" ? 0 : 100 });
     case "cover.open_cover":
@@ -275,6 +323,27 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/visitors/list": {
+      const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+      return { visitors: [0.5, 3, 26, 30].map((h, i) => ({ url: i % 2 ? "/dev/cam-garden.svg" : "/dev/cam-front.svg", time: ago(h) })) };
+    }
+    case "call_service":
+      if (msg.domain === "weather" && msg.service === "get_forecasts")
+        return { response: { [msg.target.entity_id]: { forecast: [{ temperature: 31, templow: 19, condition: states[msg.target.entity_id].state }] } } };
+      if (msg.domain === "roborock" && msg.service === "get_maps")
+        return { response: { [msg.target.entity_id]: { maps: [{ flag: 0, name: "Home", rooms: { "16": "الصالة", "17": "المطبخ", "18": "غرفة النوم", "19": "السفرة", "20": "الممر", "21": "المدخل" } }] } } };
+      return { response: null };
+    case "logbook/get_events": {
+      const t0 = Date.parse(msg.start_time) / 1000;
+      const ev = (entity_id: string, state: string, hoursIn: number) => ({ entity_id, state, when: t0 + hoursIn * 3600 });
+      return [
+        ev("event.doorbell", new Date().toISOString(), 2),
+        ev("binary_sensor.front_door_contact", "on", 1),
+        ev("binary_sensor.front_door_contact", "off", 1.1),
+        ev("binary_sensor.front_door_contact", "on", 11),
+        ev("vacuum.robot", "cleaning", 9),
+      ].filter((e) => msg.entity_ids.includes(e.entity_id));
+    }
     case "history/history_during_period":
       return history(msg.entity_ids[0]);
     default:
