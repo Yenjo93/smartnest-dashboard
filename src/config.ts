@@ -18,6 +18,9 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   vacuum: { w: 12, h: 9, minW: 6, minH: 6 },
   visitors: { w: 12, h: 4, minW: 4, minH: 3 },
   energy: { w: 6, h: 7, minW: 4, minH: 5 },
+  energy_stats: { w: 6, h: 8, minW: 4, minH: 6 },
+  panic: { w: 3, h: 3, minW: 2, minH: 2 },
+  check: { w: 6, h: 6, minW: 4, minH: 4 },
 };
 
 export function defaultSettings(lang: Lang): Settings {
@@ -37,6 +40,8 @@ export function defaultSettings(lang: Lang): Settings {
     greeting_name: "",
     prayer: true,
     morning: true,
+    night_plan: true,
+    season: "auto",
     chips_hidden: [],
   };
 }

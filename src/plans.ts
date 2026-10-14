@@ -1,0 +1,21 @@
+// What each plan unlocks. The key carries the plan; the installer decides when issuing it.
+export type Plan = "basic" | "pro" | "premium";
+const RANK: Record<Plan, number> = { basic: 0, pro: 1, premium: 2 };
+
+export type Feature =
+  | "w_floorplan" | "w_tile" | "w_camera" | "w_heading" | "w_clock" | "w_modes"
+  | "w_vacuum" | "w_visitors" | "w_energy" | "w_energy_stats" | "w_panic" | "w_check"
+  | "weather_bg" | "photo_frame" | "cinematic" | "morning" | "heat_map" | "room_glow" | "timers" | "fully"
+  | "camera_wall" | "seasons" | "alarm";
+
+const NEEDS: Record<Feature, Plan> = {
+  w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
+  alarm: "basic",
+  w_vacuum: "pro", w_visitors: "pro", w_energy: "pro", w_check: "pro",
+  weather_bg: "pro", photo_frame: "pro", cinematic: "pro", morning: "pro", heat_map: "pro", room_glow: "pro", timers: "pro", fully: "pro",
+  w_energy_stats: "premium", w_panic: "premium", camera_wall: "premium", seasons: "premium",
+};
+
+export const planFor = (f: Feature): Plan => NEEDS[f];
+export const allows = (plan: Plan, f: Feature) => RANK[plan] >= RANK[NEEDS[f]];
+export const widgetFeature = (type: string) => `w_${type}` as Feature;

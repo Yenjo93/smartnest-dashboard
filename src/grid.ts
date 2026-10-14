@@ -6,6 +6,8 @@ import type { Page, Widget } from "./types";
 import { COLS, WIDGET_SIZES, resolveLayout } from "./config";
 import { GAP, ROW_H, shared } from "./theme";
 import { widgetSettingsSheet } from "./editors";
+import { planFor, widgetFeature } from "./plans";
+import type { I18nKey } from "./i18n";
 import "./ui/icon";
 import "./widgets/tile";
 import "./widgets/floorplan";
@@ -16,6 +18,9 @@ import "./widgets/modes";
 import "./widgets/vacuum";
 import "./widgets/visitors";
 import "./widgets/energy";
+import "./widgets/energy-stats";
+import "./widgets/panic";
+import "./widgets/check";
 
 interface Gesture {
   id: string;
@@ -262,6 +267,11 @@ export class SnPageGrid extends LitElement {
 
   private renderWidget(w: Widget) {
     const { ctx } = this;
+    if (!ctx.allows(widgetFeature(w.type)))
+      return html`<div class="glass" style="height:100%;border-radius:var(--r-lg);display:grid;place-items:center;align-content:center;gap:6px;color:var(--text-2);text-align:center;padding:12px;--icon-size:26px">
+        <sn-icon icon="lock"></sn-icon>
+        <span style="font-size:14px">${ctx.t(`widget_${w.type}` as I18nKey)} · ${ctx.t("plan_needed", { plan: ctx.t(`plan_${planFor(widgetFeature(w.type))}` as I18nKey) })}</span>
+      </div>`;
     switch (w.type) {
       case "tile":
         return html`<sn-w-tile .ctx=${ctx} .widget=${w}></sn-w-tile>`;
@@ -281,6 +291,12 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-visitors .ctx=${ctx} .widget=${w}></sn-w-visitors>`;
       case "energy":
         return html`<sn-w-energy .ctx=${ctx} .widget=${w}></sn-w-energy>`;
+      case "energy_stats":
+        return html`<sn-w-energy-stats .ctx=${ctx} .widget=${w}></sn-w-energy-stats>`;
+      case "panic":
+        return html`<sn-w-panic .ctx=${ctx} .widget=${w}></sn-w-panic>`;
+      case "check":
+        return html`<sn-w-check .ctx=${ctx} .widget=${w}></sn-w-check>`;
       default:
         return nothing;
     }

@@ -71,12 +71,16 @@ export interface Settings {
   prayer: boolean;
   /** Morning card the first time the screen is used after the night window. */
   morning: boolean;
+  /** At night the plan dims devices that are off, so what's on stands out. */
+  night_plan: boolean;
+  /** Ramadan and Eid decorations: auto (Hijri calendar), always, or off. */
+  season: "auto" | "off" | "ramadan" | "eid";
   /** Whole-home power sensor for the status chip. */
   power_entity?: string;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
 }
 
-export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy";
+export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check";
 
 export interface Widget {
   id: string;

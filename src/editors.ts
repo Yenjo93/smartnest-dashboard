@@ -9,7 +9,9 @@ import { hashPin, newSalt } from "./kiosk";
 import { findTablets, thisTablet } from "./fully";
 import { CHIP_TYPES } from "./chips";
 import { guessEnergy } from "./widgets/energy";
+import { guessBill } from "./widgets/energy-stats";
 import { healthSheet } from "./health";
+import { planFor, widgetFeature } from "./plans";
 import "./ui/entity-picker";
 import "./ui/icon";
 
@@ -110,6 +112,23 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             ),
             w.config.entity ? nameField(c, w.config.entity) : nothing
           );
+        case "energy_stats": {
+          const g = guessBill(c.hass);
+          const field = (key: "total" | "solar", label: I18nKey) =>
+            entityField(c, t(label), w.config[key] ?? g[key], { domains: ["sensor"], deviceClasses: ["energy"] }, (id) => editWidget(c, widgetId, (x) => (x.config[key] = id)), true);
+          return col(
+            field("total", "e_total_energy"),
+            field("solar", "e_solar_energy"),
+            html`<label class="field"
+              >${t("tariff")}
+              <input type="number" step="0.01" min="0" .value=${String(w.config.tariff ?? 0.6)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.tariff = Number(e.target.value) || 0))} />
+            </label>`,
+            html`<label class="field"
+              >${t("currency")}
+              <input type="text" maxlength="4" .value=${w.config.currency ?? "₪"} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.currency = e.target.value.trim() || "₪"))} />
+            </label>`
+          );
+        }
         case "energy": {
           const g = guessEnergy(c.hass);
           const field = (key: "solar" | "grid" | "battery" | "soc" | "home", label: I18nKey, classes: string[]) =>
@@ -160,6 +179,9 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "vacuum", icon: "robot-vacuum" },
   { type: "visitors", icon: "doorbell" },
   { type: "energy", icon: "solar" },
+  { type: "energy_stats", icon: "lightning-bolt" },
+  { type: "check", icon: "night" },
+  { type: "panic", icon: "alert-circle-outline" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -180,7 +202,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
     title: ctx.t("add_widget"),
     render: (c) => html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
       ${WIDGET_CHOICES.map(
-        (choice) => html`<button
+        (choice) => c.allows(widgetFeature(choice.type)) ? html`<button
           class="glass pressable"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${() => {
@@ -210,7 +232,15 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
           </span>
           ${c.t(`widget_${choice.type}` as I18nKey)}
           <span class="muted ltr" style="font-size:12px">${WIDGET_SIZES[choice.type].w}×${WIDGET_SIZES[choice.type].h}</span>
-        </button>`
+        </button>` : html`<div
+          class="glass"
+          style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500;opacity:.55"
+          title=${c.t("plan_needed", { plan: c.t(`plan_${planFor(widgetFeature(choice.type))}` as I18nKey) })}
+        >
+          <span style="display:grid;place-items:center;width:52px;height:52px;border-radius:999px;background:var(--surface-2)"><sn-icon icon="lock"></sn-icon></span>
+          ${c.t(`widget_${choice.type}` as I18nKey)}
+          <span style="font-size:12px;color:var(--accent-text)">${c.t("plan_needed", { plan: c.t(`plan_${planFor(widgetFeature(choice.type))}` as I18nKey) })}</span>
+        </div>`
       )}
     </div>`,
   });
@@ -329,7 +359,10 @@ const THEMES: { id: ThemeMode; label: I18nKey }[] = [
   { id: "dark", label: "theme_dark" },
 ];
 
-export function settingsSheet(ctx: Ctx, opts: { version: string; licensee?: string; testDoorbell: () => void }) {
+export function settingsSheet(
+  ctx: Ctx,
+  opts: { version: string; license?: { licensee: string; plan: string; expires?: number; trial: boolean; reseller: string }; testDoorbell: () => void }
+) {
   ctx.showSheet({
     title: ctx.t("settings"),
     render: (c) => {
@@ -394,6 +427,17 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; licensee?: stri
             />`
           )}
         </div>`,
+        html`<div class="field">${t("night_plan")} ${toggle(c, s.night_plan, (v) => set((d) => (d.settings.night_plan = v)))}</div>`,
+        c.allows("seasons")
+          ? html`<div class="field">
+              ${t("season")}
+              <div class="seg">
+                ${(["auto", "ramadan", "eid", "off"] as const).map(
+                  (v) => html`<button aria-pressed=${s.season === v} @click=${() => set((d) => (d.settings.season = v))}>${t(v === "off" ? "off" : (`season_${v}` as I18nKey))}</button>`
+                )}
+              </div>
+            </div>`
+          : nothing,
         html`<label class="field"
           >${t("default_page")}
           <select @change=${(e: any) => set((d) => (d.settings.default_page = e.target.value))}>
@@ -535,7 +579,14 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; licensee?: stri
               <strong>SmartNest</strong>
               <span class="muted" style="font-size:13px">${t("tagline")}</span>
               <span class="muted ltr" style="font-size:12px;font-family:'JetBrains Mono',monospace">${t("version")} ${opts.version}</span>
-              ${opts.licensee ? html`<span class="muted" style="font-size:12px">${t("licensed_to")} ${opts.licensee}</span>` : nothing}
+              ${opts.license?.licensee ? html`<span class="muted" style="font-size:12px">${t("licensed_to")} ${opts.license.licensee}</span>` : nothing}
+              ${opts.license
+                ? html`<span class="muted" style="font-size:12px">
+                    ${t("plan_label")}: <strong style="color:var(--accent-text)">${t(`plan_${opts.license.plan}` as I18nKey)}</strong>${opts.license.trial ? ` (${t("trial_label")})` : ""}
+                    ${opts.license.expires ? html` · ${t("expires_on")} ${new Date(opts.license.expires * 1000).toLocaleDateString()}` : nothing}
+                    ${opts.license.reseller ? html` · ${t("via")} ${opts.license.reseller}` : nothing}
+                  </span>`
+                : nothing}
             </div>
           </div>`
         )

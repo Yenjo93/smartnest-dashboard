@@ -16,12 +16,14 @@ import "./screensaver";
 import "./weather-bg";
 import "./cinematic";
 import "./morning";
+import { wallCameras } from "./camwall";
 import { markMorningShown, morningDue } from "./morning";
 import "./ui/pinpad";
 import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./kiosk";
 import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
 import { buildChips, chipSheet } from "./chips";
 import { rolling } from "./ui/num";
+import { allows, type Plan } from "./plans";
 
 declare const __SN_VERSION__: string;
 export const VERSION = typeof __SN_VERSION__ === "string" ? __SN_VERSION__ : "dev";
@@ -60,8 +62,13 @@ export class SmartNestPanel extends LitElement {
   @state() private saving = false;
   @state() private loadError = "";
   /** Set when the integration refuses to work without an activation key. */
-  @state() private license?: { instance_id: string; error?: string; busy?: boolean };
-  private licensee = "";
+  @state() private license?: { instance_id: string; error?: string; busy?: boolean; expired?: boolean };
+  @state() private lic: { licensee: string; plan: Plan; expires?: number; trial: boolean; reseller: string } = {
+    licensee: "",
+    plan: "premium",
+    trial: false,
+    reseller: "",
+  };
   @state() private now = new Date();
   @state() private systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
   @state() private wide = window.innerWidth >= 768;
@@ -76,6 +83,7 @@ export class SmartNestPanel extends LitElement {
   @state() private silentBell = false;
   @state() private scene?: string;
   @state() private morning = false;
+  @state() private camwall = false;
   // Page changes slide in from the side they came from (+1 = the next page).
   private enterDir = 0;
   private swipe?: { x: number; y: number; t: number; id: number; active: boolean; dx: number };
@@ -393,7 +401,8 @@ export class SmartNestPanel extends LitElement {
   private checkMorning() {
     if (this.morning || this.sleeping || this.ringingAt || !this.config || !this.hass) return;
     if (Date.now() - this.lastActive > 15_000) return;
-    if (!morningDue(this.makeCtx(), new Date())) return;
+    const c = this.makeCtx();
+    if (!c.allows("morning") || !morningDue(c, new Date())) return;
     markMorningShown();
     this.morning = true;
   }
@@ -401,7 +410,7 @@ export class SmartNestPanel extends LitElement {
   /** Night dimming, screen off after idle, and camera wake, on the wall tablet only. */
   private fullyTick() {
     const cfg = this.config?.settings;
-    const tab = this.hass && cfg ? thisTablet(this.hass) : undefined;
+    const tab = this.hass && cfg && allows(this.lic.plan, "fully") ? thisTablet(this.hass) : undefined;
     if (!tab || !cfg) return;
     const f = cfg.fully;
     const fail = () => undefined;
@@ -450,11 +459,16 @@ export class SmartNestPanel extends LitElement {
         // Another screen saved. Take it, unless we're mid-edit here.
         if (!this.draft && cfg) this.config = normalizeConfig(cfg, lang);
       });
-      this.hass.callWS<{ licensee: string }>({ type: "smartnest/license/status" }).then((r) => (this.licensee = r.licensee), () => undefined);
+      this.hass
+        .callWS<{ licensee: string; plan?: Plan; expires?: number; trial?: boolean; reseller?: string }>({ type: "smartnest/license/status" })
+        .then(
+          (r) => (this.lic = { licensee: r.licensee, plan: r.plan ?? "premium", expires: r.expires ?? undefined, trial: !!r.trial, reseller: r.reseller ?? "" }),
+          () => undefined
+        );
     } catch (err) {
       if ((err as any)?.code === "not_licensed") {
-        const st = await this.hass.callWS<{ instance_id: string }>({ type: "smartnest/license/status" });
-        this.license = { instance_id: st.instance_id };
+        const st = await this.hass.callWS<{ instance_id: string; expired?: boolean }>({ type: "smartnest/license/status" });
+        this.license = { instance_id: st.instance_id, expired: st.expired };
         return;
       }
       this.loadError = String((err as any)?.message ?? err);
@@ -608,6 +622,8 @@ export class SmartNestPanel extends LitElement {
       isAdmin: !!this.hass.user?.is_admin,
       editing: !!this.draft,
       assetBase: this.assetBase,
+      plan: this.lic.plan,
+      allows: (f) => allows(this.lic.plan, f),
       update: (fn) => {
         if (!this.draft) return;
         const next = structuredClone(this.draft);
@@ -625,7 +641,7 @@ export class SmartNestPanel extends LitElement {
       toast: (m) => this.toast(m),
       cinematic: (mode) => {
         this.sleeping = false;
-        this.scene = mode;
+        if (allows(this.lic.plan, "cinematic")) this.scene = mode;
       },
     };
   }
@@ -763,6 +779,11 @@ export class SmartNestPanel extends LitElement {
             </div>
           </nav>`}
       <div class="actions">
+        ${ctx.allows("camera_wall") && !ctx.editing && wallCameras(ctx).length
+          ? html`<button class="icon-btn pressable" aria-label=${t("camera_wall")} title=${t("camera_wall")} @click=${() => (this.camwall = true)}>
+              <sn-icon icon="cctv" style="--icon-size:20px"></sn-icon>
+            </button>`
+          : nothing}
         ${this.kiosk
           ? html`<button class="icon-btn primary pressable" aria-label=${t("kiosk_unlock")} title=${t("kiosk_unlock")} @click=${() => this.unlockSheet()}>
               <sn-icon icon="lock" style="--icon-size:20px"></sn-icon>
@@ -786,7 +807,19 @@ export class SmartNestPanel extends LitElement {
           : nothing}
       </div>
       ${ctx.editing ? nothing : this.renderChips(ctx)}
+      ${this.renderExpiry(ctx)}
     </header>`;
+  }
+
+  /** Two weeks before the key expires, admins see a quiet reminder. */
+  private renderExpiry(ctx: Ctx) {
+    const exp = this.lic.expires;
+    if (!exp || !ctx.isAdmin) return nothing;
+    const days = Math.ceil((exp * 1000 - Date.now()) / 86_400_000);
+    if (days > 14 || days < 0) return nothing;
+    return html`<div style="order:6;flex-basis:100%;font-size:13px;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)">
+      ${ctx.t("expires_soon", { n: days })}
+    </div>`;
   }
 
   private tabClick(ctx: Ctx, id: string) {
@@ -840,8 +873,8 @@ export class SmartNestPanel extends LitElement {
       <div class="glass" style="width:min(520px,calc(100vw - 32px));padding:32px;border-radius:var(--r-xl);display:grid;gap:18px;text-align:start;color:var(--text)">
         <img src="${this.assetBase}logo/smartnest-symbol-${this.dark ? "white" : "color"}.svg" alt="SmartNest" style="width:56px;height:56px;animation:none" />
         <div style="display:grid;gap:6px">
-          <strong style="font-size:24px">${t("activate_title")}</strong>
-          <span class="muted">${t("activate_text")}</span>
+          <strong style="font-size:24px">${lic.expired ? t("expired_title") : t("activate_title")}</strong>
+          <span class="muted">${lic.expired ? t("expired_text") : t("activate_text")}</span>
         </div>
         <div class="field">
           ${admin ? t("activate_id") : t("activate_send")}
@@ -880,7 +913,7 @@ export class SmartNestPanel extends LitElement {
 
   private renderWeather(ctx: Ctx) {
     const w = ctx.config.settings.weather;
-    const e = w.background && w.entity ? this.hass.states[w.entity] : undefined;
+    const e = w.background && w.entity && ctx.allows("weather_bg") ? this.hass.states[w.entity] : undefined;
     if (!e) return nothing;
     const sun = this.hass.states["sun.sun"]?.state;
     const night = e.state === "clear-night" || (sun ? sun === "below_horizon" : inWindow(this.now, ctx.config.settings.dark_from, ctx.config.settings.dark_to));
@@ -899,7 +932,7 @@ export class SmartNestPanel extends LitElement {
       <button class="btn pressable" @click=${() => addPageSheet(ctx, (id) => (this.pageId = id))}>
         <sn-icon icon="dashboard" style="--icon-size:20px"></sn-icon>${t("add_page")}
       </button>
-      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, licensee: this.licensee, testDoorbell: () => this.ring() })}>
+      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, license: this.lic, testDoorbell: () => this.ring() })}>
         <sn-icon icon="cog" style="--icon-size:20px"></sn-icon>
       </button>
     </div>`;
@@ -920,7 +953,8 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const page = ctx.config.pages.find((p) => p.id === this.pageId) ?? ctx.config.pages[0];
     return html`<div class="app ${ctx.narrow ? "compact" : ""}">
-      ${this.renderWeather(ctx)} ${this.renderBar(ctx)}
+      ${this.renderWeather(ctx)}
+      ${this.renderBar(ctx)}
       ${page
         ? keyed(
             page.id,
@@ -942,6 +976,7 @@ export class SmartNestPanel extends LitElement {
       ${this.ringingAt
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
+      ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}
       ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} .onWake=${() => {

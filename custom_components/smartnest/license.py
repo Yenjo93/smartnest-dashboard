@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from typing import Any
 
 import voluptuous as vol
@@ -58,8 +59,27 @@ class License:
         return True
 
     @property
+    def expired(self) -> bool:
+        exp = (self.info or {}).get("x")
+        return bool(exp) and time.time() > float(exp)
+
+    @property
     def valid(self) -> bool:
-        return self.info is not None
+        return self.info is not None and not self.expired
+
+    def status(self) -> dict[str, Any]:
+        info = self.info or {}
+        return {
+            "licensed": self.valid,
+            "expired": self.expired,
+            "instance_id": self.iid,
+            "licensee": info.get("n", ""),
+            # Keys issued before plans existed unlock everything.
+            "plan": info.get("p", "premium"),
+            "expires": info.get("x"),
+            "trial": bool(info.get("tr")),
+            "reseller": info.get("r", ""),
+        }
 
 
 def is_licensed(hass: HomeAssistant) -> bool:
@@ -71,14 +91,7 @@ def is_licensed(hass: HomeAssistant) -> bool:
 @websocket_api.async_response
 async def ws_license_status(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     lic: License | None = (hass.data.get(DOMAIN) or {}).get("license")
-    connection.send_result(
-        msg["id"],
-        {
-            "licensed": bool(lic and lic.valid),
-            "instance_id": lic.iid if lic else "",
-            "licensee": (lic.info or {}).get("n", "") if lic else "",
-        },
-    )
+    connection.send_result(msg["id"], lic.status() if lic else {"licensed": False, "instance_id": ""})
 
 
 @websocket_api.require_admin
@@ -86,7 +99,13 @@ async def ws_license_status(hass: HomeAssistant, connection: websocket_api.Activ
 @websocket_api.async_response
 async def ws_license_activate(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     lic: License | None = (hass.data.get(DOMAIN) or {}).get("license")
-    if lic is None or not await lic.async_activate(msg["key"]):
-        connection.send_error(msg["id"], "invalid_key", "This key isn't valid for this installation")
+    if lic is None:
+        connection.send_error(msg["id"], "invalid_key", "SmartNest is not set up")
         return
-    connection.send_result(msg["id"], {"licensed": True, "licensee": lic.info.get("n", "") if lic.info else ""})
+    info = verify(msg["key"], lic.iid)
+    exp = (info or {}).get("x")
+    if info is None or (exp and time.time() > float(exp)):
+        connection.send_error(msg["id"], "invalid_key", "This key isn't valid (or has expired) for this installation")
+        return
+    await lic.async_activate(msg["key"])
+    connection.send_result(msg["id"], lic.status())

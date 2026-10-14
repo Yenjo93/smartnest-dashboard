@@ -1,6 +1,7 @@
 import type { TemplateResult } from "lit";
 import type { DashboardConfig, Hass, Lang } from "./types";
 import type { Translate } from "./i18n";
+import type { Feature, Plan } from "./plans";
 
 export interface SheetSpec {
   title?: string;
@@ -23,6 +24,9 @@ export interface Ctx {
   isAdmin: boolean;
   editing: boolean;
   assetBase: string;
+  plan: Plan;
+  /** Whether this house's plan includes a feature. */
+  allows(feature: Feature): boolean;
   /** Mutates the draft config while editing. */
   update(fn: (draft: DashboardConfig) => void): void;
   openEntity(entityId: string, origin?: Element): void;

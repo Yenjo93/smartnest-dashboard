@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 // SmartNest activation keys. The private key lives ONLY on your computer (~/.smartnest), never in the repo.
 //
-//   node scripts/license.mjs init                       # once: creates your signing key, prints the public key
-//   node scripts/license.mjs <installation-id> "Name"   # prints an activation key for that house
+//   node scripts/license.mjs init
+//       once: creates your signing key and prints the public key
+//
+//   node scripts/license.mjs <installation-id> "Name" [--plan basic|pro|premium] [--days N] [--reseller "Company"]
+//       a key for that house. No --days = never expires. Default plan: premium.
+//
+//   node scripts/license.mjs <installation-id> "Name" --trial
+//       14-day Premium trial
 //
 // Back up ~/.smartnest/license-private.pem (password manager): without it you can't issue new keys,
 // and anyone who has it can.
@@ -15,9 +21,22 @@ const dir = join(homedir(), ".smartnest");
 const keyFile = join(dir, "license-private.pem");
 const b64u = (buf) => Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-const [cmd, name = ""] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const flag = (name) => {
+  const i = args.indexOf(`--${name}`);
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  args.splice(i, v && !v.startsWith("--") ? 2 : 1);
+  return v && !v.startsWith("--") ? v : true;
+};
+const trial = flag("trial") !== undefined;
+const plan = String(flag("plan") ?? "premium");
+const days = flag("days");
+const reseller = flag("reseller");
+const [cmd, name = ""] = args;
+
 if (!cmd) {
-  console.error('usage: license.mjs init | license.mjs <installation-id> "Client name"');
+  console.error('usage: license.mjs init | license.mjs <installation-id> "Name" [--plan basic|pro|premium] [--days N] [--reseller "X"] [--trial]');
   process.exit(1);
 }
 
@@ -35,10 +54,25 @@ if (cmd === "init") {
   process.exit(0);
 }
 
+if (!["basic", "pro", "premium"].includes(plan)) {
+  console.error("--plan must be basic, pro or premium");
+  process.exit(1);
+}
 if (!existsSync(keyFile)) {
   console.error("Run `node scripts/license.mjs init` first.");
   process.exit(1);
 }
-const payload = Buffer.from(JSON.stringify({ v: 1, i: cmd.trim(), n: name, t: Math.floor(Date.now() / 1000) }));
-const signature = sign(null, payload, createPrivateKey(readFileSync(keyFile)));
-console.log(`SN1.${b64u(payload)}.${b64u(signature)}`);
+
+const now = Math.floor(Date.now() / 1000);
+const validDays = trial ? 14 : days ? Number(days) : undefined;
+const payload = { v: 1, i: cmd.trim(), n: name, t: now, p: trial ? "premium" : plan };
+if (validDays) payload.x = now + validDays * 86400;
+if (trial) payload.tr = 1;
+if (typeof reseller === "string") payload.r = reseller;
+
+const body = Buffer.from(JSON.stringify(payload));
+const signature = sign(null, body, createPrivateKey(readFileSync(keyFile)));
+console.log(`SN1.${b64u(body)}.${b64u(signature)}`);
+console.error(
+  `${payload.p}${payload.tr ? " trial" : ""} · ${name || "(no name)"}${payload.x ? ` · until ${new Date(payload.x * 1000).toISOString().slice(0, 10)}` : " · no expiry"}${payload.r ? ` · via ${payload.r}` : ""}`
+);

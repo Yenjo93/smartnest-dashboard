@@ -5,6 +5,8 @@ import type { Ctx } from "./ctx";
 import { LOCALE } from "./i18n";
 import { shortValue } from "./entities";
 import { shared } from "./theme";
+import { currentSeason } from "./season";
+import "./season";
 
 interface Slide {
   url: string;
@@ -183,7 +185,7 @@ export class SnScreensaver extends LitElement {
 
   private async loadPhotos() {
     const s = this.ctx.config.settings.screensaver;
-    if (!s.photos) return;
+    if (!s.photos || !this.ctx.allows("photo_frame")) return;
     try {
       const res = await this.ctx.hass.callWS<{ children?: { media_class: string; media_content_id: string }[] }>({
         type: "media_source/browse_media",
@@ -259,6 +261,7 @@ export class SnScreensaver extends LitElement {
         ></div>`
       )}
       ${photos ? html`<div class="shade"></div>` : nothing} ${this.renderClock(loc, photos)}
+      ${ctx.allows("seasons") ? html`<sn-season .season=${currentSeason(ctx.config.settings, this.now)}></sn-season>` : nothing}
       <div class="brand">
         <img src="${ctx.assetBase}logo/smartnest-symbol-white.svg" alt="" />
         <span>SmartNest${photos ? "" : html` · ${ctx.t("tagline")}`}</span>

@@ -52,6 +52,7 @@ export class SnFloorplan extends LitElement {
   private pinch?: { d: number; mx: number; my: number; s: number; x: number; y: number };
   private pan?: { x: number; y: number; zx: number; zy: number };
   private lastTap?: { t: number; x: number; y: number };
+  private moved = 0;
   @state() private heat = false;
   @state() private robotRooms?: RoomChoice[];
   private press?: { id: string; x: number; y: number; timer: number };
@@ -105,6 +106,7 @@ export class SnFloorplan extends LitElement {
       }
       .marker {
         position: absolute;
+        transition: opacity 600ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
         transform: translate(-50%, -50%) scale(var(--inv, 1));
         display: inline-flex;
         align-items: center;
@@ -174,6 +176,10 @@ export class SnFloorplan extends LitElement {
       }
       :host([narrow]) .marker.on .ic {
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 28%, transparent);
+      }
+      .marker.sleepy {
+        opacity: 0.3;
+        transform: translate(-50%, -50%) scale(calc(var(--inv, 1) * 0.85));
       }
       .marker.dim {
         opacity: 0.5;
@@ -377,6 +383,20 @@ export class SnFloorplan extends LitElement {
       }
       .area.zoomed {
         touch-action: none; /* zoomed in: every drag pans the plan */
+      }
+      .hit {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .hit polygon {
+        fill: transparent;
+        cursor: pointer;
+        transition: fill 160ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .hit polygon:active {
+        fill: color-mix(in srgb, var(--accent) 14%, transparent);
       }
       .heat {
         position: absolute;
@@ -695,6 +715,48 @@ export class SnFloorplan extends LitElement {
     });
   }
 
+  // ---- tap a room ----
+
+  /** Everything placed in the room, with one switch for all its lights. */
+  private roomSheet(room: Room) {
+    if (this.moved > 8) return; // that was a pan, not a tap
+    const floor = this.floor;
+    if (!floor) return;
+    const ids = floor.markers.filter((m) => inside([m.x, m.y], room.points)).map((m) => m.entity);
+    if (!ids.length) return;
+    this.ctx.showSheet({
+      title: room.name,
+      render: (c) => {
+        const lights = ids.filter((id) => domainOf(id) === "light");
+        const anyOn = lights.some((id) => c.hass.states[id]?.state === "on");
+        return html`<div style="display:grid;gap:10px">
+          ${lights.length
+            ? html`<button
+                class="btn ${anyOn ? "" : "primary"} pressable"
+                @click=${() => c.hass.callService("light", anyOn ? "turn_off" : "turn_on", { entity_id: lights }).catch(() => c.toast(c.t("error")))}
+              >
+                <sn-icon icon=${anyOn ? "lightbulb-outline" : "lightbulb"} style="--icon-size:20px"></sn-icon>${c.t(anyOn ? "room_lights_off" : "room_lights_on")}
+              </button>`
+            : nothing}
+          ${ids.map((id) => {
+            const e = c.hass.states[id];
+            return html`<button
+              class="glass pressable"
+              style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r-md);text-align:start"
+              @click=${(ev: Event) => c.openEntity(id, ev.currentTarget as Element)}
+            >
+              <span style="display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:${isActive(e) ? "var(--tone)" : "var(--surface-2)"};color:${isActive(e) ? "var(--on-tone)" : "var(--text-2)"};${toneStyle(e)}">
+                <sn-icon .icon=${entityIcon(e, id)} style="--icon-size:20px"></sn-icon>
+              </span>
+              <span style="flex:1;font-weight:500">${entityName(c.hass, c.config, id)}</span>
+              <span class="muted" style="font-size:14px;unicode-bidi:plaintext">${rolling(shortValue(c.t, e, c.lang))}</span>
+            </button>`;
+          })}
+        </div>`;
+      },
+    });
+  }
+
   // ---- heat map ----
 
   private get heatKey() {
@@ -777,6 +839,7 @@ export class SnFloorplan extends LitElement {
   }
 
   private onAreaDown(e: PointerEvent) {
+    this.moved = 0;
     if (!this.canZoom()) return;
     this.pointers.set(e.pointerId, this.local(e));
     if (this.pointers.size === 2) {
@@ -807,6 +870,7 @@ export class SnFloorplan extends LitElement {
 
   private onAreaMove(e: PointerEvent) {
     if (!this.pointers.has(e.pointerId)) return;
+    this.moved += Math.abs(e.movementX) + Math.abs(e.movementY);
     this.pointers.set(e.pointerId, this.local(e));
     if (this.pinch && this.pointers.size >= 2) {
       const [a, b] = [...this.pointers.values()];
@@ -1056,6 +1120,7 @@ export class SnFloorplan extends LitElement {
       on ? "on" : "",
       motion ? "pulse" : "",
       !e || e.state === "unavailable" ? "dim" : "",
+      !on && !ctx.editing && ctx.dark && ctx.config.settings.night_plan && !this.selected ? "sleepy" : "",
       ctx.editing ? "editable" : "",
       dragging ? "dragging" : "",
       this.selected === m.id && ctx.editing ? "selected" : "",
@@ -1148,7 +1213,7 @@ export class SnFloorplan extends LitElement {
     const floors = this.floors;
     const stage = this.stageSize();
     const ratio = this.natural ? this.natural.w / this.natural.h : 16 / 10;
-    const hasHeat = !!floor && this.roomTemps(floor).size > 0;
+    const hasHeat = !!floor && ctx.allows("heat_map") && this.roomTemps(floor).size > 0;
     return html`<div class="wrap glass">
       ${floors.length > 1 || ctx.editing
         ? html`<div class="floors" @pointerdown=${(e: Event) => e.stopPropagation()}>
@@ -1219,7 +1284,12 @@ export class SnFloorplan extends LitElement {
                   this.measure();
                 }}
               />
-              ${this.heat && !ctx.editing ? this.renderHeat(floor) : this.renderGlow(floor, stage.w)}
+              ${this.heat && hasHeat && !ctx.editing ? this.renderHeat(floor) : ctx.allows("room_glow") ? this.renderGlow(floor, stage.w) : nothing}
+              ${!ctx.editing && floor.rooms?.length
+                ? html`<svg class="hit" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    ${floor.rooms.map((r) => svg`<polygon points=${r.points.map((p) => p.join(",")).join(" ")} @click=${() => this.roomSheet(r)}></polygon>`)}
+                  </svg>`
+                : nothing}
               ${floor.markers.map((m) => this.renderMarker(m))}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
             </div>`

@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "./ctx";
 import type { HassEntity } from "./types";
-import { toneStyle, domainOf, entityIcon, formatNumber, isActive, isNumericSensor, ltr, relativeTime, stateLabel } from "./entities";
+import { tapKind, toneStyle, domainOf, entityIcon, formatNumber, isActive, isNumericSensor, ltr, relativeTime, stateLabel } from "./entities";
 import { hasKey } from "./i18n";
 import { liveUrl } from "./widgets/camera";
 import { shared } from "./theme";
@@ -13,6 +13,8 @@ import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
 import "./ui/color-wheel";
 import "./widgets/vacuum";
+import "./ui/pinpad";
+import { countdown } from "./daily";
 
 type LightTab = "brightness" | "color" | "temp";
 const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
@@ -50,6 +52,8 @@ export class SnEntityDetail extends LitElement {
   @state() private history?: { t: number; v: number }[];
   private tempTimer?: number;
   private prevState?: string;
+  @state() private timerDue?: string;
+  private tick?: number;
   private confirmTimer?: number;
 
   static styles = [
@@ -213,6 +217,7 @@ export class SnEntityDetail extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.clearInterval(this.tick);
     window.clearTimeout(this.tempTimer);
     window.clearTimeout(this.confirmTimer);
   }
@@ -223,7 +228,20 @@ export class SnEntityDetail extends LitElement {
     this.prevState = e?.state;
   }
 
+  private async loadTimer() {
+    try {
+      const all = await this.ctx.hass.callWS<Record<string, string>>({ type: "smartnest/timer/list" });
+      this.timerDue = all[this.entityId];
+    } catch {
+      this.timerDue = undefined;
+    }
+  }
+
   protected firstUpdated() {
+    if (this.ctx.allows("timers") && tapKind(this.entityId) === "toggle") {
+      this.loadTimer();
+      this.tick = window.setInterval(() => this.requestUpdate(), 30_000);
+    }
     const e = this.ctx.hass.states[this.entityId];
     if (isNumericSensor(e)) this.loadHistory();
   }
@@ -441,6 +459,39 @@ export class SnEntityDetail extends LitElement {
       </div>`;
   }
 
+  // ---- alarm panel: arm without a code when allowed, disarm with the code ----
+  private alarm(e: HassEntity, service: string) {
+    const needsCode = !!e.attributes.code_format && (service === "alarm_disarm" || e.attributes.code_arm_required);
+    if (!needsCode) return this.call("alarm_control_panel", service);
+    const { t } = this.ctx;
+    this.ctx.showSheet({
+      title: t("enter_code"),
+      render: (c) => html`<sn-pinpad
+        .length=${0}
+        prompt=${t("enter_code")}
+        error=${t("wrong_pin")}
+        .onSubmit=${(code: string) => {
+          // HA checks the code; a wrong one comes back as an error, shown as a toast.
+          c.hass.callService("alarm_control_panel", service, { entity_id: e.entity_id, code }).catch(() => c.toast(t("wrong_pin")));
+          c.closeSheet();
+          return true;
+        }}
+      ></sn-pinpad>`,
+    });
+  }
+
+  private renderAlarm(e: HassEntity) {
+    const { t } = this.ctx;
+    const f: number = e.attributes.supported_features ?? 7;
+    if (e.state === "disarmed")
+      return html`<div class="actions">
+        ${f & 1 ? html`<button class="btn primary pressable" @click=${() => this.alarm(e, "alarm_arm_home")}><sn-icon icon="home"></sn-icon>${t("arm_home")}</button>` : nothing}
+        ${f & 2 ? html`<button class="btn primary pressable" @click=${() => this.alarm(e, "alarm_arm_away")}><sn-icon icon="leave"></sn-icon>${t("arm_away")}</button>` : nothing}
+        ${f & 4 ? html`<button class="btn primary pressable" @click=${() => this.alarm(e, "alarm_arm_night")}><sn-icon icon="night"></sn-icon>${t("arm_night")}</button>` : nothing}
+      </div>`;
+    return html`<button class="btn danger pressable lock-btn" @click=${() => this.alarm(e, "alarm_disarm")}><sn-icon icon="lock-open"></sn-icon>${t("disarm")}</button>`;
+  }
+
   // ---- lock: two deliberate taps to unlock ----
   private renderLock(e: HassEntity) {
     const { t } = this.ctx;
@@ -495,6 +546,50 @@ export class SnEntityDetail extends LitElement {
     </div>`;
   }
 
+  /** "Turn off in 15 / 30 / 60 / 120 min", run by the integration so it happens even with the screen closed. */
+  private renderTimer(e: HassEntity) {
+    if (!this.ctx.allows("timers") || tapKind(e.entity_id) !== "toggle" || !isActive(e)) return nothing;
+    const { t } = this.ctx;
+    if (this.timerDue && Date.parse(this.timerDue) > Date.now())
+      return html`<div class="actions">
+        <span class="btn" style="background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)">
+          <sn-icon icon="clock-outline"></sn-icon>${t("timer_left", { in: countdown(t, new Date(this.timerDue)) })}
+        </span>
+        <button
+          class="icon-btn pressable"
+          aria-label=${t("cancel")}
+          @click=${() => this.ctx.hass.callWS({ type: "smartnest/timer/cancel", entity_id: e.entity_id }).then(() => (this.timerDue = undefined))}
+        >
+          <sn-icon icon="close" style="--icon-size:18px"></sn-icon>
+        </button>
+      </div>`;
+    const opts: [number, string][] = [
+      [15, t("min_short", { n: 15 })],
+      [30, t("min_short", { n: 30 })],
+      [60, t("hour_short", { n: 1 })],
+      [120, t("hour_short", { n: 2 })],
+    ];
+    return html`<div class="opt" style="display:grid;gap:6px;justify-items:center;font-size:13px;color:var(--text-2)">
+      ${t("timer_off_in")}
+      <div class="seg">
+        ${opts.map(
+          ([m, label]) => html`<button
+            @click=${() =>
+              this.ctx.hass
+                .callWS<{ due: string }>({ type: "smartnest/timer/set", entity_id: e.entity_id, minutes: m })
+                .then((r) => {
+                  navigator.vibrate?.(6);
+                  this.timerDue = r.due;
+                })
+                .catch(() => this.ctx.toast(t("error")))}
+          >
+            ${label}
+          </button>`
+        )}
+      </div>
+    </div>`;
+  }
+
   private renderBody(e: HassEntity) {
     switch (domainOf(e.entity_id)) {
       case "light":
@@ -507,6 +602,8 @@ export class SnEntityDetail extends LitElement {
         return this.renderCover(e);
       case "lock":
         return this.renderLock(e);
+      case "alarm_control_panel":
+        return this.renderAlarm(e);
       case "camera": {
         const url = liveUrl(this.ctx.hass, e.entity_id);
         return url ? html`<div class="live"><img src=${url} alt="" /></div>` : nothing;
@@ -547,7 +644,7 @@ export class SnEntityDetail extends LitElement {
         <span class="state">${stateLabel(ctx.t, e, ctx.lang)}</span>
         <span class="sub">${ctx.t("last_changed")} ${relativeTime(ctx.t, e.last_changed)}</span>
       </div>
-      ${unavailable ? nothing : this.renderBody(e)}
+      ${unavailable ? nothing : this.renderBody(e)} ${unavailable ? nothing : this.renderTimer(e)}
     `;
   }
 }

@@ -28,6 +28,8 @@ export function isActive(e: HassEntity | undefined): boolean {
       return e.state === "playing" || e.state === "on";
     case "camera":
       return e.state === "streaming" || e.state === "recording";
+    case "alarm_control_panel":
+      return e.state.startsWith("armed") || e.state === "triggered" || e.state === "pending" || e.state === "arming";
     case "sensor":
     case "event":
       return false;
@@ -43,6 +45,7 @@ export function activeTone(e: HassEntity): Tone {
   if (d === "climate" && (e.state === "cool" || e.attributes.hvac_action === "cooling")) return "cool";
   if (d === "binary_sensor" && ["smoke", "moisture", "gas", "carbon_monoxide", "problem", "safety"].includes(dc(e) ?? "")) return "alert";
   if (d === "lock" && e.state === "jammed") return "alert";
+  if (d === "alarm_control_panel" && e.state === "triggered") return "alert";
   return "accent";
 }
 
@@ -104,6 +107,8 @@ export function entityIcon(e: HassEntity | undefined, entityId: string): string 
       return "gauge";
     case "event":
       return cls === "doorbell" ? "doorbell" : "bell";
+    case "alarm_control_panel":
+      return "shield-home";
     case "media_player":
       return cls === "speaker" ? "speaker" : "television";
     case "scene":

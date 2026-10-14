@@ -6,6 +6,8 @@ import { LOCALE } from "../i18n";
 import { formatNumber, ltr, shortValue } from "../entities";
 import { countdown, greetingKey, greetingName, nextPrayer, todayForecast, weatherIcon, type DayForecast } from "../daily";
 import { shared } from "../theme";
+import { currentSeason } from "../season";
+import "../season";
 import "../ui/icon";
 
 /**
@@ -158,8 +160,12 @@ export class SnClock extends LitElement {
       </div>`;
     }
     const name = greetingName(ctx.hass, ctx.config.settings.greeting_name);
-    return html`<div class="card glass full">
-      <div class="greet">${ctx.t(greetingKey(this.now))}${name ? (ctx.lang === "ar" ? "، " : ", ") + name : ""}</div>
+    const season = ctx.allows("seasons") ? currentSeason(ctx.config.settings, this.now) : null;
+    return html`<div class="card glass full" style="position:relative">
+      ${season ? html`<sn-season inline .season=${season}></sn-season>` : nothing}
+      <div class="greet">
+        ${season ? html`${ctx.t(season === "ramadan" ? "ramadan_kareem" : "eid_mubarak")} ${season === "ramadan" ? "🌙" : "🎉"} · ` : nothing}${ctx.t(greetingKey(this.now))}${name ? (ctx.lang === "ar" ? "، " : ", ") + name : ""}
+      </div>
       <div>${time} ${date}</div>
       <div class="pills">${this.renderWeather()} ${this.renderPrayer()}</div>
     </div>`;

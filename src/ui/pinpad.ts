@@ -5,6 +5,7 @@ import "./icon";
 /** iPhone-style passcode pad. Calls onSubmit when the last digit lands; a wrong code shakes and clears. */
 @customElement("sn-pinpad")
 export class SnPinpad extends LitElement {
+  /** Digits expected; 0 = any length, confirmed with the ✓ key (alarm codes). */
   @property({ type: Number }) length = 4;
   @property() prompt = "";
   @property() error = "";
@@ -100,7 +101,21 @@ export class SnPinpad extends LitElement {
     }
   `;
 
+  private submit() {
+    const pin = this.value;
+    if (!pin) return;
+    if (this.onSubmit(pin)) return;
+    this.wrong = true;
+    navigator.vibrate?.([60, 40, 60]);
+    this.value = "";
+  }
+
   private press(d: string) {
+    if (!this.length) {
+      if (this.value.length < 12) this.value += d;
+      this.wrong = false;
+      return;
+    }
     if (this.value.length >= this.length) return;
     this.wrong = false;
     this.value += d;
@@ -121,11 +136,13 @@ export class SnPinpad extends LitElement {
     return html`
       <div class="prompt ${this.wrong ? "err" : ""}">${this.wrong ? this.error : this.prompt}</div>
       <div class="dots ${this.wrong ? "shake" : ""}" aria-hidden="true">
-        ${Array.from({ length: this.length }, (_, i) => html`<span class="dot ${i < this.value.length ? "on" : ""}"></span>`)}
+        ${Array.from({ length: this.length || Math.max(4, this.value.length) }, (_, i) => html`<span class="dot ${i < this.value.length ? "on" : ""}"></span>`)}
       </div>
       <div class="keys">
         ${["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => html`<button @click=${() => this.press(d)}>${d}</button>`)}
-        <span></span>
+        ${this.length
+          ? html`<span></span>`
+          : html`<button class="ghost" aria-label="ok" @click=${() => this.submit()}><sn-icon icon="check"></sn-icon></button>`}
         <button @click=${() => this.press("0")}>0</button>
         <button class="ghost" aria-label="delete" @click=${() => (this.value = this.value.slice(0, -1))}>
           <sn-icon icon="backspace"></sn-icon>

@@ -51,6 +51,14 @@ add(ent("button.robot_empty_dustbin", "unknown", { friendly_name: "Empty dustbin
 add(ent("camera.front_door", "idle", { friendly_name: "كاميرا الباب", entity_picture: "/dev/cam-front.svg", access_token: "dev" }));
 add(ent("camera.garden", "idle", { friendly_name: "كاميرا الحديقة", entity_picture: "/dev/cam-garden.svg", access_token: "dev" }));
 add(ent("lock.front_door", "locked", { friendly_name: "قفل الباب" }));
+add(ent("alarm_control_panel.house", "disarmed", { friendly_name: "إنذار البيت", code_format: "number", code_arm_required: false, supported_features: 7 }));
+add(ent("fan.bedroom", "on", { friendly_name: "مروحة غرفة النوم" }));
+add(ent("switch.iron", "on", { friendly_name: "المكواة" }));
+add(ent("script.smartnest_panic", "off", { friendly_name: "SmartNest · طوارئ" }));
+add(ent("sensor.home_energy_total", "8421", { friendly_name: "عداد الكهرباء", unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" }));
+add(ent("sensor.solar_energy_total", "3104", { friendly_name: "إنتاج الشمسي", unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" }));
+add(ent("sensor.ac_energy", "910", { friendly_name: "المكيفات", unit_of_measurement: "kWh", device_class: "energy" }));
+add(ent("sensor.heater_energy", "520", { friendly_name: "السخان", unit_of_measurement: "kWh", device_class: "energy" }));
 add(ent("binary_sensor.hallway_motion", "off", { friendly_name: "حركة الممر", device_class: "motion" }));
 add(ent("binary_sensor.front_door_contact", "off", { friendly_name: "باب المدخل", device_class: "door" }));
 add(ent("binary_sensor.kitchen_window", "on", { friendly_name: "شباك المطبخ", device_class: "window" }));
@@ -141,6 +149,7 @@ export const DEMO_ROOMS = [
 ];
 
 type Listener = (msg: any) => void;
+const timers: Record<string, string> = {};
 const configListeners = new Set<Listener>();
 const KEY = "smartnest-dev-config";
 const isAdmin = params.get("role") !== "client";
@@ -254,6 +263,13 @@ async function callService(domain: string, service: string, data: Record<string,
       return set(id, data.position > 0 ? "open" : "closed", { current_position: data.position });
     case "cover.set_cover_tilt_position":
       return set(id, e.state, { current_tilt_position: data.tilt_position });
+    case "alarm_control_panel.alarm_arm_home":
+    case "alarm_control_panel.alarm_arm_away":
+    case "alarm_control_panel.alarm_arm_night":
+      return set(id, service.replace("alarm_", "").replace("arm_", "armed_"));
+    case "alarm_control_panel.alarm_disarm":
+      if (data.code !== "1234") throw new Error("wrong code");
+      return set(id, "disarmed");
     case "lock.unlock":
       set(id, "unlocking");
       return later(900, () => set(id, "unlocked"));
@@ -326,8 +342,26 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/timer/list":
+      return { ...timers };
+    case "smartnest/timer/set": {
+      const due = new Date(Date.now() + msg.minutes * 60_000).toISOString();
+      timers[msg.entity_id] = due;
+      return { due };
+    }
+    case "smartnest/timer/cancel":
+      delete timers[msg.entity_id];
+      return null;
     case "smartnest/license/status":
-      return { licensed: licensed(), instance_id: "dev-installation-0f3a9c", licensee: licensed() ? "بيت أبو محمد" : "" };
+      return {
+        licensed: licensed(),
+        instance_id: "dev-installation-0f3a9c",
+        licensee: licensed() ? "بيت أبو محمد" : "",
+        plan: params.get("plan") ?? "premium",
+        expires: params.get("expires") ? Math.floor(Date.now() / 1000) + Number(params.get("expires")) * 86400 : null,
+        trial: params.get("trial") === "1",
+        reseller: params.get("reseller") ?? "",
+      };
     case "smartnest/license/activate":
       // The mock can't check signatures; the real integration does (Ed25519, per installation).
       if (!isAdmin || !String(msg.key).startsWith("SN1.")) throw { code: "invalid_key", message: "invalid" };
@@ -353,6 +387,17 @@ async function callWS(msg: Record<string, any>): Promise<any> {
         ev("binary_sensor.front_door_contact", "on", 11),
         ev("vacuum.robot", "cleaning", 9),
       ].filter((e) => msg.entity_ids.includes(e.entity_id));
+    }
+    case "recorder/statistics_during_period": {
+      // Daily kWh for each meter from the start of last month.
+      const per: Record<string, number> = { "sensor.home_energy_total": 21, "sensor.solar_energy_total": 9, "sensor.ac_energy": 8, "sensor.heater_energy": 4.5, "sensor.energy_today": 0 };
+      const out: Record<string, { start: number; change: number }[]> = {};
+      const t0 = Date.parse(msg.start_time);
+      for (const id of msg.statistic_ids) {
+        out[id] = [];
+        for (let t = t0; t < Date.now(); t += 86_400_000) out[id].push({ start: t, change: (per[id] ?? 1) * (0.8 + Math.random() * 0.4) * (t > Date.now() - 20 * 86_400_000 ? 1.1 : 1) });
+      }
+      return out;
     }
     case "history/history_during_period":
       return history(msg.entity_ids[0]);

@@ -1,0 +1,29 @@
+# SmartNest: emergency button (زر الطوارئ)
+#
+# Copy to /config/packages/ (configuration.yaml needs `homeassistant: packages: !include_dir_named packages`),
+# fill the ✏️ lines for this house, restart. Then add the "Emergency" widget on the dashboard.
+
+script:
+  smartnest_panic:
+    alias: "SmartNest · طوارئ"
+    icon: mdi:alarm-light
+    mode: single
+    sequence:
+      - action: light.turn_on
+        target:
+          entity_id: all
+        data:
+          brightness_pct: 100
+      # ✏️ A siren, if the house has one:
+      # - action: siren.turn_on
+      #   target:
+      #     entity_id: siren.house
+      # ✏️ Unlock the front door for paramedics? Only if the family agrees:
+      # - action: lock.unlock
+      #   target:
+      #     entity_id: lock.front_door
+      - action: notify.send_message
+        target:
+          entity_id: notify.family # ✏️ the family's notify entities (HA app on each phone)
+        data:
+          message: "🚨 {{ states.zone.home.name }}: emergency button pressed"
