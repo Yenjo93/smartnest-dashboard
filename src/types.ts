@@ -105,6 +105,10 @@ export interface Settings {
   /** Watts the house shouldn't go over (the main breaker or the solar inverter's limit). */
   power_limit?: number;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
+  /** What travel mode turns off, which lights it plays with, where the evening report goes. */
+  travel: { off: string[]; lights: string[]; notify?: string; arm: boolean; simulate: boolean };
+  /** Numbers on the alarm screen. */
+  emergency: { police: string; contacts: { name: string; phone: string }[] };
 }
 
 export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check"

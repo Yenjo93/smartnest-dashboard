@@ -6,7 +6,7 @@ import type { I18nKey } from "./i18n";
 import { MODES, MODE_SELECT, modeScript } from "./widgets/modes";
 import "./ui/icon";
 
-export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power";
+export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel";
 export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "mode", label: "widget_modes" },
   { id: "alert", label: "chip_t_alert" },
@@ -16,6 +16,8 @@ export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "climate", label: "chip_t_climate" },
   { id: "motion", label: "chip_t_motion" },
   { id: "power", label: "chip_t_power" },
+  { id: "package", label: "chip_t_package" },
+  { id: "travel", label: "travel" },
 ];
 
 export interface Chip {
@@ -49,6 +51,17 @@ export function buildChips(ctx: Ctx): Chip[] {
   const st = (id: string) => hass.states[id]!;
   const pick = (fn: (e: HassEntity) => boolean) => ids.filter((id) => fn(st(id)));
   const chips: Chip[] = [];
+
+  if (hass.states["switch.smartnest_travel_mode"]?.state === "on" && ctx.allows("travel"))
+    chips.push({ type: "travel", icon: "airplane", label: t("travel_on"), tone: "accent", entities: [] });
+
+  // A parcel at the door: Frigate's package count, or any "package" sensor.
+  const parcels = Object.values(hass.states).filter((e) => {
+    const id = e.entity_id;
+    if (!/package|parcel/.test(id)) return false;
+    return (id.startsWith("binary_sensor.") && e.state === "on") || (id.startsWith("sensor.") && Number(e.state) > 0);
+  });
+  if (parcels.length && ctx.allows("package")) chips.push({ type: "package", icon: "package", label: t("chip_package"), tone: "accent", entities: parcels.map((e) => e.entity_id) });
 
   const mode = hass.states[MODE_SELECT]?.state;
   const m = MODES.find((x) => x.id === mode);

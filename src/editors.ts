@@ -1,7 +1,8 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { Ctx } from "./ctx";
 import type { DashboardConfig, Lang, ThemeMode, Widget, WidgetType } from "./types";
-import { entityIcon, entityName, type EntityFilter } from "./entities";
+import { domainOf, entityIcon, entityName, type EntityFilter } from "./entities";
+import { dashboardEntities } from "./chips";
 import { DEFAULT_ACCENT, TEMPLATES, WIDGET_SIZES, findWidget, newFloor, newWidget, nextRow, pageFromTemplate, resolveLayout } from "./config";
 import { LANGS, type I18nKey } from "./i18n";
 import { PAGE_ICONS } from "./icons";
@@ -679,6 +680,33 @@ export function settingsSheet(
               html`<label class="field">${t("wifi_password")}<input type="text" class="ltr" autocomplete="off" .value=${s.guests.password ?? ""} @change=${(e: any) => set((d) => (d.settings.guests.password = e.target.value || undefined))} /></label>`
             )
           : nothing,
+        c.allows("travel") ? travelSettings(c, set) : nothing,
+        c.allows("alarm_screen")
+          ? section(
+              t("emergency"),
+              html`<label class="field">${t("police_number")}<input type="tel" class="ltr" .value=${s.emergency.police} @change=${(e: any) => set((d) => (d.settings.emergency.police = e.target.value.trim()))} /></label>`,
+              html`<label class="field"
+                >${t("emergency_contacts")}
+                <textarea
+                  rows="3"
+                  class="ltr"
+                  placeholder="أبو محمد, 0501234567"
+                  .value=${s.emergency.contacts.map((p) => `${p.name}, ${p.phone}`).join("\n")}
+                  @change=${(e: any) =>
+                    set(
+                      (d) =>
+                        (d.settings.emergency.contacts = String(e.target.value)
+                          .split("\n")
+                          .map((l) => l.split(","))
+                          .filter((p) => p.length >= 2 && p[1].trim())
+                          .map(([name, phone]) => ({ name: name.trim(), phone: phone.trim() }))
+                          .slice(0, 4))
+                    )}
+                ></textarea>
+                <span class="hint">${t("emergency_hint")}</span>
+              </label>`
+            )
+          : nothing,
         section(
           t("weather"),
           entityField(c, t("weather_entity"), s.weather.entity, { domains: ["weather"] }, (id) => set((d) => (d.settings.weather.entity = id)), true),
@@ -850,5 +878,45 @@ function tabletSection(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void) 
       ${t("motion_wake")} ${toggle(c, f.motion_wake, (v) => set((d) => (d.settings.fully.motion_wake = v)))}
       <span class="hint">${t("motion_wake_hint")}</span>
     </div>`
+  );
+}
+
+/** Travel mode: what it shuts, which lights it plays with, and where the evening report goes. */
+function travelSettings(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void) {
+  const { t, hass, config } = c;
+  const s = config.settings.travel;
+  const ids = dashboardEntities(config).filter((id) => hass.states[id]);
+  const offCands = ids.filter((id) => ["switch", "valve", "water_heater", "climate", "media_player", "fan", "humidifier"].includes(domainOf(id)));
+  const lightCands = ids.filter((id) => domainOf(id) === "light");
+  const notify = Object.keys((hass as any).services?.notify ?? {})
+    .filter((n) => n !== "send_message" && n !== "persistent_notification")
+    .map((n) => `notify.${n}`);
+  const pickList = (list: string[], chosen: string[], key: "off" | "lights") => html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+    ${list.map((id) => {
+      const on = chosen.includes(id);
+      return html`<button
+        class="btn pressable ${on ? "primary" : ""}"
+        style="justify-content:flex-start;font-weight:500"
+        aria-pressed=${on}
+        @click=${() => set((d) => (d.settings.travel[key] = on ? d.settings.travel[key].filter((x) => x !== id) : [...d.settings.travel[key], id]))}
+      >
+        <sn-icon icon=${on ? "check" : "close"} style="--icon-size:18px"></sn-icon>${entityName(hass, config, id)}
+      </button>`;
+    })}
+  </div>`;
+  return section(
+    t("travel"),
+    html`<span class="field">${t("travel_off_pick")}</span>`,
+    pickList(offCands, s.off, "off"),
+    html`<div class="field">${t("travel_sim")} ${toggle(c, s.simulate, (v) => set((d) => (d.settings.travel.simulate = v)))}</div>`,
+    s.simulate ? pickList(lightCands, s.lights, "lights") : nothing,
+    html`<div class="field">${t("travel_arm")} ${toggle(c, s.arm, (v) => set((d) => (d.settings.travel.arm = v)))}</div>`,
+    html`<label class="field"
+      >${t("travel_report")}
+      <select @change=${(e: any) => set((d) => (d.settings.travel.notify = e.target.value || undefined))}>
+        <option value="" ?selected=${!s.notify}>–</option>
+        ${notify.map((n) => html`<option value=${n} ?selected=${s.notify === n}>${n}</option>`)}
+      </select>
+    </label>`
   );
 }

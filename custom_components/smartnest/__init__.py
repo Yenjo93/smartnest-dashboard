@@ -36,6 +36,8 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+PLATFORMS = ["switch"]
+
 # Routes and WebSocket commands can't be unregistered, so they're added once per HA run.
 _REGISTERED = f"{DOMAIN}_registered"
 
@@ -91,11 +93,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         require_admin=False,
         config={"asset_base": f"{STATIC_URL}/static/", "version": version},
     )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel; the saved dashboard stays on disk."""
+    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
     hass.services.async_remove(DOMAIN, "show_message")
     data = hass.data.pop(DOMAIN, None) or {}

@@ -19,6 +19,8 @@ import "./morning";
 import "./message";
 import "./assistant";
 import "./overload";
+import { TRAVEL, travelSheet, weatherRisk } from "./security";
+import "./security";
 import { readGuests, writeGuests } from "./guests";
 import { rateSheet } from "./installer";
 import "./installer";
@@ -101,6 +103,10 @@ export class SmartNestPanel extends LitElement {
   /** Watts while the house is over its power limit. */
   @state() private overload?: number;
   private overSince = 0;
+  /** Alarm screen hidden for this trigger (it comes back on the next one). */
+  private alarmHiddenAt?: string;
+  /** Weather alert dismissed: condition + day. */
+  @state() private wxDismissed = "";
   private overSnooze = 0;
   @state() private guests = readGuests();
   @state() private tvMode = (() => {
@@ -959,6 +965,16 @@ export class SmartNestPanel extends LitElement {
               <sn-icon icon="guests" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
+        ${!this.kids && ctx.allows("travel") && !ctx.editing && this.hass.states[TRAVEL]
+          ? html`<button
+              class="icon-btn pressable ${this.hass.states[TRAVEL].state === "on" ? "primary" : ""}"
+              aria-label=${t("travel")}
+              title=${t("travel")}
+              @click=${() => travelSheet(ctx)}
+            >
+              <sn-icon icon="airplane" style="--icon-size:20px"></sn-icon>
+            </button>`
+          : nothing}
         ${!this.kids && ctx.allows("assistant") && !ctx.editing
           ? html`<button
               class="icon-btn pressable"
@@ -1118,7 +1134,7 @@ export class SmartNestPanel extends LitElement {
     if (!chips.length) return nothing;
     return html`<div class="chips" role="list">
       ${chips.map(
-        (c) => html`<button class="chip pressable ${c.tone}" role="listitem" @click=${() => (c.entities.length ? chipSheet(ctx, c.type) : undefined)}>
+        (c) => html`<button class="chip pressable ${c.tone}" role="listitem" @click=${() => (c.type === "travel" ? travelSheet(ctx) : c.entities.length ? chipSheet(ctx, c.type) : undefined)}>
           <sn-icon .icon=${c.icon}></sn-icon>${rolling(c.label)}
         </button>`
       )}
@@ -1256,6 +1272,19 @@ export class SmartNestPanel extends LitElement {
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
       ${this.message && ctx.allows("messages") ? html`<sn-message .ctx=${ctx} .msg=${this.message}></sn-message>` : nothing}
+      ${(() => {
+        const alarm = ctx.allows("alarm_screen") ? Object.values(this.hass.states).find((e) => e.entity_id.startsWith("alarm_control_panel.") && e.state === "triggered") : undefined;
+        return alarm && this.alarmHiddenAt !== alarm.last_changed
+          ? html`<sn-alarm .ctx=${ctx} .alarm=${alarm} .onHide=${() => ((this.alarmHiddenAt = alarm.last_changed), this.requestUpdate())}></sn-alarm>`
+          : nothing;
+      })()}
+      ${(() => {
+        const risk = ctx.allows("weather_alert") && !ctx.editing ? weatherRisk(ctx) : undefined;
+        const key = risk ? `${risk.condition}|${new Date().toDateString()}` : "";
+        return risk && this.wxDismissed !== key && !this.overload
+          ? html`<sn-weather-alert .ctx=${ctx} .risk=${risk} .onDismiss=${() => (this.wxDismissed = key)}></sn-weather-alert>`
+          : nothing;
+      })()}
       ${this.overload
         ? html`<sn-overload
             .ctx=${ctx}

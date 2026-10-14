@@ -62,6 +62,8 @@ export function defaultSettings(lang: Lang): Settings {
     maintenance: [],
     setup_done: true,
     chips_hidden: [],
+    travel: { off: [], lights: [], arm: true, simulate: true },
+    emergency: { police: "100", contacts: [] },
   };
 }
 
@@ -222,6 +224,8 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.weather = { ...base.weather, ...(raw?.settings?.weather ?? {}) };
   settings.guests = { ...(raw?.settings?.guests ?? {}) };
   settings.fully = { ...base.fully, ...(raw?.settings?.fully ?? {}) };
+  settings.travel = { ...base.travel, ...(raw?.settings?.travel ?? {}) };
+  settings.emergency = { ...base.emergency, ...(raw?.settings?.emergency ?? {}) };
   return { version: 1, settings, names: { ...(raw?.names ?? {}) }, pages: Array.isArray(raw?.pages) ? raw.pages : [] };
 }
 

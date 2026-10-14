@@ -73,6 +73,8 @@ add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", un
 add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("switch.smartnest_travel_mode", "off", { friendly_name: "SmartNest travel mode", icon: "mdi:airplane", simulating: [] }));
+add(ent("sensor.front_door_package_count", "1", { friendly_name: "طرود عالباب" }));
 add(ent("sensor.robot_current_room", "الصالة", { friendly_name: "الروبوت · الغرفة" }));
 add(ent("sensor.water_today", "312", { friendly_name: "المي اليوم", unit_of_measurement: "L", device_class: "water", state_class: "total_increasing" }));
 add(ent("sensor.water_tank_level", "64", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
@@ -587,6 +589,7 @@ function snapshot(): Hass {
     user: { id: "dev", name: isAdmin ? "Installer" : "Client", is_admin: isAdmin },
     language: lang,
     config: { location_name: "Home" },
+    services: { notify: { mobile_app_omar: {}, family_group: {} } },
     callService,
     callWS,
     hassUrl: (p = "") => p,
