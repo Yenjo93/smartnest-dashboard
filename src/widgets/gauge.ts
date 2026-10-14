@@ -25,7 +25,7 @@ export class SnGauge extends LitElement {
         border-radius: var(--r-lg);
         padding: 12px;
         display: grid;
-        grid-template-rows: 1fr auto;
+        grid-template-rows: 1fr auto auto;
         justify-items: center;
         gap: 4px;
         overflow: hidden;
@@ -108,6 +108,16 @@ export class SnGauge extends LitElement {
         </div>
       </div>
       <span class="name">${name}</span>
+      ${c.supplier && pct <= lowAt && !Number.isNaN(v) && ctx.allows("refill")
+        ? html`<a
+            class="btn primary pressable"
+            style="min-height:34px;font-size:13px;text-decoration:none"
+            target="_blank"
+            rel="noopener"
+            href=${`https://wa.me/${String(c.supplier).replace(/\D/g, "")}?text=${encodeURIComponent(ctx.t("refill_message", { what: name, home: ctx.config.settings.home_name || ctx.hass.config?.location_name || "" }))}`}
+            >${ctx.t("refill_order")}</a
+          >`
+        : ""}
     </div>`;
   }
 }

@@ -4,7 +4,8 @@
   "after_dependencies": [
     "ai_task",
     "camera",
-    "media_source"
+    "media_source",
+    "webhook"
   ],
   "codeowners": [
     "@Yenjo93"

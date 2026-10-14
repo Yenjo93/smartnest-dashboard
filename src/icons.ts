@@ -365,6 +365,7 @@ export const ICONS: Record<string, string> = {
   "washing-machine": mdiWashingMachine,
   note: mdiNoteTextOutline,
   "book-open-variant": mdiBookOpenVariant,
+  "weather-night": mdiWeatherNight,
 };
 
 /** Icons offered when naming a page. */

@@ -73,22 +73,78 @@ class Issuer:
         self.key_store: Store[dict] = Store(hass, 1, "smartnest.issuer_key")
         self.db: Store[dict] = Store(hass, 1, "smartnest.issued")
         self.key: Ed25519PrivateKey | None = None
+        self.webhook_id = ""
 
     async def async_load(self) -> None:
         saved = await self.key_store.async_load() or {}
         self.key = _load_key(saved.get("pem", "")) if saved.get("pem") else None
+        self.webhook_id = saved.get("webhook") or ""
+        if self.key:
+            await self._ensure_webhook(saved)
+
+    async def _ensure_webhook(self, saved: dict[str, Any]) -> None:
+        """Client houses post their daily heartbeat here."""
+        from homeassistant.components import webhook
+
+        if not self.webhook_id:
+            self.webhook_id = f"smartnest_{secrets.token_hex(16)}"
+            await self.key_store.async_save({**saved, "webhook": self.webhook_id})
+        try:
+            webhook.async_register(self.hass, DOMAIN, "SmartNest heartbeat", self.webhook_id, self._on_beat, allowed_methods=["POST"])
+        except ValueError:
+            pass  # already registered (integration reloaded)
+
+    def webhook_url(self) -> str:
+        from homeassistant.components import webhook
+
+        try:
+            return webhook.async_generate_url(self.hass, self.webhook_id, prefer_external=True)
+        except Exception:  # noqa: BLE001 - no external URL configured
+            return webhook.async_generate_path(self.webhook_id)
+
+    async def _on_beat(self, hass: HomeAssistant, webhook_id: str, request: Any) -> None:
+        try:
+            data = await request.json()
+        except ValueError:
+            return
+        key = str(data.get("key", ""))
+        try:
+            install = json.loads(_b64d(key.split(".")[1])).get("i", "")
+        except (ValueError, IndexError):
+            return
+        # Only genuine houses of this installer: the key must verify for the install it claims.
+        if not install or verify(key, install) is None:
+            return
+        db = await self.db.async_load() or {}
+        beats = db.get("beats", {})
+        beats[install] = {
+            "at": time.time(),
+            "name": str(data.get("name", ""))[:60],
+            "version": str(data.get("version", ""))[:20],
+            "ha": str(data.get("ha", ""))[:20],
+            "offline": int(data.get("offline") or 0),
+            "offline_names": [str(x)[:40] for x in (data.get("offline_names") or [])[:8]],
+            "low_battery": int(data.get("low_battery") or 0),
+            "backup": str(data.get("backup") or "")[:40],
+        }
+        await self.db.async_save({**db, "beats": beats})
 
     async def async_setup_key(self, pem: str) -> bool:
         key = _load_key(pem)
         if key is None:
             return False
-        await self.key_store.async_save({"pem": pem.strip()})
+        await self.key_store.async_save({**(await self.key_store.async_load() or {}), "pem": pem.strip()})
         self.key = key
         return True
 
     async def async_forget_key(self) -> None:
+        if self.webhook_id:
+            from homeassistant.components import webhook
+
+            webhook.async_unregister(self.hass, self.webhook_id)
         await self.key_store.async_remove()
         self.key = None
+        self.webhook_id = ""
 
     def sign(self, install: str, name: str, plan: str, days: int | None, trial: bool, reseller: str | None) -> tuple[str, dict[str, Any]]:
         assert self.key is not None
@@ -108,7 +164,11 @@ class Issuer:
         return (await self.db.async_load() or {}).get("houses", [])
 
     async def save_houses(self, houses: list[dict[str, Any]]) -> None:
-        await self.db.async_save({"houses": houses})
+        db = await self.db.async_load() or {}
+        await self.db.async_save({**db, "houses": houses})
+
+    async def beats(self) -> dict[str, Any]:
+        return (await self.db.async_load() or {}).get("beats", {})
 
 
 def _record(key: str, payload: dict[str, Any], phone: str = "", note: str = "") -> dict[str, Any]:
@@ -136,16 +196,21 @@ def _issuer(hass: HomeAssistant) -> Issuer:
 @websocket_api.async_response
 async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     iss = _issuer(hass)
-    connection.send_result(msg["id"], {"ready": iss.key is not None, "houses": await iss.houses() if iss.key else []})
+    if not iss.key:
+        connection.send_result(msg["id"], {"ready": False, "houses": []})
+        return
+    connection.send_result(msg["id"], {"ready": True, "houses": await iss.houses(), "beats": await iss.beats(), "heartbeat_url": iss.webhook_url()})
 
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({vol.Required("type"): "smartnest/issuer/setup", vol.Required("pem"): str})
 @websocket_api.async_response
 async def ws_setup(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    if not await _issuer(hass).async_setup_key(msg["pem"]):
+    iss = _issuer(hass)
+    if not await iss.async_setup_key(msg["pem"]):
         connection.send_error(msg["id"], "wrong_key", "This isn't the SmartNest signing key")
         return
+    await iss._ensure_webhook(await iss.key_store.async_load() or {})
     await async_sync_panel(hass)
     connection.send_result(msg["id"])
 

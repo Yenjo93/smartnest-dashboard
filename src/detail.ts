@@ -11,6 +11,7 @@ import type { I18nKey } from "./i18n";
 import "./ui/icon";
 import { fxRow } from "./lightfx";
 import { guestCodesSheet } from "./codes";
+import { laterButton } from "./tou";
 import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
 import "./ui/color-wheel";
@@ -374,6 +375,10 @@ export class SnEntityDetail extends LitElement {
 
   private renderPower(e: HassEntity) {
     const on = isActive(e);
+    return html`${this.renderPowerButton(e, on)}${on ? nothing : laterButton(this.ctx, e.entity_id)}`;
+  }
+
+  private renderPowerButton(e: HassEntity, on: boolean) {
     return html`<button
       class="power pressable ${on ? "on" : ""}"
       aria-pressed=${on}

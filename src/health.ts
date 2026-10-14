@@ -33,6 +33,7 @@ export class SnFaults extends LitElement {
 }
 import "./ui/icon";
 import { aiEntity, askAI } from "./ai";
+import "./care";
 
 /** Most likely cause of a device dropping off, from how it connects. */
 function cause(ctx: Ctx, id: string): I18nKey {
@@ -211,6 +212,8 @@ export function healthSheet(ctx: Ctx) {
             })()
           : nothing}
         <sn-explain .ctx=${c} .offline=${offline} .low=${low}></sn-explain>
+        ${c.allows("battery_plan") ? html`<sn-battery-plan .ctx=${c}></sn-battery-plan>` : nothing}
+        ${c.allows("warranty") ? html`<sn-warranty .ctx=${c}></sn-warranty>` : nothing}
         <sn-faults .ctx=${c}></sn-faults>
         <p class="muted" style="margin:4px 0 0;font-size:13px">${t("h_telegram")}</p>
       </div>`;

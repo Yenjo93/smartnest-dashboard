@@ -108,7 +108,7 @@ export interface Settings {
   /** What travel mode turns off, which lights it plays with, where the evening report goes. */
   travel: { off: string[]; lights: string[]; notify?: string; arm: boolean; simulate: boolean };
   /** Who installed this house: the client's "something's wrong" button messages them. */
-  installer: { name?: string; phone?: string };
+  installer: { name?: string; phone?: string; heartbeat_url?: string };
   /** Washer, dryer, dishwasher: announced when their power meter says the cycle ended. */
   appliances: { power: string; name: string; start_w?: number; quiet_min?: number }[];
   /** At night, motion lights a dim path. */
@@ -117,6 +117,8 @@ export interface Settings {
   arrival: { climate: string[]; lights: string[]; km: number };
   /** Grid lost (battery or generator takes over): turn off the heavy loads. */
   outage: { sensor?: string; shed: string[]; below?: number };
+  /** Time-of-use tariff: cheap night hours and the peak to avoid. */
+  tou: { enabled: boolean; cheap_from: string; cheap_to: string; peak_from: string; peak_to: string };
   /** Numbers on the alarm screen. */
   emergency: { police: string; contacts: { name: string; phone: string }[] };
 }

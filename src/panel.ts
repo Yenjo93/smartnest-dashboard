@@ -60,9 +60,46 @@ const pickLang = (hassLang: string | undefined): Lang => {
   return l === "en" || l === "he" ? l : "ar";
 };
 
+const SHOWROOM = (() => {
+  try {
+    return localStorage.getItem("smartnest-showroom") === "1";
+  } catch {
+    return false;
+  }
+})();
+
 @customElement("smartnest-panel")
 export class SmartNestPanel extends LitElement {
-  @property({ attribute: false }) hass!: Hass;
+  private _hass!: Hass;
+  private demoHass?: Hass;
+  private demoLoading = false;
+
+  /**
+   * Home Assistant hands the panel its hass object. In showroom mode the panel swaps it for a demo house
+   * (lights, cameras, a plan) so a shop tablet can show SmartNest without touching anyone's real home.
+   */
+  @property({ attribute: false })
+  set hass(v: Hass) {
+    if (SHOWROOM && v !== this.demoHass) {
+      if (!this.demoLoading) {
+        this.demoLoading = true;
+        (globalThis as any).__SN_DEMO_BASE = `${(this.panel?.config as any)?.asset_base ?? "/smartnest_static/static/"}demo/`;
+        import("../dev/mock").then((m) =>
+          m.startMock((h: Hass) => {
+            this.demoHass = h;
+            this.hass = h;
+          })
+        );
+      }
+      return;
+    }
+    const old = this._hass;
+    this._hass = v;
+    this.requestUpdate("hass", old);
+  }
+  get hass(): Hass {
+    return this._hass;
+  }
   @property({ type: Boolean, reflect: true }) narrow = false;
   @property({ attribute: false }) panel?: PanelInfo;
   @property({ attribute: false }) route?: unknown;
@@ -569,8 +606,8 @@ export class SmartNestPanel extends LitElement {
         /* per-device */
       }
       this.pageId = (here && this.config.pages.some((p) => p.id === here) ? here : "") || this.config.settings.default_page || this.config.pages[0]?.id || "";
-      if (!this.config.settings.setup_done && this.hass.user?.is_admin) window.setTimeout(() => this.openWizard(), 300);
-      else if (!this.hass.user?.is_admin && !tourDone()) window.setTimeout(() => (this.touring = true), 1500);
+      if (!this.config.settings.setup_done && this.hass.user?.is_admin && !SHOWROOM) window.setTimeout(() => this.openWizard(), 300);
+      else if (!this.hass.user?.is_admin && !tourDone() && !SHOWROOM) window.setTimeout(() => (this.touring = true), 1500);
       this.unsubMsg = this.hass.connection.subscribeMessage<{ message: ScreenMessage | null }>(
         (m) => {
           this.message = m.message ?? undefined;
@@ -1203,6 +1240,30 @@ export class SmartNestPanel extends LitElement {
                 )}
               </div>
             </div>
+            ${c.isAdmin && c.allows("showroom")
+              ? html`<div class="field">
+                  ${c.t("showroom")}
+                  <div class="seg">
+                    ${[true, false].map(
+                      (v) => html`<button
+                        aria-pressed=${SHOWROOM === v}
+                        @click=${() => {
+                          if (v === SHOWROOM) return;
+                          try {
+                            v ? localStorage.setItem("smartnest-showroom", "1") : localStorage.removeItem("smartnest-showroom");
+                          } catch {
+                            /* fine */
+                          }
+                          location.reload();
+                        }}
+                      >
+                        ${c.t(v ? "on" : "off")}
+                      </button>`
+                    )}
+                  </div>
+                  <span class="hint">${c.t("showroom_hint")}</span>
+                </div>`
+              : nothing}
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               ${c.allows("photo_frame") ? html`<button class="btn pressable" @click=${() => photoDropSheet(c)}>📷 ${c.t("photos_from_phone")}</button>` : nothing}
               <button class="btn pressable" @click=${() => ((this.sheets = []), (this.touring = true))}>🧭 ${c.t("tour_again")}</button>

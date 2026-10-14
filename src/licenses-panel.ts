@@ -4,6 +4,17 @@ import type { Hass, PanelInfo } from "./types";
 import { fontFaceCss, shared, themeVars } from "./theme";
 import "./ui/icon";
 
+interface Beat {
+  at: number;
+  name: string;
+  version: string;
+  ha: string;
+  offline: number;
+  offline_names: string[];
+  low_battery: number;
+  backup: string;
+}
+
 interface House {
   id: string;
   key: string;
@@ -45,6 +56,8 @@ export class SmartNestLicenses extends LitElement {
   @property({ attribute: false }) panel?: PanelInfo;
   @state() private ready?: boolean;
   @state() private houses: House[] = [];
+  @state() private beats: Record<string, Beat> = {};
+  @state() private beatUrl = "";
   @state() private plan: House["plan"] = "premium";
   @state() private days = "";
   @state() private q = "";
@@ -256,6 +269,26 @@ export class SmartNestLicenses extends LitElement {
         font-size: 13px;
         width: auto;
       }
+      .beat {
+        display: grid;
+        gap: 2px;
+        padding: 8px 12px;
+        border-radius: var(--r-md);
+        font-size: 13px;
+        border-inline-start: 4px solid var(--success);
+        background: color-mix(in srgb, var(--success) 8%, transparent);
+      }
+      .beat.warn {
+        border-color: #e9971d;
+        background: color-mix(in srgb, #e9971d 10%, transparent);
+      }
+      .beat.late {
+        border-color: var(--alert);
+        background: color-mix(in srgb, var(--alert) 10%, transparent);
+      }
+      .beat span {
+        color: var(--text-2);
+      }
       .empty {
         color: var(--text-2);
         text-align: center;
@@ -316,9 +349,11 @@ export class SmartNestLicenses extends LitElement {
 
   private async refresh() {
     try {
-      const s = await this.hass.callWS<{ ready: boolean; houses: House[] }>({ type: "smartnest/issuer/status" });
+      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; heartbeat_url?: string }>({ type: "smartnest/issuer/status" });
       this.ready = s.ready;
       this.houses = s.houses;
+      this.beats = s.beats ?? {};
+      this.beatUrl = s.heartbeat_url ?? "";
     } catch {
       this.ready = false;
     }
@@ -447,6 +482,22 @@ export class SmartNestLicenses extends LitElement {
     </form>`;
   }
 
+  /** The house's last daily report: alive, what's offline, which versions. */
+  private renderBeat(h: House) {
+    const b = this.beats[h.install];
+    if (!b) return nothing;
+    const hours = (Date.now() / 1000 - b.at) / 3600;
+    const late = hours > 36;
+    const ago = hours < 1 ? "هلأ" : hours < 24 ? `قبل ${Math.round(hours)} ساعة` : `قبل ${Math.round(hours / 24)} يوم`;
+    const issues = b.offline + b.low_battery;
+    return html`<div class="beat ${late ? "late" : issues ? "warn" : "ok"}">
+      <b>${late ? "⚠️ ما بعت نبض" : issues ? "🟠 بدو شوية انتباه" : "🟢 كل إشي تمام"}</b>
+      <span>${ago} · SmartNest ${b.version} · HA ${b.ha}</span>
+      ${b.offline ? html`<span>${b.offline} أجهزة فاصلة: ${b.offline_names.join("، ")}</span>` : nothing}
+      ${b.low_battery ? html`<span>${b.low_battery} بطاريات ضعيفة</span>` : nothing}
+    </div>`;
+  }
+
   private renderHouse(h: House) {
     const [cls, txt] = status(h);
     const older = this.houses.filter((x) => x.install === h.install && x.id !== h.id).length;
@@ -461,6 +512,7 @@ export class SmartNestLicenses extends LitElement {
         ${h.reseller ? html`<span>عن طريق ${h.reseller}</span>` : nothing} ${older ? html`<span>${older} مفاتيح قبل</span>` : nothing}
       </div>
       ${h.note ? html`<div class="meta">📝 ${h.note}</div>` : nothing}
+      ${this.renderBeat(h)}
       <div class="row">
         <button class="btn pressable" @click=${() => this.copy(h.key)}>نسخ المفتاح</button>
         ${h.phone
@@ -562,6 +614,16 @@ export class SmartNestLicenses extends LitElement {
                       ? list.map((h) => this.renderHouse(h))
                       : html`<div class="empty">${all.length ? "ما في نتايج" : "لسا ما عملت مفاتيح. أول مفتاح من الفورم."}</div>`}
                   </div>
+                  ${this.beatUrl
+                    ? html`<details class="card">
+                        <summary>💓 نبض البيوت (تعرف المشاكل قبل ما يتصلوا)</summary>
+                        <span class="muted" style="font-size:14px"
+                          >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 12 ساعة: شغّال، كم جهاز فاصل، وأي نسخة. بدها رابط خارجي لـ HA تبعك (Nabu Casa أو دومين).</span
+                        >
+                        <code class="mono" style="word-break:break-all;font-size:12px">${this.beatUrl}</code>
+                        <button class="btn pressable" style="justify-self:start" @click=${() => this.copy(this.beatUrl)}>نسخ الرابط</button>
+                      </details>`
+                    : nothing}
                   <details class="card">
                     <summary>أضف مفتاح قديم للقائمة</summary>
                     <form

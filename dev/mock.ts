@@ -1,8 +1,10 @@
 // A fake Home Assistant for local development: devices, services, the SmartNest WebSocket API and uploads.
-// Nothing here ships to clients; the build only bundles src/.
+// It also ships as the installer's showroom mode (a demo house on a shop tablet), with its pictures in static/demo.
 import type { Hass, HassDevice, HassEntity } from "../src/types";
 import { hsToRgb } from "../src/color";
 
+/** Where the demo pictures live: /dev/ in development, the integration's static/demo/ in a showroom. */
+const DEMO: string = (globalThis as any).__SN_DEMO_BASE ?? "/dev/";
 const now = () => new Date().toISOString();
 const ent = (entity_id: string, state: string, attributes: Record<string, any>): HassEntity => ({
   entity_id,
@@ -39,7 +41,7 @@ add(ent("climate.bedroom_ac", "off", {
 }));
 add(ent("vacuum.robot", "docked", { friendly_name: "روبوت التنظيف", battery_level: 92, fan_speed: "balanced", fan_speed_list: ["quiet", "balanced", "turbo", "max"] }));
 // Roborock's sibling entities, found by the dashboard through the device registry.
-add(ent("image.robot_map", "2026-10-13T08:00:00Z", { friendly_name: "Robot map", entity_picture: "/dev/robot-map.svg" }));
+add(ent("image.robot_map", "2026-10-13T08:00:00Z", { friendly_name: "Robot map", entity_picture: `${DEMO}robot-map.svg` }));
 add(ent("select.robot_mop_intensity", "moderate", { friendly_name: "Mop intensity", options: ["off", "mild", "moderate", "intense"] }));
 add(ent("sensor.robot_cleaning_area", "42", { friendly_name: "Cleaning area", unit_of_measurement: "m²" }));
 add(ent("sensor.robot_cleaning_time", "38", { friendly_name: "Cleaning time", unit_of_measurement: "min", device_class: "duration" }));
@@ -48,8 +50,8 @@ add(ent("sensor.robot_side_brush_time_left", "540000", { friendly_name: "Side br
 add(ent("sensor.robot_filter_time_left", "54000", { friendly_name: "Filter time left", unit_of_measurement: "s", device_class: "duration" }));
 add(ent("sensor.robot_sensor_time_left", "3600", { friendly_name: "Sensor time left", unit_of_measurement: "s", device_class: "duration" }));
 add(ent("button.robot_empty_dustbin", "unknown", { friendly_name: "Empty dustbin" }));
-add(ent("camera.front_door", "idle", { friendly_name: "كاميرا الباب", entity_picture: "/dev/cam-front.svg", access_token: "dev" }));
-add(ent("camera.garden", "idle", { friendly_name: "كاميرا الحديقة", entity_picture: "/dev/cam-garden.svg", access_token: "dev" }));
+add(ent("camera.front_door", "idle", { friendly_name: "كاميرا الباب", entity_picture: `${DEMO}cam-front.svg`, access_token: "dev" }));
+add(ent("camera.garden", "idle", { friendly_name: "كاميرا الحديقة", entity_picture: `${DEMO}cam-garden.svg`, access_token: "dev" }));
 add(ent("lock.front_door", "locked", { friendly_name: "قفل الباب" }));
 add(ent("alarm_control_panel.house", "disarmed", { friendly_name: "إنذار البيت", code_format: "number", code_arm_required: false, supported_features: 7 }));
 add(ent("fan.bedroom", "on", { friendly_name: "مروحة غرفة النوم" }));
@@ -133,7 +135,7 @@ add(ent("sensor.gas_level", "64", { friendly_name: "جرة الغاز", unit_of_
 add(ent("cover.main_gate", "closed", { friendly_name: "البوابة الرئيسية", device_class: "gate" }));
 add(ent("media_player.living_speaker", "playing", {
   friendly_name: "سماعة الصالة", media_title: "فيروز · صباح ومسا", media_artist: "فيروز", volume_level: 0.35, is_volume_muted: false,
-  supported_features: 1 | 4 | 8 | 16 | 32 | 16384 | 524288, entity_picture: "/dev/photo-1.svg",
+  supported_features: 1 | 4 | 8 | 16 | 32 | 16384 | 524288, entity_picture: `${DEMO}photo-1.svg`,
 }));
 add(ent("media_player.kitchen_speaker", "idle", { friendly_name: "سماعة المطبخ", supported_features: 524288 | 4 }));
 add(ent("remote.living_tv", "on", { friendly_name: "تلفزيون الصالة" }));
@@ -254,7 +256,7 @@ function seedDemo(config: any) {
   const plan = config.pages?.flatMap((p: any) => p.widgets).find((w: any) => w.type === "floorplan");
   if (!plan) return config;
   const floor = plan.config.floors[0];
-  floor.image = "/dev/floorplan.svg";
+  floor.image = `${DEMO}floorplan.svg`;
   floor.rooms = DEMO_ROOMS;
   floor.markers = DEMO_MARKERS.map(([entity, x, y, display], i) => ({ id: `m${i}`, entity, x, y, display }));
   const home = config.pages[0];
@@ -454,7 +456,7 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       };
     }
     case "media_source/resolve_media":
-      return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+      return { url: `${DEMO}${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
     case "smartnest/feedback":
       console.info("[mock] feedback", msg.stars, msg.comment);
       return null;
@@ -529,7 +531,7 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       };
     case "smartnest/visitors/list": {
       const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
-      return { visitors: [0.5, 3, 26, 30].map((h, i) => ({ url: i % 2 ? "/dev/cam-garden.svg" : "/dev/cam-front.svg", time: ago(h) })) };
+      return { visitors: [0.5, 3, 26, 30].map((h, i) => ({ url: i % 2 ? `${DEMO}cam-garden.svg` : `${DEMO}cam-front.svg`, time: ago(h) })) };
     }
     case "call_service":
       if (msg.domain === "weather" && msg.service === "get_forecasts")

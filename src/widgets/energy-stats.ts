@@ -315,6 +315,9 @@ export class SnEnergyStats extends LitElement {
                     ><sn-icon icon=${change > 0 ? "chevron-up" : "chevron-down"}></sn-icon>${ltr(`${Math.abs(change)}%`)} ${t("bill_vs_last")}</span
                   >`
                 : nothing}
+              ${change !== undefined && change <= -5 && ctx.allows("energy_challenge")
+                ? html`<span class="pill down" title=${t("challenge_hint")}>🏅 ${t("challenge_won", { n: Math.abs(change) })}</span>`
+                : nothing}
               ${d.solar > 0 ? html`<span class="pill down"><sn-icon icon="solar"></sn-icon>${t("bill_solar")} ${money(d.solar * tariff)}</span>` : nothing}
             </div>
             ${d.top.length

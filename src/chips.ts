@@ -5,8 +5,9 @@ import { domainOf, entityIcon, entityName, formatNumber, isNumericSensor, ltr, s
 import type { I18nKey } from "./i18n";
 import { MODES, MODE_SELECT, modeScript } from "./widgets/modes";
 import "./ui/icon";
+import { tariffNow } from "./tou";
 
-export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel" | "appliance" | "arrival" | "outage";
+export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel" | "appliance" | "arrival" | "outage" | "tou";
 export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "mode", label: "widget_modes" },
   { id: "alert", label: "chip_t_alert" },
@@ -21,6 +22,7 @@ export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "appliance", label: "h_appliances" },
   { id: "arrival", label: "h_arrival" },
   { id: "outage", label: "h_outage" },
+  { id: "tou", label: "tou" },
 ];
 
 export interface Chip {
@@ -92,6 +94,9 @@ export function buildChips(ctx: Ctx): Chip[] {
       const who = person?.attributes.friendly_name ?? String(dist.attributes.friendly_name ?? "").replace(/distance|home|المسافة/gi, "").trim();
       chips.push({ type: "arrival", icon: "car", label: t("chip_arriving", { name: who, n: Math.max(1, Math.round(km / 0.6)) }), tone: "cool", entities: [dist.entity_id] });
     }
+
+  const tariff = ctx.allows("tou") ? tariffNow(config.settings.tou) : undefined;
+  if (tariff) chips.push({ type: "tou", icon: tariff === "peak" ? "lightning-bolt" : "weather-night", label: t(tariff === "peak" ? "chip_peak" : "chip_cheap"), tone: tariff === "peak" ? "alert" : "cool", entities: [] });
 
   const mode = hass.states[MODE_SELECT]?.state;
   const m = MODES.find((x) => x.id === mode);

@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board")
+KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board", "later", "warranty")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
@@ -58,6 +58,7 @@ class Family:
         self._boiler(now)
         self._irrigation(now)
         self._internet(now)
+        self._later(now)
         self._wake(now)
 
     # ---- water heater ----
@@ -91,6 +92,17 @@ class Family:
         if until and now.timestamp() >= until:
             self._switch(entity, False)
             self.hass.async_create_task(self.async_set("boiler", {**b, "until": None, "ready_at": None}))
+
+    # ---- "run it when power is cheap" ----
+
+    def _later(self, now: datetime) -> None:
+        jobs = (self.data.get("later") or {}).get("jobs", [])
+        due = [j for j in jobs if j.get("at", 0) <= now.timestamp()]
+        if not due:
+            return
+        for j in due:
+            self._switch(j["entity"], True)
+        self.hass.async_create_task(self.async_set("later", {"jobs": [j for j in jobs if j not in due]}))
 
     # ---- kids' internet ----
 

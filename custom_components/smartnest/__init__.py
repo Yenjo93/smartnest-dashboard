@@ -125,6 +125,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .issuer import async_sync_panel
 
     await async_sync_panel(hass)
+
+    from .heartbeat import Heartbeat
+
+    beat = Heartbeat(hass, version)
+    beat.async_start()
+    hass.data[DOMAIN]["heartbeat"] = beat
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -147,6 +153,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         helpers.async_stop()
     if codes := data.get("codes"):
         codes.async_stop()
+    if beat := data.get("heartbeat"):
+        beat.async_stop()
     return True
 
 
