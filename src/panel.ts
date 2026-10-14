@@ -17,6 +17,7 @@ import "./weather-bg";
 import "./cinematic";
 import "./morning";
 import "./message";
+import { readGuests, writeGuests } from "./guests";
 import type { ScreenMessage } from "./message";
 import { wallCameras } from "./camwall";
 import { markMorningShown, morningDue } from "./morning";
@@ -93,6 +94,7 @@ export class SmartNestPanel extends LitElement {
   @state() private scene?: string;
   @state() private morning = false;
   @state() private camwall = false;
+  @state() private guests = readGuests();
   @state() private message?: ScreenMessage;
   private unsubMsg?: Promise<() => void>;
   // Page changes slide in from the side they came from (+1 = the next page).
@@ -794,7 +796,25 @@ export class SmartNestPanel extends LitElement {
     this.sheets = [...this.sheets, spec];
   }
 
+  private lastDark?: boolean;
+
+  /** When night falls (or day breaks) on schedule, the change sweeps across instead of snapping. */
+  private playThemeFlip(toDark: boolean) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const veil = document.createElement("div");
+    veil.style.cssText = `position:fixed;inset:0;z-index:95;pointer-events:none;background:${
+      toDark ? "radial-gradient(120% 90% at 50% 0%, rgba(150,90,170,.55), rgba(21,26,30,.85))" : "radial-gradient(120% 90% at 50% 100%, rgba(255,190,110,.6), rgba(250,247,242,.85))"
+    }`;
+    this.renderRoot.appendChild(veil);
+    veil
+      .animate([{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], { duration: 1600, easing: "cubic-bezier(0.77, 0, 0.175, 1)" })
+      .finished.finally(() => veil.remove());
+  }
+
   protected updated() {
+    const dark = this.dark;
+    if (this.lastDark !== undefined && dark !== this.lastDark && this.current) this.playThemeFlip(dark);
+    this.lastDark = dark;
     if (this.enterDir) {
       // New page slides in from the side it lives on; 260ms ease-out, opacity + transform only.
       const main = this.renderRoot.querySelector("main");
@@ -808,6 +828,18 @@ export class SmartNestPanel extends LitElement {
     }
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
     const vars = themeVars(this.dark, this.current?.settings.accent ?? "");
+    // Liquid glass: thinner, more refractive cards with a lit edge.
+    const liquid = this.current?.settings.glass === "liquid" && allows(this.lic.plan, "liquid_glass");
+    Object.assign(vars, {
+      "--glass-blur": liquid ? "40px" : "24px",
+      "--glass-sat": liquid ? "230%" : "170%",
+      "--glass-edge": liquid
+        ? this.dark
+          ? "inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.07)"
+          : "inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.45)"
+        : "0 0 #0000",
+      ...(liquid ? { "--surface": this.dark ? "rgba(42,51,59,.46)" : "rgba(255,255,255,.48)" } : {}),
+    });
     for (const [k, v] of Object.entries(vars)) this.style.setProperty(k, v);
     this.setAttribute("dir", isRtl(this.uiLang) ? "rtl" : "ltr");
     this.setAttribute("lang", this.uiLang);
@@ -852,6 +884,19 @@ export class SmartNestPanel extends LitElement {
           : ctx.allows("kids") && !ctx.editing && ctx.config.settings.kids_page && ctx.config.pages.some((p) => p.id === ctx.config.settings.kids_page)
           ? html`<button class="icon-btn pressable" aria-label=${t("kids_mode")} title=${t("kids_mode")} @click=${() => this.setKids(true)}>
               <sn-icon icon="child" style="--icon-size:22px"></sn-icon>
+            </button>`
+          : nothing}
+        ${!this.kids && ctx.allows("guests") && !ctx.editing && ctx.config.settings.guests.ssid
+          ? html`<button
+              class="icon-btn pressable ${this.guests ? "primary" : ""}"
+              aria-label=${t("guests_mode")}
+              title=${t("guests_mode")}
+              @click=${() => {
+                this.guests = !this.guests;
+                writeGuests(this.guests);
+              }}
+            >
+              <sn-icon icon="guests" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
         ${!this.kids && ctx.allows("camera_wall") && !ctx.editing && wallCameras(ctx).length
@@ -994,7 +1039,9 @@ export class SmartNestPanel extends LitElement {
     if (!e) return nothing;
     const sun = this.hass.states["sun.sun"]?.state;
     const night = e.state === "clear-night" || (sun ? sun === "below_horizon" : inWindow(this.now, ctx.config.settings.dark_from, ctx.config.settings.dark_to));
-    return html`<sn-weather-bg .condition=${e.state} ?night=${night} ?dark=${ctx.dark}></sn-weather-bg>`;
+    const sunAttrs = this.hass.states["sun.sun"]?.attributes;
+    const elevation = ctx.allows("sky") && typeof sunAttrs?.elevation === "number" ? sunAttrs.elevation : undefined;
+    return html`<sn-weather-bg .condition=${e.state} ?night=${night} ?dark=${ctx.dark} .elevation=${elevation} ?rising=${!!sunAttrs?.rising}></sn-weather-bg>`;
   }
 
   private renderDock(ctx: Ctx) {
@@ -1044,6 +1091,7 @@ export class SmartNestPanel extends LitElement {
                 m.style.opacity = "";
               }}
               @pointerdown=${this.onSwipeDown} @pointermove=${this.onSwipeMove} @pointerup=${this.onSwipeUp} @pointercancel=${this.onSwipeUp}>
+              ${this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
               <sn-page-grid .ctx=${ctx} .page=${page}></sn-page-grid>
             </main>`
           )
@@ -1058,7 +1106,7 @@ export class SmartNestPanel extends LitElement {
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}
-      ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} .onWake=${() => {
+      ${this.sleeping ? html`<sn-screensaver .ctx=${ctx} ?guests=${this.guests && ctx.allows("guests")} .onWake=${() => {
               this.sleeping = false;
               this.onActivity();
               this.checkMorning();

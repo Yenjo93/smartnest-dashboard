@@ -130,6 +130,11 @@ import {
   mdiCalendarClock,
   mdiHistory,
   mdiWhiteBalanceSunny,
+  mdiAccountHeart,
+  mdiCube,
+  mdiWaterPercentAlert,
+  mdiMoleculeCo2,
+  mdiWifi,
 } from "@mdi/js";
 
 export const ICONS: Record<string, string> = {
@@ -263,6 +268,11 @@ export const ICONS: Record<string, string> = {
   schedule: mdiCalendarClock,
   history: mdiHistory,
   sun: mdiWhiteBalanceSunny,
+  guests: mdiAccountHeart,
+  cube: mdiCube,
+  "humidity-alert": mdiWaterPercentAlert,
+  co2: mdiMoleculeCo2,
+  wifi: mdiWifi,
 };
 
 /** Icons offered when naming a page. */

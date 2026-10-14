@@ -41,7 +41,9 @@ export function defaultSettings(lang: Lang): Settings {
     dark_from: "19:00",
     dark_to: "06:30",
     default_page: "",
-    screensaver: { enabled: true, timeout_min: 5, photos: true, photo_folder: "smartnest-photos", photo_seconds: 20 },
+    screensaver: { enabled: true, timeout_min: 5, photos: true, photo_folder: "smartnest-photos", photo_seconds: 20, style: "classic" },
+    glass: "classic",
+    guests: {},
     weather: { entity: "weather.forecast_home", background: true },
     fully: { night_dim: true, night_brightness: 20, night_off_min: 15, motion_wake: false },
     doorbell: { keep_days: 7 },
@@ -195,6 +197,7 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.chips_hidden = Array.isArray(raw?.settings?.chips_hidden) ? raw.settings.chips_hidden : [];
   settings.kiosk = { ...(raw?.settings?.kiosk ?? {}) };
   settings.weather = { ...base.weather, ...(raw?.settings?.weather ?? {}) };
+  settings.guests = { ...(raw?.settings?.guests ?? {}) };
   settings.fully = { ...base.fully, ...(raw?.settings?.fully ?? {}) };
   return { version: 1, settings, names: { ...(raw?.names ?? {}) }, pages: Array.isArray(raw?.pages) ? raw.pages : [] };
 }

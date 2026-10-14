@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
-    "lit": "^3.2.1"
+    "lit": "^3.2.1",
+    "qrcode-generator": "^1.4.4"
   },
   "devDependencies": {
     "terser": "^5.36.0",

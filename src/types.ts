@@ -59,7 +59,19 @@ export interface Settings {
   dark_from: string; // "HH:MM", used when theme === "schedule"
   dark_to: string;
   default_page: string;
-  screensaver: { enabled: boolean; timeout_min: number; temp_entity?: string; photos: boolean; photo_folder: string; photo_seconds: number };
+  screensaver: {
+    enabled: boolean;
+    timeout_min: number;
+    temp_entity?: string;
+    photos: boolean;
+    photo_folder: string;
+    photo_seconds: number;
+    style: "classic" | "minimal" | "analog";
+  };
+  /** Card material: classic frosted glass, or "liquid" with a lit edge and deeper refraction. */
+  glass: "classic" | "liquid";
+  /** Guest mode: welcome screen with a Wi-Fi QR code. */
+  guests: { ssid?: string; password?: string; welcome?: string };
   weather: { entity?: string; background: boolean };
   fully: { night_dim: boolean; night_brightness: number; night_off_min: number; motion_wake: boolean };
   doorbell: { trigger_entity?: string; camera_entity?: string; lock_entity?: string; keep_days: number };

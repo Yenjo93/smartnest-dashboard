@@ -517,6 +517,16 @@ export function settingsSheet(
             />`
           )}
         </div>`,
+        c.allows("liquid_glass")
+          ? html`<div class="field">
+              ${t("glass_style")}
+              <div class="seg">
+                ${(["classic", "liquid"] as const).map(
+                  (v) => html`<button aria-pressed=${s.glass === v} @click=${() => set((d) => (d.settings.glass = v))}>${t(`glass_${v}` as I18nKey)}</button>`
+                )}
+              </div>
+            </div>`
+          : nothing,
         html`<div class="field">${t("night_plan")} ${toggle(c, s.night_plan, (v) => set((d) => (d.settings.night_plan = v)))}</div>`,
         c.allows("seasons")
           ? html`<div class="field">
@@ -552,6 +562,16 @@ export function settingsSheet(
               </button>`
             )}
           </div>`,
+          s.screensaver.enabled && c.allows("clock_styles")
+            ? html`<div class="field">
+                ${t("ss_style")}
+                <div class="seg">
+                  ${(["classic", "minimal", "analog"] as const).map(
+                    (v) => html`<button aria-pressed=${s.screensaver.style === v} @click=${() => set((d) => (d.settings.screensaver.style = v))}>${t(`ss_${v}` as I18nKey)}</button>`
+                  )}
+                </div>
+              </div>`
+            : nothing,
           s.screensaver.enabled
             ? html`<label class="field"
                   >${t("screensaver_after")}
@@ -619,6 +639,14 @@ export function settingsSheet(
           </div>`,
           entityField(c, t("power_entity"), s.power_entity, { domains: ["sensor"], deviceClasses: ["power"] }, (id) => set((d) => (d.settings.power_entity = id)), true)
         ),
+        c.allows("guests")
+          ? section(
+              t("guests_mode"),
+              html`<label class="field">${t("guests_welcome")}<input type="text" .value=${s.guests.welcome ?? ""} placeholder=${t("welcome_default")} @change=${(e: any) => set((d) => (d.settings.guests.welcome = e.target.value.trim() || undefined))} /></label>`,
+              html`<label class="field">${t("wifi_ssid")}<input type="text" class="ltr" .value=${s.guests.ssid ?? ""} @change=${(e: any) => set((d) => (d.settings.guests.ssid = e.target.value.trim() || undefined))} /></label>`,
+              html`<label class="field">${t("wifi_password")}<input type="text" class="ltr" autocomplete="off" .value=${s.guests.password ?? ""} @change=${(e: any) => set((d) => (d.settings.guests.password = e.target.value || undefined))} /></label>`
+            )
+          : nothing,
         section(
           t("weather"),
           entityField(c, t("weather_entity"), s.weather.entity, { domains: ["weather"] }, (id) => set((d) => (d.settings.weather.entity = id)), true),

@@ -77,7 +77,8 @@ export function playStateChange(icon: Element | null | undefined, e: HassEntity 
   if (d === "light" && e.state === "on")
     icon.animate([{ transform: "scale(0.82)" }, { transform: "scale(1.14)", offset: 0.55 }, { transform: "scale(1)" }], { duration: 280, easing: EASE_OUT });
   else if (d === "lock" && (e.state === "locked" || e.state === "unlocked"))
-    icon.animate([{ transform: "translateY(-3px)" }, { transform: "translateY(1.5px)", offset: 0.6 }, { transform: "translateY(0)" }], { duration: 220, easing: EASE_OUT });
+    // The lock turns over in 3D as it clicks, like a key turning.
+    icon.animate([{ transform: "perspective(120px) rotateY(-180deg) scale(0.9)" }, { transform: "perspective(120px) rotateY(0) scale(1)" }], { duration: 380, easing: EASE_OUT });
   else if ((d === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(cls)) || d === "cover")
     icon.animate([{ transform: "rotate(-14deg)" }, { transform: "rotate(0)" }], { duration: 260, easing: EASE_OUT });
   else if (e.state === "on" || e.state === "off")

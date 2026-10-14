@@ -118,10 +118,10 @@ export const shared = css`
   }
   .glass {
     background: var(--surface);
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-    backdrop-filter: blur(24px) saturate(170%);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
+    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow), var(--glass-edge, 0 0 #0000);
   }
   .pressable {
     transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out),

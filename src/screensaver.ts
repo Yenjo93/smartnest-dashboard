@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
+import { svg } from "lit";
+import "./guests";
 import type { Ctx } from "./ctx";
 import { LOCALE } from "./i18n";
 import { shortValue } from "./entities";
@@ -12,6 +14,7 @@ interface Slide {
   url: string;
   key: number;
   origin: string;
+  video?: boolean;
 }
 
 // Ken Burns: each photo drifts toward a different corner so consecutive slides don't feel the same.
@@ -26,10 +29,12 @@ const ORIGINS = ["20% 30%", "80% 25%", "70% 80%", "25% 75%", "50% 50%"];
 export class SnScreensaver extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) onWake!: () => void;
+  /** Guest mode on this screen: the welcome card and Wi-Fi code ride along. */
+  @property({ type: Boolean }) guests = false;
   @state() private now = new Date();
   @state() private drift = { x: 0, y: 0 };
   @state() private slides: Slide[] = [];
-  private photos: string[] = [];
+  private photos: { id: string; video: boolean }[] = [];
   private photoIdx = 0;
   private timer?: number;
   private photoTimer?: number;
@@ -192,7 +197,9 @@ export class SnScreensaver extends LitElement {
         // A folder name means HA's local media; a full media-source:// address can point at Google Photos, Immich, etc.
         media_content_id: s.photo_folder.startsWith("media-source://") ? s.photo_folder : `media-source://media_source/local/${s.photo_folder}`,
       });
-      this.photos = (res.children ?? []).filter((c) => c.media_class === "image").map((c) => c.media_content_id);
+      this.photos = (res.children ?? [])
+        .filter((c) => c.media_class === "image" || c.media_class === "video")
+        .map((c) => ({ id: c.media_content_id, video: c.media_class === "video" }));
     } catch {
       this.photos = []; // folder missing or media source off: keep the clock
     }
@@ -207,19 +214,20 @@ export class SnScreensaver extends LitElement {
   /** Resolves a fresh signed URL right before showing it (they expire), preloads it, then cross-fades. */
   private async next() {
     if (!this.alive || !this.photos.length) return;
-    const id = this.photos[this.photoIdx++ % this.photos.length];
+    const { id, video } = this.photos[this.photoIdx++ % this.photos.length];
     const secs = Math.max(5, this.ctx.config.settings.screensaver.photo_seconds);
     try {
       const { url } = await this.ctx.hass.callWS<{ url: string }>({ type: "media_source/resolve_media", media_content_id: id });
       const full = this.ctx.hass.hassUrl(url);
-      await new Promise<void>((ok, fail) => {
-        const img = new Image();
-        img.onload = () => ok();
-        img.onerror = () => fail();
-        img.src = full;
-      });
+      if (!video)
+        await new Promise<void>((ok, fail) => {
+          const img = new Image();
+          img.onload = () => ok();
+          img.onerror = () => fail();
+          img.src = full;
+        });
       if (!this.alive) return;
-      const slide = { url: full, key: Date.now(), origin: ORIGINS[this.photoIdx % ORIGINS.length] };
+      const slide = { url: full, key: Date.now(), origin: ORIGINS[this.photoIdx % ORIGINS.length], video };
       // Keep the previous slide underneath while the new one fades in.
       this.slides = [...this.slides.slice(-1), slide];
     } catch {
@@ -228,8 +236,32 @@ export class SnScreensaver extends LitElement {
     this.photoTimer = window.setTimeout(() => this.next(), secs * 1000);
   }
 
+  /** Hands on a dial: the minute hand moves every 10 seconds, smoothly, like a sweep. */
+  private renderAnalog() {
+    const d = this.now;
+    const m = d.getMinutes() + d.getSeconds() / 60;
+    const h = (d.getHours() % 12) + m / 60;
+    return html`<svg viewBox="0 0 200 200" style="width:min(56vmin,420px);height:auto;filter:drop-shadow(0 10px 30px rgba(0,0,0,.35))" aria-label=${d.toLocaleTimeString()}>
+      ${svg`<circle cx="100" cy="100" r="96" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.18)" stroke-width="1.5"></circle>
+      ${Array.from({ length: 12 }, (_, i) => svg`<line x1="100" y1="10" x2="100" y2=${i % 3 ? 18 : 24} stroke=${i % 3 ? "rgba(255,255,255,.35)" : "#E9971D"} stroke-width=${i % 3 ? 2 : 4} stroke-linecap="round" transform="rotate(${i * 30} 100 100)"></line>`)}
+      <line x1="100" y1="100" x2="100" y2="52" stroke="#fff" stroke-width="7" stroke-linecap="round" style="transform:rotate(${h * 30}deg);transform-origin:100px 100px;transition:transform 1s cubic-bezier(0.22,1,0.36,1)"></line>
+      <line x1="100" y1="100" x2="100" y2="26" stroke="#fff" stroke-width="4" stroke-linecap="round" style="transform:rotate(${m * 6}deg);transform-origin:100px 100px;transition:transform 1s cubic-bezier(0.22,1,0.36,1)"></line>
+      <circle cx="100" cy="100" r="6" fill="#E9971D"></circle>`}
+    </svg>`;
+  }
+
   private renderClock(loc: string, corner: boolean) {
     const { ctx } = this;
+    const style = ctx.allows("clock_styles") ? ctx.config.settings.screensaver.style : "classic";
+    if (style === "analog" && !corner)
+      return html`<div class="center" style="transform:translate(${this.drift.x}px, ${this.drift.y}px)">
+        ${this.renderAnalog()}
+        <div class="date">${this.now.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" })}</div>
+      </div>`;
+    if (style === "minimal" && !corner)
+      return html`<div class="center" style="transform:translate(${this.drift.x}px, ${this.drift.y}px)">
+        <div class="time ltr" style="font-weight:400;letter-spacing:.04em;opacity:.9">${this.now.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" })}</div>
+      </div>`;
     const tempId = ctx.config.settings.screensaver.temp_entity;
     const temp = tempId ? ctx.hass.states[tempId] : undefined;
     return html`<div class=${corner ? "corner" : "center"} style="transform:translate(${this.drift.x}px, ${this.drift.y}px)">
@@ -256,12 +288,16 @@ export class SnScreensaver extends LitElement {
       ${repeat(
         this.slides,
         (s) => s.key,
-        (s, i) => html`<div
-          class="photo ${i < this.slides.length - 1 ? "out" : ""}"
-          style="background-image:url('${s.url}');transform-origin:${s.origin};--dur:${secs}s"
-        ></div>`
+        (s, i) =>
+          s.video
+            ? html`<video class="photo ${i < this.slides.length - 1 ? "out" : ""}" src=${s.url} autoplay muted loop playsinline style="object-fit:cover;width:100%;height:100%;animation-name:in"></video>`
+            : html`<div
+                class="photo ${i < this.slides.length - 1 ? "out" : ""}"
+                style="background-image:url('${s.url}');transform-origin:${s.origin};--dur:${secs}s"
+              ></div>`
       )}
       ${photos ? html`<div class="shade"></div>` : nothing} ${this.renderClock(loc, photos)}
+      ${this.guests ? html`<sn-guests dim .ctx=${ctx} style="position:absolute;top:32px;inset-inline-end:32px;max-width:min(560px,80vw)"></sn-guests>` : nothing}
       ${ctx.allows("seasons") ? html`<sn-season .season=${currentSeason(ctx.config.settings, this.now)}></sn-season>` : nothing}
       <div class="brand">
         <img src="${ctx.assetBase}logo/smartnest-symbol-white.svg" alt="" />

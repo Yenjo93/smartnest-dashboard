@@ -61,6 +61,9 @@ export class SnWeatherBg extends LitElement {
   @property() condition = "";
   @property({ type: Boolean }) night = false;
   @property({ type: Boolean }) dark = false;
+  /** Sun elevation in degrees (sun.sun), for the sky tint; undefined = no tint. */
+  @property({ type: Number }) elevation?: number;
+  @property({ type: Boolean }) rising = false;
 
   private raf = 0;
   private parts: P[] = [];
@@ -118,6 +121,11 @@ export class SnWeatherBg extends LitElement {
       background: linear-gradient(to top, var(--cloud), transparent);
       filter: blur(30px);
       animation: drift 60s linear infinite alternate;
+    }
+    .sky {
+      position: absolute;
+      inset: 0;
+      transition: background 4s cubic-bezier(0.77, 0, 0.175, 1);
     }
     .flash {
       position: absolute;
@@ -266,10 +274,30 @@ export class SnWeatherBg extends LitElement {
     }
   }
 
+  /** The sky's colour for where the sun is: deep blue at night, pink dawn, gold hour, soft blue day, violet dusk. */
+  private skyTint(): string | undefined {
+    const el = this.elevation;
+    if (el === undefined) return undefined;
+    const a = this.dark ? 1 : 0.7;
+    const c =
+      el < -6
+        ? `rgba(30,45,90,${0.32 * a})`
+        : el < 0
+        ? this.rising
+          ? `rgba(255,140,150,${0.3 * a})`
+          : `rgba(150,90,170,${0.3 * a})`
+        : el < 10
+        ? `rgba(255,180,90,${0.26 * a})`
+        : `rgba(120,185,255,${0.14 * a})`;
+    return `linear-gradient(to bottom, ${c}, transparent 65%)`;
+  }
+
   render() {
     const s = this.scene;
+    const sky = this.skyTint();
     const cloud = this.dark ? "rgba(140,155,170,.18)" : "rgba(255,255,255,.55)";
     return html`<div style="--cloud:${cloud}">
+      ${sky ? html`<div class="sky" style="background:${sky}"></div>` : nothing}
       ${s.sun ? html`<div class="sun"></div>` : nothing} ${s.moon ? html`<div class="moon"></div>` : nothing}
       ${Array.from({ length: s.clouds }, (_, i) => html`<div class="cloud" style="top:${8 + i * 22}%;animation-duration:${90 + i * 35}s;animation-delay:-${i * 31}s"></div>`)}
       ${s.fog ? html`<div class="fog"></div>` : nothing}

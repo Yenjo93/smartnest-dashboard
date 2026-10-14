@@ -83,7 +83,10 @@ add(ent("event.doorbell", new Date(Date.now() - 7_200_000).toISOString(), { frie
 add(ent("cover.living_blinds", "open", { friendly_name: "برادي الصالة", current_position: 100, current_tilt_position: 50, supported_features: 255 }));
 add(ent("scene.movie_night", "scening", { friendly_name: "سهرة فيلم" }));
 add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
-add(ent("sun.sun", "above_horizon", { friendly_name: "Sun" }));
+add(ent("sun.sun", "above_horizon", { friendly_name: "Sun", elevation: Number(params.get("elev") ?? 4), rising: false, next_rising: new Date(Date.now() + 9 * 3600_000).toISOString(), next_setting: new Date(Date.now() + 1 * 3600_000).toISOString() }));
+add(ent("sensor.bedroom_humidity", "68", { friendly_name: "رطوبة غرفة النوم", unit_of_measurement: "%", device_class: "humidity" }));
+add(ent("sensor.living_co2", "1180", { friendly_name: "هوا الصالة", unit_of_measurement: "ppm", device_class: "carbon_dioxide" }));
+add(ent("sensor.abu_mohammad_area", "الصالة", { friendly_name: "أبو محمد · الغرفة" }));
 // Islamic Prayer Times sensors: timestamps for today.
 {
   const at = (h: number, m: number) => {

@@ -12,6 +12,8 @@ import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import "../ui/entity-picker";
 
+type MapMode = "off" | "temp" | "humidity" | "co2";
+
 interface Drag {
   id: string;
   pointerId: number;
@@ -53,7 +55,8 @@ export class SnFloorplan extends LitElement {
   private pan?: { x: number; y: number; zx: number; zy: number };
   private lastTap?: { t: number; x: number; y: number };
   private moved = 0;
-  @state() private heat = false;
+  @state() private heat: MapMode = "off";
+  @state() private tilt = false;
   @state() private robotRooms?: RoomChoice[];
   private press?: { id: string; x: number; y: number; timer: number };
 
@@ -384,6 +387,55 @@ export class SnFloorplan extends LitElement {
       .area.zoomed {
         touch-action: none; /* zoomed in: every drag pans the plan */
       }
+      .glow.lit {
+        animation: room-breathe 6s cubic-bezier(0.77, 0, 0.175, 1) infinite alternate;
+      }
+      @keyframes room-breathe {
+        from {
+          opacity: 0.82;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .stage.tilt {
+        transform-style: preserve-3d; /* lets markers stand up off the tilted floor */
+        transform-origin: 50% 30% !important;
+        transition: transform 600ms cubic-bezier(0.77, 0, 0.175, 1);
+      }
+      .stage.tilt img {
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25);
+      }
+      .tilt .marker,
+      .tilt .heat-label,
+      .tilt .room-label,
+      .tilt .person {
+        /* stand upright on the tilted floor */
+        translate: 0 -10px;
+        rotate: x -40deg;
+      }
+      .person {
+        position: absolute;
+        transform: translate(-50%, -50%) scale(var(--inv, 1));
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: var(--accent) center / cover no-repeat;
+        color: var(--on-accent);
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: 0 0 0 2px var(--surface-solid), var(--shadow);
+        pointer-events: none;
+        z-index: 2;
+        transition: left 800ms cubic-bezier(0.77, 0, 0.175, 1), top 800ms cubic-bezier(0.77, 0, 0.175, 1);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .glow.lit {
+          animation: none;
+        }
+      }
       .hit {
         position: absolute;
         inset: 0;
@@ -453,7 +505,9 @@ export class SnFloorplan extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     try {
-      this.heat = localStorage.getItem(this.heatKey) === "1";
+      const saved = localStorage.getItem(this.heatKey);
+      this.heat = saved === "1" ? "temp" : saved === "temp" || saved === "humidity" || saved === "co2" ? saved : "off";
+      this.tilt = localStorage.getItem(`${this.heatKey}-3d`) === "1";
     } catch {
       /* per-device preference only */
     }
@@ -763,8 +817,8 @@ export class SnFloorplan extends LitElement {
     return `smartnest-heat-${this.widget.id}`;
   }
 
-  /** Temperature per room: the average of temperature sensors and AC readings placed inside it. */
-  private roomTemps(floor: Floor): Map<string, number> {
+  /** Per-room average of the readings placed inside it, for one kind of map. */
+  private roomValues(floor: Floor, mode: Exclude<MapMode, "off">): Map<string, number> {
     const out = new Map<string, number>();
     for (const r of floor.rooms ?? []) {
       const vals = floor.markers
@@ -772,23 +826,36 @@ export class SnFloorplan extends LitElement {
         .map((m) => {
           const e = this.ctx.hass.states[m.entity];
           if (!e) return NaN;
-          if (domainOf(m.entity) === "climate") return Number(e.attributes.current_temperature);
-          return e.attributes.device_class === "temperature" ? Number(e.state) : NaN;
+          const cls = e.attributes.device_class;
+          if (mode === "temp") return domainOf(m.entity) === "climate" ? Number(e.attributes.current_temperature) : cls === "temperature" ? Number(e.state) : NaN;
+          if (mode === "humidity") return domainOf(m.entity) === "climate" ? Number(e.attributes.current_humidity) : cls === "humidity" ? Number(e.state) : NaN;
+          return cls === "carbon_dioxide" ? Number(e.state) : NaN;
         })
         .filter((v) => !Number.isNaN(v));
-      if (vals.length) out.set(r.id, vals.reduce((a, b) => a + b, 0) / vals.length);
+      if (vals.length) out.set(r.id, vals.reduce((x, y) => x + y, 0) / vals.length);
     }
     return out;
   }
 
-  /** Cool blue → comfortable green → warm gold → hot coral, from the brand palette. */
-  private heatColor(t: number): string {
-    const stops: [number, [number, number, number]][] = [
-      [17, [24, 188, 242]],
-      [21.5, [47, 181, 122]],
-      [25.5, [233, 151, 29]],
-      [29, [242, 107, 104]],
-    ];
+  /** Map modes this plan has readings for, in toggle order. */
+  private mapModes(floor: Floor): Exclude<MapMode, "off">[] {
+    if (!this.ctx.allows("heat_map")) return [];
+    const modes: Exclude<MapMode, "off">[] = ["temp"];
+    if (this.ctx.allows("air_maps")) modes.push("humidity", "co2");
+    return modes.filter((m) => this.roomValues(floor, m).size > 0);
+  }
+
+  private static SCALES: Record<Exclude<MapMode, "off">, [number, [number, number, number]][]> = {
+    // Cool blue → comfortable green → warm gold → hot coral.
+    temp: [[17, [24, 188, 242]], [21.5, [47, 181, 122]], [25.5, [233, 151, 29]], [29, [242, 107, 104]]],
+    // Dry gold → comfortable green → damp blue.
+    humidity: [[25, [233, 151, 29]], [45, [47, 181, 122]], [70, [24, 188, 242]]],
+    // Fresh green → stuffy gold → open-a-window coral.
+    co2: [[450, [47, 181, 122]], [1000, [233, 151, 29]], [1500, [242, 107, 104]]],
+  };
+
+  private mapColor(mode: Exclude<MapMode, "off">, t: number): string {
+    const stops = SnFloorplan.SCALES[mode];
     if (t <= stops[0][0]) return `rgb(${stops[0][1].join(",")})`;
     for (let i = 1; i < stops.length; i++) {
       const [t1, c1] = stops[i];
@@ -801,15 +868,46 @@ export class SnFloorplan extends LitElement {
     return `rgb(${stops[stops.length - 1][1].join(",")})`;
   }
 
-  private renderHeat(floor: Floor) {
-    const temps = this.roomTemps(floor);
+  private renderHeat(floor: Floor, mode: Exclude<MapMode, "off">) {
+    const vals = this.roomValues(floor, mode);
+    const unit = mode === "temp" ? "°" : mode === "humidity" ? "%" : " ppm";
     return (floor.rooms ?? []).map((r) => {
-      const t = temps.get(r.id);
-      if (t === undefined) return nothing;
+      const v = vals.get(r.id);
+      if (v === undefined) return nothing;
       const [cx, cy] = centroid(r.points);
-      return html`<div class="heat" style="clip-path:${clipPath(r.points)};background-color:${this.heatColor(t)};opacity:${this.ctx.dark ? 0.42 : 0.34}"></div>
-        <span class="heat-label" style="left:${cx}%;top:${cy}%">${formatNumber(t, this.ctx.lang, 1)}°</span>`;
+      return html`<div class="heat" style="clip-path:${clipPath(r.points)};background-color:${this.mapColor(mode, v)};opacity:${this.ctx.dark ? 0.42 : 0.34}"></div>
+        <span class="heat-label" style="left:${cx}%;top:${cy}%">${formatNumber(v, this.ctx.lang, mode === "temp" ? 1 : 0)}${unit}</span>`;
     });
+  }
+
+  // ---- family on the plan ----
+
+  /**
+   * Room-level presence (Bermuda, ESPresense…) reports a person's room as a sensor like
+   * sensor.abu_mohammad_area = "Living room". When that matches a drawn room, their photo sits in it.
+   */
+  private renderPeople(floor: Floor) {
+    if (!this.ctx.allows("people_on_plan") || !floor.rooms?.length) return nothing;
+    const { hass } = this.ctx;
+    const norm = (x: string) => x.trim().toLowerCase();
+    const placed = new Map<string, number>();
+    return Object.values(hass.states)
+      .filter((p) => p.entity_id.startsWith("person.") && p.state === "home")
+      .map((p) => {
+        const slug = p.entity_id.split(".")[1];
+        const room = Object.values(hass.states)
+          .filter((e) => e.entity_id.startsWith("sensor.") && e.entity_id.includes(slug) && /_(area|room|location)$/.test(e.entity_id))
+          .map((e) => floor.rooms!.find((r) => norm(r.name) === norm(e.state) || norm(hass.areas?.[e.state]?.name ?? "") === norm(r.name)))
+          .find(Boolean);
+        if (!room) return nothing;
+        const n = placed.get(room.id) ?? 0;
+        placed.set(room.id, n + 1);
+        const [cx, cy] = centroid(room.points);
+        const pic = p.attributes.entity_picture as string | undefined;
+        return html`<span class="person" style="left:calc(${cx}% + ${n * 26 - 13}px);top:calc(${cy}% + 22px);${pic ? `background-image:url('${hass.hassUrl(pic)}')` : ""}" title=${p.attributes.friendly_name ?? ""}
+          >${pic ? "" : (p.attributes.friendly_name ?? "?").slice(0, 1)}</span
+        >`;
+      });
   }
 
   // ---- pinch zoom ----
@@ -1000,7 +1098,7 @@ export class SnFloorplan extends LitElement {
         return `radial-gradient(circle ${radius}px at ${m.x}% ${m.y}%, rgba(${r},${g},${b},${alpha.toFixed(2)}) 0%, rgba(${r},${g},${b},${(alpha * 0.45).toFixed(2)}) 45%, rgba(${r},${g},${b},${(alpha * 0.18).toFixed(2)}) 100%)`;
       });
       return html`<div
-        class="glow"
+        class="glow ${lit.length ? "lit" : ""}"
         style="clip-path:${clipPath(this.livePoints(room))};opacity:${lit.length ? 1 : 0};${layers.length ? `background:${layers.join(",")}` : ""}"
       ></div>`;
     });
@@ -1213,7 +1311,17 @@ export class SnFloorplan extends LitElement {
     const floors = this.floors;
     const stage = this.stageSize();
     const ratio = this.natural ? this.natural.w / this.natural.h : 16 / 10;
-    const hasHeat = !!floor && ctx.allows("heat_map") && this.roomTemps(floor).size > 0;
+    const modes = floor ? this.mapModes(floor) : [];
+    const mode = modes.includes(this.heat as Exclude<MapMode, "off">) ? (this.heat as Exclude<MapMode, "off">) : undefined;
+    const tilt = this.tilt && ctx.allows("plan_3d") && !ctx.editing && this.zoom.s === 1;
+    const save = () => {
+      try {
+        localStorage.setItem(this.heatKey, this.heat);
+        localStorage.setItem(`${this.heatKey}-3d`, this.tilt ? "1" : "0");
+      } catch {
+        /* per-device preference */
+      }
+    };
     return html`<div class="wrap glass">
       ${floors.length > 1 || ctx.editing
         ? html`<div class="floors" @pointerdown=${(e: Event) => e.stopPropagation()}>
@@ -1239,24 +1347,39 @@ export class SnFloorplan extends LitElement {
             </div>
           </div>`
         : nothing}
-      ${floor?.image && !ctx.editing && hasHeat
+      ${floor?.image && !ctx.editing && (modes.length || ctx.allows("plan_3d"))
         ? html`<div class="corner-btns" @pointerdown=${(e: Event) => e.stopPropagation()}>
-            <button
-              class="pressable"
-              aria-pressed=${this.heat}
-              aria-label=${t("heat_map")}
-              title=${t("heat_map")}
-              @click=${() => {
-                this.heat = !this.heat;
-                try {
-                  localStorage.setItem(this.heatKey, this.heat ? "1" : "0");
-                } catch {
-                  /* fine */
-                }
-              }}
-            >
-              <sn-icon icon="thermometer"></sn-icon>
-            </button>
+            ${modes.length
+              ? html`<button
+                  class="pressable"
+                  aria-pressed=${!!mode}
+                  aria-label=${t("heat_map")}
+                  title=${mode ? t(mode === "temp" ? "map_temp" : mode === "humidity" ? "map_humidity" : "map_co2") : t("heat_map")}
+                  @click=${() => {
+                    // off → temperature → humidity → CO₂ → off, skipping maps this house has no sensors for.
+                    const order: MapMode[] = ["off", ...modes];
+                    this.heat = order[(order.indexOf(mode ?? "off") + 1) % order.length];
+                    save();
+                  }}
+                >
+                  <sn-icon icon=${mode === "humidity" ? "humidity" : mode === "co2" ? "co2" : "thermometer"}></sn-icon>
+                </button>`
+              : nothing}
+            ${ctx.allows("plan_3d")
+              ? html`<button
+                  class="pressable"
+                  aria-pressed=${this.tilt}
+                  aria-label=${t("plan_3d")}
+                  title=${t("plan_3d")}
+                  @click=${() => {
+                    this.tilt = !this.tilt;
+                    this.zoom = { s: 1, x: 0, y: 0 };
+                    save();
+                  }}
+                >
+                  <sn-icon icon="cube"></sn-icon>
+                </button>`
+              : nothing}
           </div>`
         : nothing}
       <div
@@ -1270,8 +1393,10 @@ export class SnFloorplan extends LitElement {
       >
         ${floor?.image
           ? html`<div
-              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""}"
-              style="width:${stage.w}px;height:${stage.h}px;transform:translate(${this.zoom.x}px, ${this.zoom.y}px) scale(${this.zoom.s});--inv:${1 / this.zoom.s}"
+              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""} ${tilt ? "tilt" : ""}"
+              style="width:${stage.w}px;height:${stage.h}px;transform:${tilt
+                ? "perspective(1400px) rotateX(40deg) scale(0.86)"
+                : `translate(${this.zoom.x}px, ${this.zoom.y}px) scale(${this.zoom.s})`};--inv:${1 / this.zoom.s}"
               @pointerdown=${(e: PointerEvent) => this.onStageDown(e)}
             >
               <img
@@ -1284,13 +1409,13 @@ export class SnFloorplan extends LitElement {
                   this.measure();
                 }}
               />
-              ${this.heat && hasHeat && !ctx.editing ? this.renderHeat(floor) : ctx.allows("room_glow") ? this.renderGlow(floor, stage.w) : nothing}
+              ${mode && !ctx.editing ? this.renderHeat(floor, mode) : ctx.allows("room_glow") ? this.renderGlow(floor, stage.w) : nothing}
               ${!ctx.editing && floor.rooms?.length
                 ? html`<svg class="hit" viewBox="0 0 100 100" preserveAspectRatio="none">
                     ${floor.rooms.map((r) => svg`<polygon points=${r.points.map((p) => p.join(",")).join(" ")} @click=${() => this.roomSheet(r)}></polygon>`)}
                   </svg>`
                 : nothing}
-              ${floor.markers.map((m) => this.renderMarker(m))}
+              ${floor.markers.map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
             </div>`
           : html`<div class="empty">
