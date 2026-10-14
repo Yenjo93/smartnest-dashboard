@@ -43,6 +43,10 @@ class SmartNestUploadView(HomeAssistantView):
         user = request[KEY_HASS_USER]
         if not user.is_admin:
             return self.json_message("Admin only", HTTPStatus.FORBIDDEN)
+        from .license import is_licensed
+
+        if not is_licensed(self._hass):
+            return self.json_message("SmartNest needs an activation key", HTTPStatus.PAYMENT_REQUIRED)
 
         reader = await request.multipart()
         field = await reader.next()

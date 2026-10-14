@@ -127,8 +127,10 @@ def _parse(name: str) -> datetime | None:
 @websocket_api.websocket_command({vol.Required("type"): "smartnest/visitors/list"})
 @websocket_api.async_response
 async def ws_list_visitors(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    from .license import is_licensed
+
     log: VisitorLog | None = (hass.data.get(DOMAIN) or {}).get("visitors")
-    if log is None:
+    if log is None or not is_licensed(hass):
         connection.send_result(msg["id"], {"visitors": []})
         return
     connection.send_result(msg["id"], {"visitors": await hass.async_add_executor_job(log.list)})

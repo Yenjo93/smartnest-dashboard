@@ -59,6 +59,9 @@ export class SmartNestPanel extends LitElement {
   @state() private sleeping = false;
   @state() private saving = false;
   @state() private loadError = "";
+  /** Set when the integration refuses to work without an activation key. */
+  @state() private license?: { instance_id: string; error?: string; busy?: boolean };
+  private licensee = "";
   @state() private now = new Date();
   @state() private systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
   @state() private wide = window.innerWidth >= 768;
@@ -447,7 +450,13 @@ export class SmartNestPanel extends LitElement {
         // Another screen saved. Take it, unless we're mid-edit here.
         if (!this.draft && cfg) this.config = normalizeConfig(cfg, lang);
       });
+      this.hass.callWS<{ licensee: string }>({ type: "smartnest/license/status" }).then((r) => (this.licensee = r.licensee), () => undefined);
     } catch (err) {
+      if ((err as any)?.code === "not_licensed") {
+        const st = await this.hass.callWS<{ instance_id: string }>({ type: "smartnest/license/status" });
+        this.license = { instance_id: st.instance_id };
+        return;
+      }
       this.loadError = String((err as any)?.message ?? err);
     }
   }
@@ -808,6 +817,67 @@ export class SmartNestPanel extends LitElement {
     </div>`;
   }
 
+  private async activate(key: string) {
+    const t = translator(this.uiLang);
+    if (!this.license || !key.trim()) return;
+    this.license = { ...this.license, busy: true, error: undefined };
+    try {
+      await this.hass.callWS({ type: "smartnest/license/activate", key: key.trim() });
+      this.license = undefined;
+      this.initStarted = false;
+      this.init();
+    } catch {
+      this.license = { ...this.license!, busy: false, error: t("activate_bad") };
+    }
+  }
+
+  /** Locked screen until the installer's key for this exact installation is entered. */
+  private renderActivation() {
+    const t = translator(this.uiLang);
+    const lic = this.license!;
+    const admin = !!this.hass.user?.is_admin;
+    return html`<div class="center">
+      <div class="glass" style="width:min(520px,calc(100vw - 32px));padding:32px;border-radius:var(--r-xl);display:grid;gap:18px;text-align:start;color:var(--text)">
+        <img src="${this.assetBase}logo/smartnest-symbol-${this.dark ? "white" : "color"}.svg" alt="SmartNest" style="width:56px;height:56px;animation:none" />
+        <div style="display:grid;gap:6px">
+          <strong style="font-size:24px">${t("activate_title")}</strong>
+          <span class="muted">${t("activate_text")}</span>
+        </div>
+        <div class="field">
+          ${admin ? t("activate_id") : t("activate_send")}
+          <div style="display:flex;gap:8px">
+            <input type="text" class="ltr" readonly .value=${lic.instance_id} style="flex:1;font-family:'JetBrains Mono',monospace;font-size:13px" @focus=${(e: any) => e.target.select()} />
+            <button
+              class="btn pressable"
+              @click=${(e: Event) => {
+                const btn = e.currentTarget as HTMLElement;
+                const done = () => (btn.textContent = t("copied"));
+                navigator.clipboard?.writeText(lic.instance_id).then(done, () => undefined) ?? undefined;
+                if (!navigator.clipboard) done();
+              }}
+            >
+              ${t("copy")}
+            </button>
+          </div>
+        </div>
+        ${admin
+          ? html`<form
+              class="field"
+              @submit=${(e: SubmitEvent) => {
+                e.preventDefault();
+                this.activate((e.currentTarget as HTMLFormElement).querySelector("input")!.value);
+              }}
+            >
+              ${t("activate_key")}
+              <input type="text" class="ltr" placeholder="SN1.…" autocomplete="off" spellcheck="false" style="font-family:'JetBrains Mono',monospace;font-size:13px" />
+              ${lic.error ? html`<span style="color:var(--alert-text);font-size:14px">${lic.error}</span>` : nothing}
+              <button class="btn primary pressable" type="submit" ?disabled=${lic.busy} style="justify-self:start;margin-top:6px">${t("activate_btn")}</button>
+            </form>`
+          : html`<p class="muted" style="margin:0">${t("activate_ask")}</p>`}
+      </div>
+    </div>`;
+  }
+
   private renderWeather(ctx: Ctx) {
     const w = ctx.config.settings.weather;
     const e = w.background && w.entity ? this.hass.states[w.entity] : undefined;
@@ -829,7 +899,7 @@ export class SmartNestPanel extends LitElement {
       <button class="btn pressable" @click=${() => addPageSheet(ctx, (id) => (this.pageId = id))}>
         <sn-icon icon="dashboard" style="--icon-size:20px"></sn-icon>${t("add_page")}
       </button>
-      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, testDoorbell: () => this.ring() })}>
+      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, licensee: this.licensee, testDoorbell: () => this.ring() })}>
         <sn-icon icon="cog" style="--icon-size:20px"></sn-icon>
       </button>
     </div>`;
@@ -837,6 +907,7 @@ export class SmartNestPanel extends LitElement {
 
   render() {
     if (!this.hass) return nothing;
+    if (this.license) return this.renderActivation();
     if (!this.current) {
       const t = translator(this.uiLang);
       return html`<div class="center">

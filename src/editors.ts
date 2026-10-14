@@ -329,7 +329,7 @@ const THEMES: { id: ThemeMode; label: I18nKey }[] = [
   { id: "dark", label: "theme_dark" },
 ];
 
-export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: () => void }) {
+export function settingsSheet(ctx: Ctx, opts: { version: string; licensee?: string; testDoorbell: () => void }) {
   ctx.showSheet({
     title: ctx.t("settings"),
     render: (c) => {
@@ -535,6 +535,7 @@ export function settingsSheet(ctx: Ctx, opts: { version: string; testDoorbell: (
               <strong>SmartNest</strong>
               <span class="muted" style="font-size:13px">${t("tagline")}</span>
               <span class="muted ltr" style="font-size:12px;font-family:'JetBrains Mono',monospace">${t("version")} ${opts.version}</span>
+              ${opts.licensee ? html`<span class="muted" style="font-size:12px">${t("licensed_to")} ${opts.licensee}</span>` : nothing}
             </div>
           </div>`
         )

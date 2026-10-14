@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 
 from .const import DOMAIN, MAX_CONFIG_BYTES, SIGNAL_CONFIG_UPDATED
+from .license import NOT_LICENSED, is_licensed
 
 
 @callback
@@ -18,9 +19,12 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_config)
     websocket_api.async_register_command(hass, ws_save_config)
     websocket_api.async_register_command(hass, ws_subscribe_config)
+    from .license import ws_license_activate, ws_license_status
     from .visitors import ws_list_visitors
 
     websocket_api.async_register_command(hass, ws_list_visitors)
+    websocket_api.async_register_command(hass, ws_license_status)
+    websocket_api.async_register_command(hass, ws_license_activate)
 
 
 def _data(hass: HomeAssistant) -> dict[str, Any] | None:
@@ -35,6 +39,9 @@ def ws_get_config(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     if data is None:
         connection.send_error(msg["id"], "not_loaded", "SmartNest is not set up")
         return
+    if not is_licensed(hass):
+        connection.send_error(msg["id"], NOT_LICENSED, "SmartNest needs an activation key")
+        return
     connection.send_result(msg["id"], {"config": data["config"]})
 
 
@@ -48,6 +55,9 @@ async def ws_save_config(hass: HomeAssistant, connection: websocket_api.ActiveCo
     data = _data(hass)
     if data is None:
         connection.send_error(msg["id"], "not_loaded", "SmartNest is not set up")
+        return
+    if not is_licensed(hass):
+        connection.send_error(msg["id"], NOT_LICENSED, "SmartNest needs an activation key")
         return
     config = msg["config"]
     if len(json.dumps(config)) > MAX_CONFIG_BYTES:

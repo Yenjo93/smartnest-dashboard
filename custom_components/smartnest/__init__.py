@@ -25,6 +25,7 @@ from .const import (
     STORAGE_KEY,
     STORAGE_VERSION,
 )
+from .license import License
 from .upload import SmartNestUploadView
 from .visitors import VisitorLog
 from .websocket import async_register_commands
@@ -40,7 +41,9 @@ _REGISTERED = f"{DOMAIN}_registered"
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load the saved dashboard and show the panel."""
     store: Store[dict] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-    hass.data[DOMAIN] = {"store": store, "config": await store.async_load()}
+    license_ = License(hass)
+    await license_.async_load()
+    hass.data[DOMAIN] = {"store": store, "config": await store.async_load(), "license": license_}
 
     files_dir = hass.config.path(FILES_DIR)
     await hass.async_add_executor_job(_ensure_dir, files_dir)

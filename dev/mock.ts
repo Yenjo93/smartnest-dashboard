@@ -146,6 +146,8 @@ const KEY = "smartnest-dev-config";
 const isAdmin = params.get("role") !== "client";
 
 let onChange: (hass: Hass) => void = () => undefined;
+// ?license=0 shows the activation screen until a key starting with SN1. is entered.
+const licensed = () => params.get("license") !== "0" || localStorage.getItem("smartnest-dev-license") === "1";
 let lang = params.get("lang") ?? "ar";
 
 const later = (ms: number, fn: () => void) => window.setTimeout(fn, ms);
@@ -302,6 +304,7 @@ async function callWS(msg: Record<string, any>): Promise<any> {
   await new Promise((r) => later(60, () => r(null)));
   switch (msg.type) {
     case "smartnest/config/get": {
+      if (!licensed()) throw { code: "not_licensed", message: "SmartNest needs an activation key" };
       const raw = localStorage.getItem(KEY);
       return { config: raw ? JSON.parse(raw) : null };
     }
@@ -323,6 +326,13 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/license/status":
+      return { licensed: licensed(), instance_id: "dev-installation-0f3a9c", licensee: licensed() ? "بيت أبو محمد" : "" };
+    case "smartnest/license/activate":
+      // The mock can't check signatures; the real integration does (Ed25519, per installation).
+      if (!isAdmin || !String(msg.key).startsWith("SN1.")) throw { code: "invalid_key", message: "invalid" };
+      localStorage.setItem("smartnest-dev-license", "1");
+      return { licensed: true, licensee: "بيت أبو محمد" };
     case "smartnest/visitors/list": {
       const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
       return { visitors: [0.5, 3, 26, 30].map((h, i) => ({ url: i % 2 ? "/dev/cam-garden.svg" : "/dev/cam-front.svg", time: ago(h) })) };

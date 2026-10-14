@@ -4,6 +4,22 @@
 
 > **EN:** A Home Assistant dashboard panel with an interactive floor plan, Apple-style controls, Arabic/English/Hebrew (RTL), a doorbell popup and a PIN-protected kiosk lock. Install through HACS as a custom repository (category: Integration), then add the "SmartNest Dashboard" integration.
 
+## التفعيل (لكل بيت كود)
+
+الداشبورد ما بيشتغل بدون **كود تفعيل** مربوط ببيت واحد. أنت لحالك بتقدر تطلّع الكود.
+
+1. عند الزبون، افتح SmartNest. بيطلعلك **رقم التركيب**، انسخه.
+2. على جهازك:
+   ```bash
+   node scripts/license.mjs <رقم-التركيب> "بيت أبو محمد"
+   ```
+3. حط الكود اللي طلع (بيبلّش بـ `SN1.`) بشاشة التفعيل، واضغط **فعّل**. لازم تكون داخل بحساب أدمن.
+
+- **المفتاح السري** موجود بـ `~/.smartnest/license-private.pem` على جهازك بس، ومش بالـ repo. **اعمله backup** (مثلاً بمدير كلمات السر): إذا ضاع، ما بتقدر تطلّع أكواد جديدة، وإذا حدا أخذه، بيقدر يطلّع أكواد.
+- الكود **لبيت واحد بس**. إذا حدا نسخه لبيت ثاني، ما بيزبط.
+- ما في سيرفر ولا إنترنت: التحقق بيصير جوا HA الزبون.
+- **حدود الحماية:** الكود ظاهر بالـ repo العام، فمبرمج شاطر بيقدر يعدّل الملفات ويشيل الفحص. هاد بيمنع الاستعمال العادي، مش الاختراق المقصود.
+
 ## التركيب عن طريق HACS (الطريقة الأساسية)
 
 1. بـ HA: **HACS → ⋮ → Custom repositories**، وحط رابط هاد الـ repo، والنوع **Integration**.
