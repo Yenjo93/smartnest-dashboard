@@ -1,5 +1,8 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiBorderAllVariant,
+  mdiBorderNoneVariant,
+  mdiArrowSplitVertical,
   mdiContentCopy,
   mdiRotateRight,
   mdiWall,
@@ -420,6 +423,9 @@ export const ICONS: Record<string, string> = {
   wall: mdiWall,
   "rotate-right": mdiRotateRight,
   "content-copy": mdiContentCopy,
+  "arrow-split-vertical": mdiArrowSplitVertical,
+  "border-none-variant": mdiBorderNoneVariant,
+  "border-all-variant": mdiBorderAllVariant,
 };
 
 /** Icons offered when naming a page. */

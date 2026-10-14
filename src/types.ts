@@ -242,6 +242,8 @@ export interface Room {
   robot_room?: string;
   /** Floor finish on a drawn plan; guessed from the name when unset. */
   kind?: RoomKind;
+  /** A zone without its own outline (its walls are drawn as lines instead). */
+  nowall?: boolean;
 }
 
 export type RoomKind = "wood" | "tile" | "plain" | "outdoor";
@@ -262,6 +264,8 @@ export interface Floor {
   doors?: Door[];
   /** Walls taken out between rooms (a living room open to the kitchen): from a to b, in percent. */
   openings?: { id: string; a: [number, number]; b: [number, number] }[];
+  /** Walls drawn as lines, on top of (or instead of) the rooms' outlines. */
+  walls?: { id: string; a: [number, number]; b: [number, number] }[];
   /** Furniture on a drawn plan. */
   furniture?: import("./furniture").Furniture[];
   /** The photo this plan was cleaned from, to go back to it. */

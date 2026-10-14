@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "./ctx";
 import type { Door, Floor, Room, RoomKind } from "./types";
 import { uid } from "./config";
-import { guessKind, planSvg, svgDataUrl } from "./plan-svg";
+import { guessKind, planSvg, svgDataUrl, wallSegments } from "./plan-svg";
 import { FURNITURE, FURNITURE_ORDER, furniturePreview, type Furniture, type FurnitureKind } from "./furniture";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { shared } from "./theme";
@@ -12,10 +12,13 @@ import "./ui/icon";
 
 type Pt = [number, number];
 type Opening = NonNullable<Floor["openings"]>[number];
+type Wall = NonNullable<Floor["walls"]>[number];
 type Drag =
   | { kind: "new"; from: Pt; to: Pt }
+  | { kind: "line"; from: Pt; to: Pt }
   | { kind: "fmove"; id: string; from: Pt; orig: Pt }
   | { kind: "fsize"; id: string; from: Pt; orig: { w: number; h: number } }
+  | { kind: "frot"; id: string }
   | { kind: "move"; id: string; from: Pt; orig: Pt[] }
   | { kind: "corner"; id: string; corner: number; orig: Pt[] };
 
@@ -44,11 +47,14 @@ export class SnPlanDraw extends LitElement {
   @state() private rooms: Room[] = [];
   @state() private doors: Door[] = [];
   @state() private openings: Opening[] = [];
+  @state() private walls: Wall[] = [];
+  /** Selected wall line. */
+  @state() private selW?: string;
   @state() private furniture: Furniture[] = [];
   /** Selected piece of furniture. */
   @state() private selF?: string;
   @state() private sel?: string;
-  @state() private mode: "room" | "door" | "wall" | "furn" = "room";
+  @state() private mode: "room" | "line" | "door" | "wall" | "furn" = "room";
   @state() private drag?: Drag;
   @state() private box = { w: 0, h: 0 };
   private ro?: ResizeObserver;
@@ -180,6 +186,30 @@ export class SnPlanDraw extends LitElement {
         outline: 2px dashed var(--accent);
         outline-offset: 2px;
       }
+      /* Twist handle above the piece, on a little stem. */
+      .frot {
+        position: absolute;
+        left: 50%;
+        top: -38px;
+        width: 26px;
+        height: 26px;
+        margin-left: -13px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 3px solid #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        cursor: grab;
+      }
+      .frot::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        width: 2px;
+        height: 12px;
+        margin-left: -1px;
+        background: var(--accent);
+      }
       .fsize {
         position: absolute;
         right: -11px;
@@ -190,6 +220,23 @@ export class SnPlanDraw extends LitElement {
         background: #fff;
         border: 3px solid var(--accent);
         cursor: nwse-resize;
+      }
+      line.ghostline {
+        stroke: var(--accent);
+        stroke-width: 8;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+        opacity: 0.8;
+      }
+      line.wl {
+        stroke: transparent;
+        stroke-width: 22;
+        stroke-linecap: round;
+        vector-effect: non-scaling-stroke;
+        cursor: pointer;
+      }
+      line.wl.sel {
+        stroke: color-mix(in srgb, var(--accent) 60%, transparent);
       }
       line.open {
         stroke: var(--accent);
@@ -250,6 +297,7 @@ export class SnPlanDraw extends LitElement {
     this.rooms = structuredClone(this.floor.rooms ?? []);
     this.doors = structuredClone(this.floor.doors ?? []);
     this.openings = structuredClone(this.floor.openings ?? []);
+    this.walls = structuredClone(this.floor.walls ?? []);
     this.furniture = structuredClone(this.floor.furniture ?? []);
     this.ro = new ResizeObserver(() => this.fit());
     this.ro.observe(this);
@@ -297,12 +345,20 @@ export class SnPlanDraw extends LitElement {
       /* gone already */
     }
     const p = this.at(e);
+    if (this.mode === "line") {
+      const hit = (target as SVGElement).dataset?.wall;
+      if (hit) return void (this.selW = hit);
+      this.selW = undefined;
+      const from = this.endSnap(this.raw(e)) ?? p;
+      return void (this.drag = { kind: "line", from, to: from });
+    }
     if (this.mode === "door") return this.placeDoor(p, target);
     if (this.mode === "wall") return this.toggleWall(p, target);
     if (this.mode === "furn") {
       const fid = (target as HTMLElement).dataset?.furn;
       const size = (target as HTMLElement).dataset?.fsize;
       const raw = this.raw(e);
+      if ((target as HTMLElement).dataset?.frot && this.selF) return void (this.drag = { kind: "frot", id: this.selF });
       if (size && this.selF) {
         const f = this.furniture.find((x) => x.id === this.selF)!;
         return void (this.drag = { kind: "fsize", id: f.id, from: raw, orig: { w: f.w, h: f.h } });
@@ -344,6 +400,23 @@ export class SnPlanDraw extends LitElement {
     const d = this.drag;
     if (!d) return;
     if (d.kind === "new") return void (this.drag = { ...d, to: this.at(e) });
+    if (d.kind === "line") return void (this.drag = { ...d, to: this.lineEnd(d.from, e) });
+    if (d.kind === "frot") {
+      // Twist around its centre, following the finger; it settles on every 15° and holds a little at 0/90/180/270.
+      const p = this.raw(e);
+      this.furniture = this.furniture.map((f) => {
+        if (f.id !== d.id) return f;
+        const dx = ((p[0] - f.x) / 100) * this.box.w;
+        const dy = ((p[1] - f.y) / 100) * this.box.h;
+        let a = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // the handle sits above the piece
+        a = ((a % 360) + 360) % 360;
+        const square = Math.round(a / 90) * 90;
+        a = Math.abs(a - square) < 6 ? square % 360 : Math.round(a / 15) * 15 % 360;
+        if (a !== f.rot) haptic("tick");
+        return { ...f, rot: a };
+      });
+      return;
+    }
     if (d.kind === "fmove" || d.kind === "fsize") {
       const p = this.raw(e);
       const W = 1200;
@@ -353,9 +426,12 @@ export class SnPlanDraw extends LitElement {
         if (d.kind === "fmove")
           return { ...f, x: Math.round((d.orig[0] + p[0] - d.from[0]) * 4) / 4, y: Math.round((d.orig[1] + p[1] - d.from[1]) * 4) / 4 };
         // Resize from the corner: the change in plan units, along the piece's own axes when it's turned.
-        let dx = ((p[0] - d.from[0]) / 100) * W;
-        let dy = ((p[1] - d.from[1]) / 100) * H;
-        if (f.rot % 180) [dx, dy] = [dy, dx];
+        // Along the piece's own sides, whatever way it's turned.
+        const gx = ((p[0] - d.from[0]) / 100) * W;
+        const gy = ((p[1] - d.from[1]) / 100) * H;
+        const rad = (-f.rot * Math.PI) / 180;
+        const dx = gx * Math.cos(rad) - gy * Math.sin(rad);
+        const dy = gx * Math.sin(rad) + gy * Math.cos(rad);
         return { ...f, w: Math.max(20, Math.round(d.orig.w + dx * 2)), h: Math.max(10, Math.round(d.orig.h + dy * 2)) };
       });
       return;
@@ -374,9 +450,46 @@ export class SnPlanDraw extends LitElement {
     });
   };
 
+  /** The nearest wall end or room corner, when the finger is right next to one: lines join up into one wall. */
+  private endSnap(p: Pt): Pt | undefined {
+    const ends: Pt[] = [...this.walls.flatMap((w) => [w.a, w.b]), ...this.rooms.flatMap((r) => r.points)];
+    let best: Pt | undefined;
+    let bd = 1.6;
+    for (const q of ends) {
+      const d = Math.hypot(q[0] - p[0], (q[1] - p[1]) / this.ratio);
+      if (d < bd) [best, bd] = [q, d];
+    }
+    return best ? [...best] : undefined;
+  }
+
+  /** Where a wall being drawn ends: a nearby corner, else straightened to level or upright (or 45°) when close. */
+  private lineEnd(from: Pt, e: PointerEvent): Pt {
+    const raw = this.raw(e);
+    const end = this.endSnap(raw);
+    if (end) return end;
+    const p = this.at(e);
+    const dx = p[0] - from[0];
+    const dy = (p[1] - from[1]) / this.ratio; // in the plan's real proportions
+    const ang = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI);
+    const near = (a: number) => Math.abs(ang - a) < 8;
+    if (near(0) || near(180)) return [p[0], from[1]];
+    if (near(90)) return [from[0], p[1]];
+    if (near(45) || near(135)) {
+      const len = (Math.abs(dx) + Math.abs(dy)) / 2;
+      return [from[0] + Math.sign(dx) * len, from[1] + Math.sign(dy) * len * this.ratio];
+    }
+    return p;
+  }
+
   private up = () => {
     const d = this.drag;
     this.drag = undefined;
+    if (d?.kind === "line") {
+      if (Math.hypot(d.to[0] - d.from[0], d.to[1] - d.from[1]) < 1.5) return;
+      this.walls = [...this.walls, { id: uid(), a: d.from, b: d.to }];
+      haptic("tap");
+      return;
+    }
     if (d?.kind !== "new") return;
     const pts = rect(d.from, d.to);
     if (pts[1][0] - pts[0][0] < 3 || pts[2][1] - pts[0][1] < 3) return;
@@ -458,12 +571,10 @@ export class SnPlanDraw extends LitElement {
   private placeDoor(p: Pt, target: Element) {
     const hit = (target as HTMLElement).dataset?.door;
     if (hit) return void (this.doors = this.doors.filter((x) => x.id !== hit));
-    // Onto the nearest wall.
+    // Onto the nearest wall (a room's outline or a drawn line).
     let best: { x: number; y: number; d: number } | undefined;
-    for (const r of this.rooms)
-      for (let i = 0; i < r.points.length; i++) {
-        const a = r.points[i];
-        const b = r.points[(i + 1) % r.points.length];
+    for (const [a, b] of wallSegments(this.rooms, this.walls))
+      {
         const dx = b[0] - a[0];
         const dy = b[1] - a[1];
         const t = Math.max(0.08, Math.min(0.92, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
@@ -485,18 +596,18 @@ export class SnPlanDraw extends LitElement {
   private save() {
     const W = 1200;
     const H = Math.round(W / this.ratio);
-    const image = svgDataUrl(planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture }));
+    const image = svgDataUrl(planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture, walls: this.walls }));
     const old = this.floor;
     // The photo it was traced from stays, to go back to it.
     const photo = old.photo ?? (!old.drawn && old.image ? old.image : undefined);
-    this.onDone({ ...old, rooms: this.rooms, doors: this.doors, openings: this.openings, furniture: this.furniture, image, drawn: true, ratio: this.ratio, photo });
+    this.onDone({ ...old, rooms: this.rooms, doors: this.doors, openings: this.openings, furniture: this.furniture, walls: this.walls, image, drawn: true, ratio: this.ratio, photo });
   }
 
   render() {
     const { t } = this.ctx;
     const W = 1200;
     const H = Math.round(W / this.ratio);
-    const preview = svgDataUrl(planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture }));
+    const preview = svgDataUrl(planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture, walls: this.walls }));
     const selF = this.furniture.find((f) => f.id === this.selF);
     const sel = this.rooms.find((r) => r.id === this.sel);
     const d = this.drag;
@@ -510,8 +621,9 @@ export class SnPlanDraw extends LitElement {
         <h2>${t("plan_draw")}</h2>
         <div class="seg">
           <button aria-pressed=${this.mode === "room"} @click=${() => (this.mode = "room")}><sn-icon icon="rooms" style="--icon-size:18px"></sn-icon>${t("plan_mode_room")}</button>
+          <button aria-pressed=${this.mode === "line"} @click=${() => ((this.mode = "line"), (this.sel = undefined))}><sn-icon icon="wall" style="--icon-size:18px"></sn-icon>${t("plan_mode_line")}</button>
           <button aria-pressed=${this.mode === "door"} @click=${() => ((this.mode = "door"), (this.sel = undefined))}><sn-icon icon="door-open" style="--icon-size:18px"></sn-icon>${t("plan_mode_door")}</button>
-          <button aria-pressed=${this.mode === "wall"} @click=${() => ((this.mode = "wall"), (this.sel = undefined))}><sn-icon icon="wall" style="--icon-size:18px"></sn-icon>${t("plan_mode_wall")}</button>
+          <button aria-pressed=${this.mode === "wall"} @click=${() => ((this.mode = "wall"), (this.sel = undefined))}><sn-icon icon="arrow-split-vertical" style="--icon-size:18px"></sn-icon>${t("plan_mode_wall")}</button>
           <button aria-pressed=${this.mode === "furn"} @click=${() => (this.mode = "furn")}><sn-icon icon="sofa" style="--icon-size:18px"></sn-icon>${t("plan_mode_furn")}</button>
         </div>
         <button class="btn pressable" @click=${() => this.onDone()}>${t("cancel")}</button>
@@ -533,20 +645,24 @@ export class SnPlanDraw extends LitElement {
               (r) => svg`<polygon class="room ${r.id === this.sel ? "sel" : ""}" data-room=${r.id} points=${r.points.map((p) => p.join(",")).join(" ")}></polygon>`
             )}
             ${d?.kind === "new" ? svg`<polygon class="ghost" points=${rect(d.from, d.to).map((p) => p.join(",")).join(" ")}></polygon>` : nothing}
+            ${d?.kind === "line" ? svg`<line class="ghostline" x1=${d.from[0]} y1=${d.from[1]} x2=${d.to[0]} y2=${d.to[1]}></line>` : nothing}
+            ${this.mode === "line"
+              ? this.walls.map((w) => svg`<line class="wl ${w.id === this.selW ? "sel" : ""}" data-wall=${w.id} x1=${w.a[0]} y1=${w.a[1]} x2=${w.b[0]} y2=${w.b[1]}></line>`)
+              : nothing}
             ${this.mode === "wall"
               ? this.openings.map((o) => svg`<line class="open" data-opening=${o.id} x1=${o.a[0]} y1=${o.a[1]} x2=${o.b[0]} y2=${o.b[1]}></line>`)
               : nothing}
           </svg>
           ${this.mode === "furn"
             ? this.furniture.map((f) => {
-                const turned = f.rot % 180 !== 0;
-                const bw = ((turned ? f.h : f.w) / W) * 100;
-                const bh = ((turned ? f.w : f.h) / H) * 100;
+                // The piece's own box, turned like it, in screen pixels.
+                const bw = (f.w / W) * this.box.w;
+                const bh = (f.h / H) * this.box.h;
                 return html`<span
                   class="furn ${f.id === this.selF ? "sel" : ""}"
                   data-furn=${f.id}
-                  style="left:${f.x - bw / 2}%;top:${f.y - bh / 2}%;width:${bw}%;height:${bh}%"
-                >${f.id === this.selF ? html`<i class="fsize" data-fsize="1"></i>` : nothing}</span>`;
+                  style="left:${f.x}%;top:${f.y}%;width:${bw}px;height:${bh}px;transform:translate(-50%, -50%) rotate(${f.rot}deg)"
+                >${f.id === this.selF ? html`<i class="fsize" data-fsize="1"></i><i class="frot" data-frot="1"></i>` : nothing}</span>`;
               })
             : nothing}
           ${this.rooms.map((r) => {
@@ -562,7 +678,8 @@ export class SnPlanDraw extends LitElement {
         ${this.mode === "furn"
           ? selF
             ? html`<span class="hint">${t(`furn_${selF.kind}` as any)}</span>
-                <button class="btn pressable" @click=${() => this.patchF({ rot: (selF.rot + 90) % 360 })}><sn-icon icon="rotate-right" style="--icon-size:18px"></sn-icon>${t("plan_turn")}</button>
+                <span class="hint ltr" style="flex:none">${selF.rot}°</span>
+                <button class="btn pressable" @click=${() => this.patchF({ rot: (Math.round(selF.rot / 90) * 90 + 90) % 360 })}><sn-icon icon="rotate-right" style="--icon-size:18px"></sn-icon>${t("plan_turn")}</button>
                 <button class="btn pressable" @click=${() => {
                   const copy = { ...selF, id: uid(), x: selF.x + 3, y: selF.y + 3 };
                   this.furniture = [...this.furniture, copy];
@@ -581,9 +698,20 @@ export class SnPlanDraw extends LitElement {
               </div>`
           : this.mode === "wall"
           ? html`<span class="hint">${t("plan_wall_hint")}</span>`
+          : this.mode === "line"
+          ? this.selW
+            ? html`<span class="hint">${t("plan_line_sel")}</span>
+                <button class="icon-btn pressable" aria-label=${t("delete")} @click=${() => ((this.walls = this.walls.filter((w) => w.id !== this.selW)), (this.selW = undefined))}>
+                  <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>
+                </button>
+                <button class="btn primary pressable" @click=${() => (this.selW = undefined)}>${t("done")}</button>`
+            : html`<span class="hint">${t("plan_line_hint")}</span>`
           : sel
           ? html`<input type="text" .value=${sel.name} @input=${(e: any) => this.patch({ name: e.target.value })} />
               <div class="seg">${kinds.map(([k, label]) => html`<button aria-pressed=${(sel.kind ?? guessKind(sel.name)) === k} @click=${() => this.patch({ kind: k })}>${label}</button>`)}</div>
+              <button class="btn pressable" aria-pressed=${!sel.nowall} title=${t("plan_room_walls")} @click=${() => this.patch({ nowall: !sel.nowall })}>
+                <sn-icon icon=${sel.nowall ? "border-none-variant" : "border-all-variant"} style="--icon-size:18px"></sn-icon>${t(sel.nowall ? "plan_room_nowall" : "plan_room_walls")}
+              </button>
               <button class="icon-btn pressable" aria-label=${t("delete")} @click=${() => ((this.rooms = this.rooms.filter((r) => r.id !== this.sel)), (this.sel = undefined))}>
                 <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>
               </button>`
@@ -627,7 +755,7 @@ export function cleanFloor(floor: Floor, ratio: number): Floor {
   const H = Math.round(W / ratio);
   return {
     ...floor,
-    image: svgDataUrl(planSvg(floor.rooms ?? [], floor.doors ?? [], W, H, { openings: floor.openings, furniture: floor.furniture })),
+    image: svgDataUrl(planSvg(floor.rooms ?? [], floor.doors ?? [], W, H, { openings: floor.openings, furniture: floor.furniture, walls: floor.walls })),
     drawn: true,
     ratio,
     photo: floor.photo ?? (!floor.drawn ? floor.image : undefined),

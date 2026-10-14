@@ -1049,6 +1049,11 @@ const en = {
   furn_plant: "Plant",
   furn_stairs: "Stairs",
   furn_car: "Car",
+  plan_mode_line: "Walls",
+  plan_line_hint: "Drag to draw a wall. It snaps to corners and wall ends, and straightens when nearly level or upright. Tap a wall to delete it.",
+  plan_line_sel: "This wall",
+  plan_room_walls: "Its own walls",
+  plan_room_nowall: "No walls (a zone)",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2102,6 +2107,11 @@ const ar: Record<I18nKey, string> = {
   furn_plant: "زريعة",
   furn_stairs: "درج",
   furn_car: "سيارة",
+  plan_mode_line: "حيطان",
+  plan_line_hint: "اسحب لترسم حيط. بيلزق بالزوايا وأطراف الحيطان، وبيصير مستقيم إذا قريب من أفقي أو عمودي. اكبس على حيط لتشيله.",
+  plan_line_sel: "هاد الحيط",
+  plan_room_walls: "حيطانها",
+  plan_room_nowall: "بدون حيطان (منطقة)",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3153,6 +3163,11 @@ const he: Record<I18nKey, string> = {
   furn_plant: "עציץ",
   furn_stairs: "מדרגות",
   furn_car: "רכב",
+  plan_mode_line: "קירות",
+  plan_line_hint: "גררו כדי לצייר קיר. נצמד לפינות ולקצוות, ומתיישר כשהוא כמעט אופקי או אנכי. הקישו על קיר כדי למחוק.",
+  plan_line_sel: "הקיר הזה",
+  plan_room_walls: "קירות משלו",
+  plan_room_nowall: "בלי קירות (אזור)",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

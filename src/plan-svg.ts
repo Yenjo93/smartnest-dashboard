@@ -10,18 +10,25 @@ export function guessKind(name: string): RoomKind {
   return "wood";
 }
 
-const nearestEdge = (rooms: Room[], x: number, y: number) => {
+type Seg = [[number, number], [number, number]];
+
+/** Every wall on the plan as segments: the rooms' outlines (unless a room has none) and the lines drawn as walls. */
+export function wallSegments(rooms: Room[], walls: Floor["walls"] = []): Seg[] {
+  const out: Seg[] = [];
+  for (const r of rooms) if (!r.nowall) for (let i = 0; i < r.points.length; i++) out.push([r.points[i], r.points[(i + 1) % r.points.length]]);
+  for (const w of walls ?? []) out.push([w.a, w.b]);
+  return out;
+}
+
+const nearestEdge = (segs: Seg[], x: number, y: number) => {
   let best: { a: [number, number]; b: [number, number]; d: number } | undefined;
-  for (const r of rooms)
-    for (let i = 0; i < r.points.length; i++) {
-      const a = r.points[i];
-      const b = r.points[(i + 1) % r.points.length];
-      const dx = b[0] - a[0];
-      const dy = b[1] - a[1];
-      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
-      const d = Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y);
-      if (!best || d < best.d) best = { a, b, d };
-    }
+  for (const [a, b] of segs) {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+    const d = Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y);
+    if (!best || d < best.d) best = { a, b, d };
+  }
   return best;
 };
 
@@ -30,7 +37,7 @@ const nearestEdge = (rooms: Room[], x: number, y: number) => {
  * with their swing. Neutral greys so it reads on light and dark themes. Coordinates are the same percentages as
  * markers, so devices already placed stay where they are.
  */
-export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, extra: Pick<Floor, "openings" | "furniture"> = {}): string {
+export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, extra: Pick<Floor, "openings" | "furniture" | "walls"> = {}): string {
   const X = (p: number) => ((p / 100) * w).toFixed(1);
   const Y = (p: number) => ((p / 100) * h).toFixed(1);
   const wall = Math.max(8, Math.round(w / 100));
@@ -47,7 +54,7 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, ex
   const holes: string[] = [];
   const leaves: string[] = [];
   for (const d of doors) {
-    const e = nearestEdge(rooms, d.x, d.y);
+    const e = nearestEdge(wallSegments(rooms, extra.walls), d.x, d.y);
     if (!e) continue;
     const ang = Math.atan2(((e.b[1] - e.a[1]) / 100) * h, ((e.b[0] - e.a[0]) / 100) * w);
     const cx = (d.x / 100) * w;
@@ -77,8 +84,10 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, ex
     seams.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#9AA4AD" stroke-opacity=".35" stroke-width="2" stroke-dasharray="8 8"/>`);
   }
   const furniture = (extra.furniture ?? []).map((f) => furnitureSvg(f, w, h)).join("");
-  const inside = rooms.filter((r) => (r.kind ?? guessKind(r.name)) !== "outdoor");
-  const walls = inside.map((r) => `<polygon points="${pts(r)}" fill="none"/>`).join("");
+  const inside = rooms.filter((r) => (r.kind ?? guessKind(r.name)) !== "outdoor" && !r.nowall);
+  const walls =
+    inside.map((r) => `<polygon points="${pts(r)}" fill="none"/>`).join("") +
+    (extra.walls ?? []).map((l) => `<line x1="${X(l.a[0])}" y1="${Y(l.a[1])}" x2="${X(l.b[0])}" y2="${Y(l.b[1])}"/>`).join("");
   // Balconies and gardens: a light dashed edge instead of a wall.
   const edges = rooms
     .filter((r) => (r.kind ?? guessKind(r.name)) === "outdoor")
