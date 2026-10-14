@@ -2073,6 +2073,36 @@ export class SnFloorplan extends LitElement {
     return nothing;
   }
 
+  /** Width / height of this floor's picture (or a drawn plan's canvas). */
+  private floorRatio(): number {
+    const f = this.floor;
+    if (f?.drawn && f.ratio) return f.ratio;
+    return this.natural ? this.natural.w / this.natural.h : 1.5;
+  }
+
+  private async openDrawer() {
+    const { drawPlan } = await import("../plan-draw");
+    const floor = this.floor ?? newFloor(this.ctx.t("floor_default"));
+    const trace = floor.photo ?? (!floor.drawn ? floor.image ?? "" : "");
+    const next = await drawPlan(this.ctx, this, structuredClone(floor), this.floorRatio(), trace);
+    if (!next) return;
+    this.edit((floors, fl) => {
+      if (fl) Object.assign(fl, next);
+      else floors.push(next);
+    });
+    this.natural = undefined;
+  }
+
+  /** The rooms outlined on the photo become a clean drawn plan of the same shape; devices stay where they are. */
+  private async cleanPlan() {
+    const f = this.floor;
+    if (!f?.rooms?.length) return this.ctx.toast(this.ctx.t("plan_clean_need_rooms"));
+    const { cleanFloor } = await import("../plan-draw");
+    const next = cleanFloor(f, this.floorRatio());
+    this.edit((_floors, fl) => fl && Object.assign(fl, next));
+    this.natural = undefined;
+  }
+
   private renderTools() {
     const { ctx } = this;
     const { t } = ctx;
@@ -2117,6 +2147,19 @@ export class SnFloorplan extends LitElement {
         <sn-icon icon="image-plus" style="--icon-size:20px"></sn-icon>
         ${this.uploading ? t("loading") : floor?.image ? t("replace_plan") : t("upload_plan")}
       </button>
+      <button class="btn pressable" @click=${() => this.openDrawer()}>
+        <sn-icon icon="pencil-ruler" style="--icon-size:20px"></sn-icon>${t("plan_draw")}
+      </button>
+      ${floor?.image && !floor.drawn
+        ? html`<button class="btn pressable" @click=${() => this.cleanPlan()}>
+            <sn-icon icon="auto-fix" style="--icon-size:20px"></sn-icon>${t("plan_clean")}
+          </button>`
+        : nothing}
+      ${floor?.photo && floor.drawn
+        ? html`<button class="btn pressable" @click=${() => this.edit((_f, fl) => fl && (Object.assign(fl, { image: fl.photo, drawn: false }), delete fl.photo))}>
+            <sn-icon icon="image" style="--icon-size:20px"></sn-icon>${t("plan_photo_back")}
+          </button>`
+        : nothing}
       <button class="btn pressable" ?disabled=${!floor?.image} @click=${() => {
         this.roomMode = true;
         this.selected = undefined;

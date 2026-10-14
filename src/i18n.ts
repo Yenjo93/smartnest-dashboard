@@ -1006,6 +1006,20 @@ const en = {
   ab_apartment: "Apartment",
   ab_villa: "Villa",
   ab_office: "Office",
+  plan_draw: "Draw the plan",
+  plan_clean: "Clean plan",
+  plan_photo_back: "Back to the photo",
+  plan_mode_room: "Rooms",
+  plan_mode_door: "Doors",
+  plan_room_n: "Room {n}",
+  plan_kind_wood: "Wood",
+  plan_kind_tile: "Tiles",
+  plan_kind_plain: "Plain",
+  plan_kind_outdoor: "Outside",
+  plan_draw_hint: "Drag across the grid to draw a room. Rooms snap to each other's walls.",
+  plan_draw_more: "Draw the next room next to it, or tap a room to name, move or resize it.",
+  plan_door_hint: "Tap on a wall to add a door; tap a door to remove it.",
+  plan_clean_need_rooms: "Outline the rooms first (Rooms, or Auto add)",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2016,6 +2030,20 @@ const ar: Record<I18nKey, string> = {
   ab_apartment: "شقة",
   ab_villa: "فيلا",
   ab_office: "مكتب",
+  plan_draw: "ارسم المخطط",
+  plan_clean: "نظّف المخطط",
+  plan_photo_back: "رجّع الصورة",
+  plan_mode_room: "غرف",
+  plan_mode_door: "أبواب",
+  plan_room_n: "غرفة {n}",
+  plan_kind_wood: "خشب",
+  plan_kind_tile: "بلاط",
+  plan_kind_plain: "عادي",
+  plan_kind_outdoor: "برّا",
+  plan_draw_hint: "اسحب على الشبكة لترسم غرفة. الغرف بتلزق بحيطان بعض.",
+  plan_draw_more: "ارسم الغرفة الجاية جنبها، أو اكبس على غرفة لتسمّيها أو تحركها أو تكبّرها.",
+  plan_door_hint: "اكبس على حيط لتضيف باب، واكبس على الباب لتشيله.",
+  plan_clean_need_rooms: "حدّد الغرف أول (الغرف، أو إضافة تلقائية)",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3024,6 +3052,20 @@ const he: Record<I18nKey, string> = {
   ab_apartment: "דירה",
   ab_villa: "וילה",
   ab_office: "משרד",
+  plan_draw: "צייר תוכנית",
+  plan_clean: "תוכנית נקייה",
+  plan_photo_back: "חזרה לתמונה",
+  plan_mode_room: "חדרים",
+  plan_mode_door: "דלתות",
+  plan_room_n: "חדר {n}",
+  plan_kind_wood: "עץ",
+  plan_kind_tile: "אריחים",
+  plan_kind_plain: "רגיל",
+  plan_kind_outdoor: "בחוץ",
+  plan_draw_hint: "גררו על הרשת כדי לצייר חדר. החדרים נצמדים לקירות זה של זה.",
+  plan_draw_more: "ציירו את החדר הבא לידו, או הקישו על חדר כדי לשנות שם, להזיז או לשנות גודל.",
+  plan_door_hint: "הקישו על קיר כדי להוסיף דלת; הקישו על דלת כדי להסיר.",
+  plan_clean_need_rooms: "סמנו קודם את החדרים (חדרים, או הוספה אוטומטית)",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

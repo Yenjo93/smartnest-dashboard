@@ -240,6 +240,17 @@ export interface Room {
   points: [number, number][];
   /** The robot's room (Roborock segment or HA area) this outline is; empty = matched by name. */
   robot_room?: string;
+  /** Floor finish on a drawn plan; guessed from the name when unset. */
+  kind?: RoomKind;
+}
+
+export type RoomKind = "wood" | "tile" | "plain" | "outdoor";
+
+/** A door on a drawn plan: a point on a wall (percent, like markers). */
+export interface Door {
+  id: string;
+  x: number;
+  y: number;
 }
 
 export interface Floor {
@@ -248,6 +259,13 @@ export interface Floor {
   image?: string;
   markers: Marker[];
   rooms?: Room[];
+  doors?: Door[];
+  /** The photo this plan was cleaned from, to go back to it. */
+  photo?: string;
+  /** Drawn in SmartNest: the picture is made from the rooms and redrawn when they change. */
+  drawn?: boolean;
+  /** Width / height of a drawn plan's canvas. */
+  ratio?: number;
 }
 
 export interface DashboardConfig {
