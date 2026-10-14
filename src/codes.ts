@@ -65,7 +65,7 @@ export class SnGuestCodes extends LitElement {
   render() {
     const { t, hass, config } = this.ctx;
     const locks = this.lock ? [this.lock] : Object.keys(hass.states).filter((id) => id.startsWith("lock."));
-    if (!this.codes) return html`<span class="muted">${t("loading")}</span>`;
+    if (!this.codes) return html`<sn-skeleton></sn-skeleton>`;
     return html`<div style="display:grid;gap:12px">
       ${!this.zwave ? html`<p class="muted" style="margin:0;font-size:14px">${t("codes_need_zwave")}</p>` : nothing}
       ${this.codes.map(

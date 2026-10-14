@@ -2,9 +2,10 @@ import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
-import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKind } from "../entities";
+import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKind, domainOf } from "../entities";
 import { bindPress } from "../ui/press";
 import { shared } from "../theme";
+import { playUi } from "../sounds";
 import "../ui/icon";
 import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
@@ -133,6 +134,7 @@ export class SnTile extends LitElement {
     const e = this.ctx.hass.states[id];
     if (!e || e.state === "unavailable" || tapKind(id) === "sheet") return this.ctx.openEntity(id, this.renderRoot.querySelector(".tile") ?? undefined);
     navigator.vibrate?.(5);
+    playUi(domainOf(id) === "lock" ? (e.state === "locked" ? "unlock" : "lock") : isActive(e) ? "off" : "on");
     runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 

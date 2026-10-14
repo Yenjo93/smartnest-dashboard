@@ -146,7 +146,7 @@ export class SnAir extends LitElement {
               </div>`
             )}
           </div>`
-        : html`<span class="muted">${t("no_entities")}</span>`}
+        : html`<sn-empty text=${t("no_entities")}></sn-empty>`}
       ${p
         ? html`<button
             class="btn ${isActive(p) ? "" : "primary"} pressable"

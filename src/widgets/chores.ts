@@ -293,7 +293,7 @@ export class SnChores extends LitElement {
         </button>
       </div>
       ${!this.loaded
-        ? html`<span class="muted">${t("loading")}</span>`
+        ? html`<sn-skeleton></sn-skeleton>`
         : this.setup || !c.kids.length || !c.tasks.length
         ? this.renderSetup()
         : html`<div class="kids">

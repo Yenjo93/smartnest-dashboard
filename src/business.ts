@@ -192,7 +192,7 @@ export class SnHistory extends LitElement {
 
   render() {
     const { t, hass, lang } = this.ctx;
-    if (!this.items) return html`<span class="muted">${t("loading")}</span>`;
+    if (!this.items) return html`<sn-skeleton></sn-skeleton>`;
     if (!this.items.length) return html`<p class="muted" style="margin:0">${t("history_empty")}</p>`;
     return html`<div style="display:grid;gap:8px">
       <span class="muted" style="font-size:14px">${t("history_hint")}</span>

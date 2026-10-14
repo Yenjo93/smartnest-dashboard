@@ -228,7 +228,7 @@ export class SnWater extends LitElement {
               : html`<button class="btn primary pressable" @click=${() => this.toggleValve(true)}>${t("water_open")}</button>`}
           </div>`
         : nothing}
-      ${!usage && !tank && !valve && !leakSensors(hass).length ? html`<span class="muted">${t("no_entities")}</span>` : nothing}
+      ${!usage && !tank && !valve && !leakSensors(hass).length ? html`<sn-empty text=${t("no_entities")}></sn-empty>` : nothing}
     </div>`;
   }
 }

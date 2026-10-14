@@ -90,6 +90,9 @@ export function defaultSettings(lang: Lang): Settings {
     wallpaper_dim: 0.35,
     accent_from_wallpaper: true,
     nav: "tabs",
+    sounds: false,
+    doorbell_tone: "chime",
+    motion: "full",
     tou: { enabled: false, cheap_from: "23:00", cheap_to: "07:00", peak_from: "17:00", peak_to: "22:00" },
   };
 }

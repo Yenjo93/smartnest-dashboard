@@ -7,6 +7,7 @@ import { liveUrl, snapshotUrl } from "./widgets/camera";
 import { shared } from "./theme";
 import "./ui/icon";
 import { aiEntity, askAI } from "./ai";
+import { playBell } from "./sounds";
 
 /** Two-note chime made on the fly, so there's no audio file to ship. Browsers allow it after any earlier tap. */
 function chime() {
@@ -209,7 +210,10 @@ export class SnDoorbell extends LitElement {
       );
     }
     if (cam && this.ctx.allows("faces")) window.setTimeout(() => this.recognise(cam), 2500);
-    if (!this.silent) chime();
+    if (!this.silent) {
+      const tone = this.ctx.config.settings.doorbell_tone;
+      tone && tone !== "chime" ? playBell(tone) : chime();
+    }
     navigator.vibrate?.([120, 80, 120]);
   }
 

@@ -127,6 +127,11 @@ export interface Settings {
   wallpaper?: string;
   wallpaper_dim: number;
   accent_from_wallpaper: boolean;
+  /** Soft clicks when things switch, and which tone the doorbell plays. */
+  sounds: boolean;
+  doorbell_tone: "chime" | "dingdong" | "melody";
+  /** How much things move: everything, a little, or nothing. */
+  motion: "full" | "light" | "off";
   /** Pages as tabs in the bar, or a floating dock at the bottom (2.0, big screens). */
   nav: "tabs" | "dock";
   /** At night, the dark look becomes Midnight (pure black, only what's on glows). */

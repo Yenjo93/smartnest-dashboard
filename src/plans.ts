@@ -11,7 +11,7 @@ export type Feature =
   | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history"
   | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests"
   | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating"
-  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert" | "w_wake" | "w_chores" | "w_air" | "light_fx" | "person_pages" | "history" | "report" | "presets" | "support" | "ai_scene" | "ai_automation" | "ai_cameras" | "ai_bill" | "voice" | "w_boiler" | "w_irrigation" | "home_helpers" | "w_timeline" | "w_internet" | "guest_codes" | "faces" | "w_board" | "w_verse" | "w_radar" | "w_commute" | "w_parcels" | "tou" | "energy_challenge" | "refill" | "heartbeat" | "warranty" | "battery_plan" | "showroom" | "style_pro" | "w_hero" | "w_stack" | "w_room" | "island" | "bento" | "wallpaper" | "dock" | "dial" | "search" | "charts" | "complications";
+  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert" | "w_wake" | "w_chores" | "w_air" | "light_fx" | "person_pages" | "history" | "report" | "presets" | "support" | "ai_scene" | "ai_automation" | "ai_cameras" | "ai_bill" | "voice" | "w_boiler" | "w_irrigation" | "home_helpers" | "w_timeline" | "w_internet" | "guest_codes" | "faces" | "w_board" | "w_verse" | "w_radar" | "w_commute" | "w_parcels" | "tou" | "energy_challenge" | "refill" | "heartbeat" | "warranty" | "battery_plan" | "showroom" | "style_pro" | "w_hero" | "w_stack" | "w_room" | "island" | "bento" | "wallpaper" | "dock" | "dial" | "search" | "charts" | "complications" | "ui_sounds" | "boot" | "cinematic_pages" | "wiggle" | "live_gallery" | "motion_levels";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -93,6 +93,12 @@ const NEEDS: Record<Feature, Plan> = {
   search: "pro",
   charts: "pro",
   complications: "pro",
+  ui_sounds: "pro",
+  boot: "basic",
+  cinematic_pages: "premium",
+  wiggle: "basic",
+  live_gallery: "pro",
+  motion_levels: "basic",
 };
 
 export const planFor = (f: Feature): Plan => NEEDS[f];

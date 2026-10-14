@@ -200,7 +200,7 @@ export class SnInternet extends LitElement {
           : nothing}
       </div>
       ${!this.loaded
-        ? html`<span class="muted">${t("loading")}</span>`
+        ? html`<sn-skeleton></sn-skeleton>`
         : this.setup || !kids.length
         ? this.ctx.isAdmin
           ? this.renderSetup()

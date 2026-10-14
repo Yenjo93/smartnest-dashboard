@@ -852,6 +852,16 @@ const en = {
   search_page: "Page",
   search_open: "Open",
   search_none: "Nothing found",
+  sound_motion: "Sound and motion",
+  ui_sounds: "Soft clicks when things switch",
+  bell_tone: "Doorbell tone",
+  bell_chime: "Classic",
+  bell_dingdong: "Ding-dong",
+  bell_melody: "Melody",
+  motion_full: "Full",
+  motion_light: "Light",
+  motion_off: "Still",
+  motion_hint: "Light keeps feedback but stops the ambient loops (drifting light, breathing cards). Still stops page animations too.",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1708,6 +1718,16 @@ const ar: Record<I18nKey, string> = {
   search_page: "صفحة",
   search_open: "افتح",
   search_none: "ما لقيت إشي",
+  sound_motion: "الصوت والحركة",
+  ui_sounds: "صوت خفيف لما الأشياء تشتغل وتطفى",
+  bell_tone: "نغمة الجرس",
+  bell_chime: "كلاسيكي",
+  bell_dingdong: "دينغ دونغ",
+  bell_melody: "نغمة",
+  motion_full: "كاملة",
+  motion_light: "خفيفة",
+  motion_off: "بدون",
+  motion_hint: "الخفيفة بتخلّي ردة الفعل وبتوقف الحركة اللي بتتكرر (الضو الماشي، الكروت اللي بتتنفس). بدون بتوقف كمان حركة الصفحات.",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2562,6 +2582,16 @@ const he: Record<I18nKey, string> = {
   search_page: "דף",
   search_open: "פתח",
   search_none: "לא נמצא",
+  sound_motion: "צליל ותנועה",
+  ui_sounds: "צליל עדין כשדברים נדלקים ונכבים",
+  bell_tone: "צליל פעמון",
+  bell_chime: "קלאסי",
+  bell_dingdong: "דינג דונג",
+  bell_melody: "מנגינה",
+  motion_full: "מלאה",
+  motion_light: "קלה",
+  motion_off: "ללא",
+  motion_hint: "קלה שומרת משוב ועוצרת לולאות רקע. ללא עוצרת גם אנימציות דפים.",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

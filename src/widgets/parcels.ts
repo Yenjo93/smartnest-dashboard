@@ -102,7 +102,7 @@ export class SnParcels extends LitElement {
       ${this.missing
         ? html`<span class="muted" style="font-size:14px">${t("parcels_missing")}</span>`
         : !this.pkgs
-        ? html`<span class="muted">${t("loading")}</span>`
+        ? html`<sn-skeleton></sn-skeleton>`
         : list.length
         ? list.map(
             (p) => html`<div class="p">

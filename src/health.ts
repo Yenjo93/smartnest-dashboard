@@ -27,7 +27,7 @@ export class SnFaults extends LitElement {
 
   render() {
     const { t } = this.ctx;
-    if (!this.rows) return html`<span class="muted" style="font-size:14px">${t("loading")}</span>`;
+    if (!this.rows) return html`<sn-skeleton></sn-skeleton>`;
     return box(t("faults_week"), !this.rows.length, list(this.rows.map((r) => row(r.name, t("times", { n: r.n })))), t("h_all_good"));
   }
 }

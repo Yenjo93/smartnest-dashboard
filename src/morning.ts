@@ -296,7 +296,7 @@ export class SnMorning extends LitElement {
             : nothing}
           <div class="box" style="animation-delay:320ms">
             <h2>${t("overnight")}</h2>
-            ${this.lines ? html`<ul>${this.lines.map((l) => html`<li>${l}</li>`)}</ul>` : html`<span class="muted">${t("loading")}</span>`}
+            ${this.lines ? html`<ul>${this.lines.map((l) => html`<li>${l}</li>`)}</ul>` : html`<sn-skeleton></sn-skeleton>`}
           </div>
         </div>
         <button class="btn primary pressable go" @click=${() => this.onDone()}>${t("lets_go")}</button>

@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { unsafeStatic, html as staticHtml } from "lit/static-html.js";
 import type { Ctx } from "./ctx";
 import type { DashboardConfig, Lang, ThemeMode, Widget, WidgetType } from "./types";
 import { domainOf, entityIcon, entityName, type EntityFilter } from "./entities";
@@ -352,6 +353,23 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "heading", icon: "title" },
 ];
 
+/** Widgets that work without picking a device first: the gallery shows them live, shrunk down. */
+const PREVIEW: WidgetType[] = ["clock", "hero", "verse", "forecast", "consumers", "energy_stats", "energy", "air", "water", "board", "commute", "modes", "family", "countdown"];
+
+function preview(c: Ctx, type: WidgetType) {
+  const size = WIDGET_SIZES[type];
+  const w = Math.min(560, size.w * 60);
+  const h = Math.min(420, size.h * 56);
+  const scale = Math.min(150 / w, 96 / h);
+  const tag = unsafeStatic(`sn-w-${type.replace(/_/g, "-")}`);
+  const widget: Widget = { id: `preview-${type}`, type, x: 0, y: 0, w: size.w, h: size.h, config: {} };
+  return html`<span style="position:relative;display:block;width:${w * scale}px;height:${h * scale}px;pointer-events:none;border-radius:14px;overflow:hidden" aria-hidden="true">
+    <span style="position:absolute;top:0;left:0;width:${w}px;height:${h}px;transform:scale(${scale});transform-origin:0 0;direction:${c.rtl ? "rtl" : "ltr"}">
+      ${staticHtml`<${tag} .ctx=${c} .widget=${widget}></${tag}>`}
+    </span>
+  </span>`;
+}
+
 export function addWidgetSheet(ctx: Ctx, pageId: string) {
   const add = (c: Ctx, type: WidgetType, config: Record<string, any>) => {
     let id = "";
@@ -393,9 +411,11 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
             if (choice.type === "heading") widgetSettingsSheet(c, pageId, id);
           }}
         >
-          <span style="display:grid;place-items:center;width:52px;height:52px;border-radius:999px;background:var(--accent);color:var(--on-accent)">
-            <sn-icon .icon=${choice.icon}></sn-icon>
-          </span>
+          ${PREVIEW.includes(choice.type) && c.allows("live_gallery")
+            ? preview(c, choice.type)
+            : html`<span style="display:grid;place-items:center;width:52px;height:52px;border-radius:999px;background:var(--accent);color:var(--on-accent)">
+                <sn-icon .icon=${choice.icon}></sn-icon>
+              </span>`}
           ${c.t(`widget_${choice.type}` as I18nKey)}
           <span class="muted ltr" style="font-size:12px">${WIDGET_SIZES[choice.type].w}×${WIDGET_SIZES[choice.type].h}</span>
         </button>` : html`<div
@@ -825,6 +845,33 @@ export function settingsSheet(
               html`<label class="field">${t("wifi_password")}<input type="text" class="ltr" autocomplete="off" .value=${s.guests.password ?? ""} @change=${(e: any) => set((d) => (d.settings.guests.password = e.target.value || undefined))} /></label>`
             )
           : nothing,
+        section(
+          t("sound_motion"),
+          c.allows("ui_sounds") ? html`<div class="field">${t("ui_sounds")} ${toggle(c, s.sounds, (v) => set((d) => (d.settings.sounds = v)))}</div>` : nothing,
+          html`<div class="field">
+            ${t("bell_tone")}
+            <div class="seg">
+              ${(["chime", "dingdong", "melody"] as const).map(
+                (v) => html`<button
+                  aria-pressed=${s.doorbell_tone === v}
+                  @click=${() => {
+                    set((d) => (d.settings.doorbell_tone = v));
+                    import("./sounds").then((m) => m.playBell(v));
+                  }}
+                >
+                  ${t(`bell_${v}` as I18nKey)}
+                </button>`
+              )}
+            </div>
+          </div>`,
+          c.allows("motion_levels")
+            ? html`<div class="field">
+                ${t("motion")}
+                <div class="seg">${(["full", "light", "off"] as const).map((v) => html`<button aria-pressed=${s.motion === v} @click=${() => set((d) => (d.settings.motion = v))}>${t(`motion_${v}` as I18nKey)}</button>`)}</div>
+                <span class="hint">${t("motion_hint")}</span>
+              </div>`
+            : nothing
+        ),
         c.allows("travel") ? travelSettings(c, set) : nothing,
         c.allows("home_helpers") ? helpersSettings(c, set) : nothing,
         c.allows("support")

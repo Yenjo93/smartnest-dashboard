@@ -202,7 +202,7 @@ export class SnConsumers extends LitElement {
                 ? html`<li class="muted" style="font-size:12px">${t("standby_total", { w: fmt(standby.reduce((a, c) => a + c.w, 0)) })}</li>`
                 : nothing}
             </ul>`
-        : html`<span class="muted" style="grid-column:1/-1">${t("no_entities")}</span>`}
+        : html`<sn-empty text=${t("no_entities")}></sn-empty>`}
     </div>`;
   }
 }

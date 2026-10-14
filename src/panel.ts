@@ -25,6 +25,9 @@ import { ambientColor, followLight, midnightVars, proVars, registerAnimatedVars,
 import "./tour";
 import "./island";
 import "./search";
+import "./ui/skeleton";
+import { setSounds } from "./sounds";
+import "./ui/empty";
 import { photoDropSheet } from "./business";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
@@ -680,10 +683,63 @@ export class SmartNestPanel extends LitElement {
         color: var(--text-2);
         gap: 12px;
       }
-      .center img {
-        width: 64px;
-        height: 64px;
-        animation: breathe 1.6s var(--ease-out) infinite alternate;
+      /* Opening: the nest drops in with a spring, a warm light comes on behind it, then the name. */
+      .boot {
+        position: relative;
+        display: grid;
+        gap: 10px;
+        justify-items: center;
+      }
+      .boot img {
+        width: 84px;
+        height: 84px;
+        animation: nest-in 900ms var(--spring) both, breathe 2.4s 1s var(--ease-out) infinite alternate;
+      }
+      .boot .halo {
+        position: absolute;
+        top: -30px;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent), transparent 65%);
+        animation: halo-in 1.4s 300ms var(--ease-out) both;
+      }
+      .boot .word {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--text);
+        animation: word-in 700ms 500ms var(--ease-out) both;
+      }
+      .boot .status {
+        font-size: 13px;
+        animation: word-in 700ms 800ms var(--ease-out) both;
+      }
+      @keyframes nest-in {
+        from {
+          opacity: 0;
+          transform: translateY(-30px) scale(0.6);
+        }
+      }
+      @keyframes halo-in {
+        from {
+          opacity: 0;
+          transform: scale(0.4);
+        }
+      }
+      @keyframes word-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+      .app {
+        animation: app-in 600ms var(--ease-out);
+      }
+      @keyframes app-in {
+        from {
+          opacity: 0;
+        }
       }
       @keyframes breathe {
         to {
@@ -1181,10 +1237,18 @@ export class SmartNestPanel extends LitElement {
       const main = this.renderRoot.querySelector("main");
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const from = (isRtl(this.uiLang) ? -1 : 1) * this.enterDir * 48;
-      main?.animate([{ transform: reduce ? "none" : `translateX(${from}px)`, opacity: 0 }, { transform: "none", opacity: 1 }], {
-        duration: reduce ? 160 : 260,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-      });
+      const still = reduce || this.current?.settings.motion === "off";
+      const cine = this.pro && this.current?.settings.motion !== "light" && allows(this.lic.plan, "cinematic_pages");
+      main?.animate(
+        cine && !still
+          ? [
+              { transform: `translateX(${from * 0.6}px) scale(0.94)`, opacity: 0 },
+              { transform: `translateX(${from * 0.1}px) scale(1.01)`, opacity: 1, offset: 0.7 },
+              { transform: "none", opacity: 1 },
+            ]
+          : [{ transform: still ? "none" : `translateX(${from}px)`, opacity: 0 }, { transform: "none", opacity: 1 }],
+        { duration: still ? 160 : cine ? 460 : 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+      );
       this.enterDir = 0;
     }
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
@@ -1197,6 +1261,7 @@ export class SmartNestPanel extends LitElement {
     if (midnight) Object.assign(vars, midnightVars());
     Object.assign(vars, proVars(pro, this.dark, midnight, (s?.material ?? "none") as Material, pro && this.hass && this.current ? ambientColor(this.hass, this.current) : undefined, vars["--accent"]));
     this.pro = pro;
+    setSounds(!!s?.sounds && allows(this.lic.plan, "ui_sounds"));
     // Liquid glass: thinner, more refractive cards with a lit edge.
     const liquid = this.current?.settings.glass === "liquid" && allows(this.lic.plan, "liquid_glass");
     Object.assign(vars, {
@@ -1657,9 +1722,11 @@ export class SmartNestPanel extends LitElement {
     if (!this.current) {
       const t = translator(this.uiLang);
       return html`<div class="center">
-        <div style="display:grid;gap:12px;justify-items:center">
+        <div class="boot">
+          <span class="halo"></span>
           <img src="${this.assetBase}logo/smartnest-symbol-${this.dark ? "white" : "color"}.svg" alt="SmartNest" />
-          <span>${this.loadError ? `${t("error")}: ${this.loadError}` : t("loading")}</span>
+          <b class="word">SmartNest</b>
+          <span class="status">${this.loadError ? `${t("error")}: ${this.loadError}` : t("loading")}</span>
         </div>
       </div>`;
     }

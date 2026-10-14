@@ -13,6 +13,7 @@ import { fxRow } from "./lightfx";
 import { guestCodesSheet } from "./codes";
 import "./ui/dial";
 import "./ui/chart";
+import { playUi } from "./sounds";
 import { laterButton } from "./tou";
 import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
@@ -565,12 +566,13 @@ export class SnEntityDetail extends LitElement {
   private renderLockButton(e: HassEntity) {
     const { t } = this.ctx;
     if (e.state === "unlocked" || e.state === "open")
-      return html`<button class="btn primary pressable lock-btn" @click=${() => this.call("lock", "lock")}><sn-icon icon="lock"></sn-icon>${t("lock")}</button>`;
+      return html`<button class="btn primary pressable lock-btn" @click=${() => (playUi("lock"), this.call("lock", "lock"))}><sn-icon icon="lock"></sn-icon>${t("lock")}</button>`;
     if (this.confirmUnlock)
       return html`<button
         class="btn danger pressable lock-btn"
         @click=${() => {
           this.confirmUnlock = false;
+          playUi("unlock");
           this.call("lock", "unlock");
         }}
       >

@@ -95,11 +95,34 @@ export class SnPageGrid extends LitElement {
         height: 100%;
       }
       .editing .cell {
+        animation: wiggle 0.34s ease-in-out infinite alternate;
+        animation-play-state: var(--loops, running);
         border-radius: var(--r-lg);
         outline: 1.5px dashed color-mix(in srgb, var(--text-2) 45%, transparent);
         outline-offset: 3px;
       }
+      .editing .cell:nth-child(2n) {
+        animation-delay: -0.17s;
+        animation-direction: alternate-reverse;
+      }
+      .editing .cell:nth-child(3n) {
+        animation-duration: 0.38s;
+      }
+      @keyframes wiggle {
+        from {
+          rotate: -0.35deg;
+        }
+        to {
+          rotate: 0.35deg;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .editing .cell {
+          animation: none;
+        }
+      }
       .cell.lifted {
+        animation: none;
         z-index: 5;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.25));
         outline-color: var(--accent);

@@ -293,7 +293,7 @@ export class SnEnergyStats extends LitElement {
     const { tariff, currency, total, budget } = this.cfg;
     const money = (v: number) => ltr(`${currency} ${formatNumber(v, lang, 0)}`);
     const d = this.data;
-    if (!total) return html`<div class="card glass"><h3><sn-icon icon="lightning-bolt"></sn-icon>${t("bill_title")}</h3><span class="muted">${t("no_entities")}</span></div>`;
+    if (!total) return html`<div class="card glass"><h3><sn-icon icon="lightning-bolt"></sn-icon>${t("bill_title")}</h3><sn-empty text=${t("no_entities")}></sn-empty></div>`;
     const change = d && d.lastSame > 0 ? Math.round(((d.used - d.lastSame) / d.lastSame) * 100) : undefined;
     const max = d?.top[0]?.kwh ?? 1;
     return html`<div class="card glass">
@@ -332,7 +332,7 @@ export class SnEnergyStats extends LitElement {
                   )}
                 </div>`
               : nothing}`
-        : html`<span class="muted">${t("loading")}</span>`}
+        : html`<sn-skeleton></sn-skeleton>`}
     </div>`;
   }
 }
