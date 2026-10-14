@@ -255,6 +255,8 @@ export interface Door {
   y: number;
   /** What sits in the wall there (a hinged door when unset). */
   kind?: "door" | "double" | "slide" | "window" | "wide_window";
+  /** Its sensor or motor: the plan then shows it open, and a motorised one opens with a tap. */
+  entity?: string;
 }
 
 export interface Floor {

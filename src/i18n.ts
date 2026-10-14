@@ -1018,7 +1018,7 @@ const en = {
   plan_kind_outdoor: "Outside",
   plan_draw_hint: "Drag across the grid to draw a room. Rooms snap to each other's walls.",
   plan_draw_more: "Draw the next room next to it, or tap a room to name, move or resize it.",
-  plan_door_hint: "Tap on a wall to add a door; tap a door to remove it.",
+  plan_door_hint: "Tap a wall to add a door. Tap a door to link its sensor, lock or motor, or to remove it.",
   plan_clean_need_rooms: "Outline the rooms first (Rooms, or Auto add)",
   plan_mode_wall: "Open walls",
   plan_mode_furn: "Furniture",
@@ -1089,6 +1089,9 @@ const en = {
   furn_outdoor: "Garden table",
   furn_shoes: "Shoe cabinet",
   furn_mirror: "Mirror",
+  plan_mode_window: "Windows",
+  plan_window_hint: "Tap a wall to add a window. Tap a window to link its sensor or motor, so the plan shows it open.",
+  plan_link_none: "Not linked to a device",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2111,7 +2114,7 @@ const ar: Record<I18nKey, string> = {
   plan_kind_outdoor: "برّا",
   plan_draw_hint: "اسحب على الشبكة لترسم غرفة. الغرف بتلزق بحيطان بعض.",
   plan_draw_more: "ارسم الغرفة الجاية جنبها، أو اكبس على غرفة لتسمّيها أو تحركها أو تكبّرها.",
-  plan_door_hint: "اكبس على حيط لتضيف باب، واكبس على الباب لتشيله.",
+  plan_door_hint: "اكبس على حيط لتحط باب. اكبس على الباب لتربطه بحساس أو قفل أو موتور، أو لتشيله.",
   plan_clean_need_rooms: "حدّد الغرف أول (الغرف، أو إضافة تلقائية)",
   plan_mode_wall: "فتح حيط",
   plan_mode_furn: "أغراض",
@@ -2182,6 +2185,9 @@ const ar: Record<I18nKey, string> = {
   furn_outdoor: "طاولة جنينة",
   furn_shoes: "جزامة",
   furn_mirror: "مراية",
+  plan_mode_window: "شبابيك",
+  plan_window_hint: "اكبس على حيط لتحط شباك. اكبس على الشباك لتربطه بحساسه أو موتوره، فبيبين على المخطط إذا مفتوح.",
+  plan_link_none: "مش مربوط بجهاز",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3202,7 +3208,7 @@ const he: Record<I18nKey, string> = {
   plan_kind_outdoor: "בחוץ",
   plan_draw_hint: "גררו על הרשת כדי לצייר חדר. החדרים נצמדים לקירות זה של זה.",
   plan_draw_more: "ציירו את החדר הבא לידו, או הקישו על חדר כדי לשנות שם, להזיז או לשנות גודל.",
-  plan_door_hint: "הקישו על קיר כדי להוסיף דלת; הקישו על דלת כדי להסיר.",
+  plan_door_hint: "הקישו על קיר כדי להוסיף דלת. הקישו על דלת כדי לקשר חיישן, מנעול או מנוע, או להסיר.",
   plan_clean_need_rooms: "סמנו קודם את החדרים (חדרים, או הוספה אוטומטית)",
   plan_mode_wall: "קירות פתוחים",
   plan_mode_furn: "ריהוט",
@@ -3273,6 +3279,9 @@ const he: Record<I18nKey, string> = {
   furn_outdoor: "שולחן גן",
   furn_shoes: "ארון נעליים",
   furn_mirror: "מראה",
+  plan_mode_window: "חלונות",
+  plan_window_hint: "הקישו על קיר כדי להוסיף חלון. הקישו על חלון כדי לקשר חיישן או מנוע.",
+  plan_link_none: "לא מקושר למכשיר",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

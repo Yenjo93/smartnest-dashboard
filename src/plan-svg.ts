@@ -12,6 +12,14 @@ export function guessKind(name: string): RoomKind {
 
 type Seg = [[number, number], [number, number]];
 
+/** How wide each kind of opening is, in percent of the plan's width (before the 0.85 the drawing uses). */
+export const OPENING_WIDTH = { door: 7, double: 12, slide: 14, window: 10, wide_window: 18 } as const;
+
+/** The wall a point sits on: its direction, for drawing what's in it. */
+export function wallAt(rooms: Room[], walls: Floor["walls"], x: number, y: number) {
+  return nearestEdge(wallSegments(rooms, walls), x, y);
+}
+
 /** Every wall on the plan as segments: the rooms' outlines (unless a room has none) and the lines drawn as walls. */
 export function wallSegments(rooms: Room[], walls: Floor["walls"] = []): Seg[] {
   const out: Seg[] = [];
@@ -51,7 +59,7 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, ex
     .join("");
   // Door openings: cut out of the walls (mask), then a thin leaf and its quarter-circle swing.
   const unit = w / 100; // about 12 cm on a 12 m plan
-  const widths = { door: 7, double: 12, slide: 14, window: 10, wide_window: 18 } as const;
+  const widths = OPENING_WIDTH;
   const holes: string[] = [];
   const leaves: string[] = [];
   for (const d of doors) {
@@ -116,13 +124,14 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, ex
 <pattern id="tile" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#9AA4AD" stroke-opacity=".2" stroke-width="1"/></pattern>
 <pattern id="wood" width="60" height="14" patternUnits="userSpaceOnUse"><path d="M0 14H60M30 0V14" fill="none" stroke="#9AA4AD" stroke-opacity=".14" stroke-width="1"/></pattern>
 <pattern id="grass" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="4" cy="5" r="1.2" fill="#7fae8a" fill-opacity=".35"/><circle cx="13" cy="13" r="1" fill="#7fae8a" fill-opacity=".3"/></pattern>
+<filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="${(w / 600).toFixed(1)}" stdDeviation="${(w / 500).toFixed(1)}" flood-color="#000" flood-opacity=".35"/></filter>
 <mask id="doors"><rect width="${w}" height="${h}" fill="#fff"/>${holes.join("")}</mask>
 </defs>
 <g>${floors}</g>
 <g mask="url(#doors)" stroke="#9AA4AD" stroke-width="${wall}" stroke-linejoin="miter" stroke-linecap="square">${walls}</g>
 <g>${edges}</g>
 <g>${seams.join("")}</g>
-<g fill="none" stroke="#9AA4AD" stroke-opacity=".75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${furniture}</g>
+<g fill="#B4BDC5" fill-opacity=".2" stroke="#BCC4CB" stroke-width="${Math.max(2.5, w / 420).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round" filter="url(#lift)">${furniture}</g>
 <g>${leaves.join("")}</g>
 </svg>`;
 }

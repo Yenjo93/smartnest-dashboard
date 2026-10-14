@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { DashboardConfig, Floor, HassEntity, Marker, Room, Widget } from "../types";
 import { centroid, clipPath, inside, snap, type Pt } from "../geometry";
-import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, tapKind, seen, GUESS_MS } from "../entities";
+import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, stateLabel, tapKind, seen, GUESS_MS } from "../entities";
 import { findWidget, newFloor, uid, uploadImage } from "../config";
 import { shared } from "../theme";
 import { LOCALE } from "../i18n";
@@ -17,6 +17,7 @@ import "../ai-features";
 import "../ui/entity-picker";
 import { haptic } from "../ui/haptic";
 import { saveAsScene } from "../scene-save";
+import { OPENING_WIDTH, wallAt } from "../plan-svg";
 
 type MapMode = "off" | "temp" | "humidity" | "co2" | "power";
 
@@ -681,6 +682,44 @@ export class SnFloorplan extends LitElement {
       }
       .hit polygon:active {
         fill: color-mix(in srgb, var(--accent) 14%, transparent);
+      }
+      /* A linked window or door, in its wall. */
+      .opening {
+        position: absolute;
+        height: 12px;
+        border: 0;
+        padding: 0;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--text-2) 45%, transparent);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        z-index: 2;
+      }
+      .opening sn-icon {
+        --icon-size: 16px;
+        position: absolute;
+        top: -24px;
+        color: var(--text-2);
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+      }
+      .opening.open {
+        background: #ffb347;
+        box-shadow: 0 0 14px 3px rgba(255, 179, 71, 0.7);
+        animation: open-pulse 2.4s ease-in-out infinite;
+        animation-play-state: var(--loops, running);
+      }
+      .opening.open.win {
+        background: #5ec8f2;
+        box-shadow: 0 0 14px 3px rgba(94, 200, 242, 0.7);
+      }
+      .opening.open sn-icon {
+        color: #fff;
+      }
+      @keyframes open-pulse {
+        50% {
+          opacity: 0.65;
+        }
       }
       .sunlight {
         position: absolute;
@@ -1436,6 +1475,48 @@ export class SnFloorplan extends LitElement {
       return html`<div class="heat" style="clip-path:${clipPath(r.points)};background-color:${this.mapColor(mode, v)};opacity:${this.ctx.dark ? 0.42 : 0.34}"></div>
         <span class="heat-label" style="left:${cx}%;top:${cy}%">${formatNumber(v, this.ctx.lang, mode === "temp" ? 1 : 0)}${unit}</span>`;
     });
+  }
+
+  // ---- windows and doors with a device ----
+
+  /**
+   * On a drawn plan, windows and doors linked to their sensor, lock or motor: open ones glow on the plan (you see the
+   * open window in its wall), and a motorised one opens or closes with a tap.
+   */
+  private renderOpenings(floor: Floor) {
+    const { ctx } = this;
+    const { hass, t } = ctx;
+    const ratio = this.floorRatio();
+    return (floor.doors ?? [])
+      .filter((d) => d.entity && hass.states[d.entity] && !ctx.config.settings.hidden.includes(d.entity))
+      .map((d) => {
+        const id = d.entity!;
+        const e = seen(hass.states[id])!;
+        const dom = domainOf(id);
+        const open = dom === "lock" ? e.state === "unlocked" || e.state === "open" : dom === "cover" ? ["open", "opening"].includes(e.state) : e.state === "on";
+        const motor = dom === "cover";
+        // A plain sensor that's closed has nothing to say on the plan.
+        if (!open && !motor) return nothing;
+        const wall = wallAt(floor.rooms ?? [], floor.walls, d.x, d.y);
+        const ang = wall ? (Math.atan2((wall.b[1] - wall.a[1]) / ratio, wall.b[0] - wall.a[0]) * 180) / Math.PI : 0;
+        const win = d.kind === "window" || d.kind === "wide_window";
+        const len = OPENING_WIDTH[d.kind ?? "door"] * 0.85;
+        return html`<button
+          class="opening ${open ? "open" : ""} ${win ? "win" : ""}"
+          style="left:${d.x}%;top:${d.y}%;width:${len}%;transform:translate(-50%, -50%) rotate(${ang}deg)"
+          title=${`${entityName(hass, ctx.config, id)} · ${stateLabel(t, e, ctx.lang)}`}
+          aria-label=${entityName(hass, ctx.config, id)}
+          @click=${(ev: Event) => {
+            ev.stopPropagation();
+            if (!motor) return ctx.openEntity(id);
+            haptic(open ? "off" : "on");
+            runTap(hass, hass.states[id]).catch(() => ctx.toast(t("error")));
+            this.requestUpdate();
+          }}
+        >
+          <sn-icon icon=${win ? (open ? "window-open-variant" : "window-closed-variant") : open ? "door-open" : "door-closed"} style="transform:rotate(${-ang}deg)"></sn-icon>
+        </button>`;
+      });
   }
 
   // ---- sunlight ----
@@ -2317,6 +2398,7 @@ export class SnFloorplan extends LitElement {
                   </svg>`
                 : nothing}
               ${!ctx.editing && ctx.allows("robot_on_plan") ? this.renderCleaned(floor) : nothing}
+              ${!ctx.editing && floor.doors?.some((d) => d.entity) ? this.renderOpenings(floor) : nothing}
               ${(ctx.editing ? floor.markers : floor.markers.filter((m) => !ctx.config.settings.hidden.includes(m.entity))).map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
               ${this.lensOn && this.lens && !ctx.editing ? this.renderLens(floor, stage) : nothing}

@@ -9,6 +9,7 @@ import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { shared } from "./theme";
 import { haptic } from "./ui/haptic";
 import "./ui/icon";
+import { entityName } from "./entities";
 
 type Pt = [number, number];
 type Opening = NonNullable<Floor["openings"]>[number];
@@ -22,7 +23,8 @@ type Drag =
   | { kind: "move"; id: string; from: Pt; orig: Pt[] }
   | { kind: "corner"; id: string; corner: number; orig: Pt[] };
 
-const SNAP = 1.2; // % — close enough to another room's wall to line up with it
+const SNAP = 1.2;
+const isWindow = (k?: string) => k === "window" || k === "wide_window"; // % — close enough to another room's wall to line up with it
 const isRect = (p: Pt[]) => p.length === 4 && p[0][1] === p[1][1] && p[1][0] === p[2][0] && p[2][1] === p[3][1] && p[3][0] === p[0][0];
 const rect = (a: Pt, b: Pt): Pt[] => {
   const [x1, x2] = [Math.min(a[0], b[0]), Math.max(a[0], b[0])];
@@ -63,7 +65,9 @@ export class SnPlanDraw extends LitElement {
   /** Selected piece of furniture. */
   @state() private selF?: string;
   @state() private sel?: string;
-  @state() private mode: "room" | "line" | "door" | "wall" | "furn" = "room";
+  @state() private mode: "room" | "line" | "door" | "window" | "wall" | "furn" = "room";
+  /** Selected door or window (to link it to a device, change it or remove it). */
+  @state() private selD?: string;
   @state() private drag?: Drag;
   @state() private box = { w: 0, h: 0 };
   private ro?: ResizeObserver;
@@ -201,6 +205,19 @@ export class SnPlanDraw extends LitElement {
         height: 22px;
         margin: -11px 0 0 -11px;
         box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent);
+      }
+      .door.on {
+        width: 24px;
+        height: 24px;
+        margin: -12px 0 0 -12px;
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent);
+      }
+      .door.linked::after {
+        content: "🔗";
+        position: absolute;
+        top: -16px;
+        left: 10px;
+        font-size: 11px;
       }
       .door {
         position: absolute;
@@ -395,7 +412,7 @@ export class SnPlanDraw extends LitElement {
       const from = this.endSnap(this.raw(e)) ?? p;
       return void (this.drag = { kind: "line", from, to: from });
     }
-    if (this.mode === "door") return this.placeDoor(p, target);
+    if (this.mode === "door" || this.mode === "window") return this.placeDoor(p, target);
     if (this.mode === "wall") return this.toggleWall(p, target);
     if (this.mode === "furn") {
       const fid = (target as HTMLElement).dataset?.furn;
@@ -662,7 +679,8 @@ export class SnPlanDraw extends LitElement {
 
   private placeDoor(p: Pt, target: Element) {
     const hit = (target as HTMLElement).dataset?.door;
-    if (hit) return void (this.doors = this.doors.filter((x) => x.id !== hit));
+    if (hit) return void (this.selD = hit);
+    this.selD = undefined;
     // Onto the nearest wall (a room's outline or a drawn line).
     let best: { x: number; y: number; d: number } | undefined;
     for (const [a, b] of wallSegments(this.rooms, this.walls))
@@ -676,9 +694,47 @@ export class SnPlanDraw extends LitElement {
         if (!best || d < best.d) best = { x, y, d };
       }
     if (best && best.d < 6) {
-      this.doors = [...this.doors, { id: uid(), x: best.x, y: best.y, kind: this.doorKind }];
+      const kind = this.mode === "window" ? (isWindow(this.doorKind) ? this.doorKind : "window") : isWindow(this.doorKind) ? "door" : this.doorKind;
+      const d: Door = { id: uid(), x: best.x, y: best.y, kind };
+      this.doors = [...this.doors, d];
+      this.selD = d.id;
       haptic("tap");
     }
+  }
+
+  /** Door or window kinds for the mode, the selected one's device link, and remove. */
+  private renderDoorFoot() {
+    const { t, hass, config } = this.ctx;
+    const win = this.mode === "window";
+    const kinds = (win ? ["window", "wide_window"] : ["door", "double", "slide"]) as NonNullable<Door["kind"]>[];
+    const selD = this.doors.find((d) => d.id === this.selD);
+    const setKind = (k: NonNullable<Door["kind"]>) => {
+      this.doorKind = k;
+      if (selD) this.doors = this.doors.map((d) => (d.id === selD.id ? { ...d, kind: k } : d));
+    };
+    // Window and door sensors, and the motors that open them.
+    const cls = win ? ["window"] : ["door", "garage_door", "gate"];
+    const devices = Object.values(hass.states)
+      .filter(
+        (e) =>
+          (e.entity_id.startsWith("binary_sensor.") && [...cls, "opening"].includes(e.attributes.device_class)) ||
+          (e.entity_id.startsWith("cover.") && (win ? ["window", "shutter", "awning"] : ["door", "garage", "gate"]).includes(e.attributes.device_class)) ||
+          (e.entity_id.startsWith("lock.") && !win)
+      )
+      .map((e) => e.entity_id);
+    return html`<div class="seg">${kinds.map((k) => html`<button aria-pressed=${(selD?.kind ?? this.doorKind) === k} @click=${() => setKind(k)}>${t(`plan_opening_${k}` as any)}</button>`)}</div>
+      ${selD
+        ? html`<select
+              @change=${(e: any) => (this.doors = this.doors.map((d) => (d.id === selD.id ? { ...d, entity: e.target.value || undefined } : d)))}
+            >
+              <option value="">${t("plan_link_none")}</option>
+              ${devices.map((id) => html`<option value=${id} ?selected=${selD.entity === id}>${entityName(hass, config, id)}</option>`)}
+            </select>
+            <button class="icon-btn pressable" aria-label=${t("delete")} @click=${() => ((this.doors = this.doors.filter((d) => d.id !== selD.id)), (this.selD = undefined))}>
+              <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>
+            </button>
+            <button class="btn primary pressable" @click=${() => (this.selD = undefined)}>${t("done")}</button>`
+        : html`<span class="hint">${t(win ? "plan_window_hint" : "plan_door_hint")}</span>`}`;
   }
 
   private patch(p: Partial<Room>) {
@@ -714,7 +770,8 @@ export class SnPlanDraw extends LitElement {
         <div class="seg">
           <button aria-pressed=${this.mode === "room"} @click=${() => (this.mode = "room")}><sn-icon icon="rooms" style="--icon-size:18px"></sn-icon>${t("plan_mode_room")}</button>
           <button aria-pressed=${this.mode === "line"} @click=${() => ((this.mode = "line"), (this.sel = undefined))}><sn-icon icon="wall" style="--icon-size:18px"></sn-icon>${t("plan_mode_line")}</button>
-          <button aria-pressed=${this.mode === "door"} @click=${() => ((this.mode = "door"), (this.sel = undefined))}><sn-icon icon="door-open" style="--icon-size:18px"></sn-icon>${t("plan_mode_door")}</button>
+          <button aria-pressed=${this.mode === "door"} @click=${() => ((this.mode = "door"), (this.sel = undefined), (this.selD = undefined), (this.doorKind = "door"))}><sn-icon icon="door-open" style="--icon-size:18px"></sn-icon>${t("plan_mode_door")}</button>
+          <button aria-pressed=${this.mode === "window"} @click=${() => ((this.mode = "window"), (this.sel = undefined), (this.selD = undefined), (this.doorKind = "window"))}><sn-icon icon="window-closed-variant" style="--icon-size:18px"></sn-icon>${t("plan_mode_window")}</button>
           <button aria-pressed=${this.mode === "wall"} @click=${() => ((this.mode = "wall"), (this.sel = undefined))}><sn-icon icon="arrow-split-vertical" style="--icon-size:18px"></sn-icon>${t("plan_mode_wall")}</button>
           <button aria-pressed=${this.mode === "furn"} @click=${() => (this.mode = "furn")}><sn-icon icon="sofa" style="--icon-size:18px"></sn-icon>${t("plan_mode_furn")}</button>
         </div>
@@ -773,7 +830,11 @@ export class SnPlanDraw extends LitElement {
               ${sel.points.map((p, i) => html`<span class="handle ${i === this.selV ? "on" : ""}" data-corner=${i} style="left:${p[0]}%;top:${p[1]}%"></span>`)}`
             : nothing}
           ${this.poly.map((p, i) => html`<span class="dot ${i === 0 && this.poly.length >= 3 ? "first" : ""}" style="left:${p[0]}%;top:${p[1]}%"></span>`)}
-          ${this.mode === "door" ? this.doors.map((dr) => html`<span class="door" data-door=${dr.id} style="left:${dr.x}%;top:${dr.y}%"></span>`) : nothing}
+          ${this.mode === "door" || this.mode === "window"
+            ? this.doors
+                .filter((dr) => isWindow(dr.kind) === (this.mode === "window"))
+                .map((dr) => html`<span class="door ${dr.id === this.selD ? "on" : ""} ${dr.entity ? "linked" : ""}" data-door=${dr.id} style="left:${dr.x}%;top:${dr.y}%"></span>`)
+            : nothing}
         </div>
       </div>
       <div class="foot">
@@ -808,13 +869,8 @@ export class SnPlanDraw extends LitElement {
                 </button>
                 <button class="btn primary pressable" @click=${() => (this.selW = undefined)}>${t("done")}</button>`
             : html`<span class="hint">${t("plan_line_hint")}</span>`
-          : this.mode === "door"
-          ? html`<div class="seg">
-                ${(["door", "double", "slide", "window", "wide_window"] as const).map(
-                  (k) => html`<button aria-pressed=${this.doorKind === k} @click=${() => (this.doorKind = k)}>${t(`plan_opening_${k}` as any)}</button>`
-                )}
-              </div>
-              <span class="hint">${t("plan_door_hint")}</span>`
+          : this.mode === "door" || this.mode === "window"
+          ? this.renderDoorFoot()
           : this.poly.length
           ? html`<span class="hint">${t("plan_poly_drawing")}</span>
               <button class="btn pressable" @click=${() => (this.poly = this.poly.slice(0, -1))}><sn-icon icon="undo" style="--icon-size:18px"></sn-icon>${t("plan_poly_undo")}</button>

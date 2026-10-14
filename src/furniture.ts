@@ -44,7 +44,7 @@ export const FURNITURE: Record<FurnitureKind, FurnitureDef> = {
   armchair: { w: 85, h: 85, group: "living", draw: (w, h) => r(0, 0, w, h, 12) + r(w * 0.15, h * 0.28, w * 0.7, h * 0.72, 8) },
   coffee: { w: 110, h: 60, group: "living", draw: (w, h) => r(0, 0, w, h, 10) + r(8, 8, w - 16, h - 16, 6) },
   tv: { w: 150, h: 14, group: "living", draw: (w, h) => r(0, 0, w, h, 3) + l(w * 0.3, h + 6, w * 0.7, h + 6) },
-  rug: { w: 240, h: 170, group: "living", draw: (w, h) => `<rect x="0" y="0" width="${w}" height="${h}" rx="6" stroke-dasharray="6 6"/>` },
+  rug: { w: 240, h: 170, group: "living", draw: (w, h) => `<rect x="0" y="0" width="${w}" height="${h}" rx="6" stroke-dasharray="6 6" fill-opacity=".06" stroke-opacity=".6"/>` },
   dining: { w: 170, h: 95, group: "living", draw: (w, h) => r(0, 0, w, h, 8) + chairs(w, h, 0, 0, w, h) },
   round_table: { w: 110, h: 110, group: "living", draw: (w, h) => e(w / 2, h / 2, w / 2, h / 2) + [0, 1, 2, 3].map((i) => c(w / 2 + Math.cos(i * 1.5708) * (w / 2 + 22), h / 2 + Math.sin(i * 1.5708) * (h / 2 + 22), 16)).join("") },
   bed2: {

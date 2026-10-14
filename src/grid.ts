@@ -102,6 +102,7 @@ function watched(w: Widget, hass: Ctx["hass"]): { ids: string[]; maxAge: number 
       // Its devices, the family's room sensors, the robot and the sun; anything else it shows catches up within 3 s.
       const ids = new Set<string>(["sun.sun"]);
       for (const f of c.floors ?? []) for (const m of f.markers ?? []) ids.add(m.entity);
+      for (const f of c.floors ?? []) for (const d of f.doors ?? []) if (d.entity) ids.add(d.entity);
       for (const id in hass.states) if (/^(person|vacuum)\./.test(id) || /^sensor\..*_(area|room|location)$/.test(id)) ids.add(id);
       return { ids: [...ids], maxAge: 3000 };
     }
