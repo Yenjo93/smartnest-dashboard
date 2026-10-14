@@ -378,10 +378,19 @@ export class SnScreensaver extends LitElement {
       ${this.guests ? html`<sn-guests dim .ctx=${ctx} style="position:absolute;top:32px;inset-inline-end:32px;max-width:min(560px,80vw)"></sn-guests>` : nothing}
       ${ctx.allows("seasons") ? html`<sn-season .season=${currentSeason(ctx.config.settings, this.now)}></sn-season>` : nothing}
       ${this.renderNow()}
-      <div class="brand">
-        <img src="${ctx.assetBase}logo/smartnest-symbol-white.svg" alt="" />
-        <span>SmartNest${photos ? "" : html` · ${ctx.t("tagline")}`}</span>
-      </div>
+      ${(() => {
+        // The installer's own brand when they set one (white label), SmartNest's otherwise.
+        const b = ctx.allows("white_label") ? ctx.config.settings.installer.brand : undefined;
+        return b?.logo || b?.name
+          ? html`<div class="brand">
+              ${b.logo ? html`<img src=${b.logo} alt="" style="object-fit:contain" />` : nothing}
+              <span>${b.name ?? ""}</span>
+            </div>`
+          : html`<div class="brand">
+              <img src="${ctx.assetBase}logo/smartnest-symbol-white.svg" alt="" />
+              <span>SmartNest${photos ? "" : html` · ${ctx.t("tagline")}`}</span>
+            </div>`;
+      })()}
     </div>`;
   }
 }

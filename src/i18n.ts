@@ -992,6 +992,20 @@ const en = {
   nudge_turn_off: "Turn off",
   nudge_tv: "{tv} is on and nobody's home",
   nudge_later: "Not now",
+  brand_logo: "Your logo (instead of SmartNest)",
+  brand_hint: "Shows in the bar and on the screensaver. From your licenses page it reaches every house by itself.",
+  design_arrived: "Your installer sent a new design: {name}",
+  design_new: "New dashboard",
+  design_apply: "Use it",
+  design_confirm: "Replace this dashboard's pages with the new design? Your plan, devices' names and settings stay. (The old one is kept in Settings → History.)",
+  design_applied: "New design in place",
+  design_applied_dropped: "New design in place ({n} cards for devices this house doesn't have were left out)",
+  phone_qr: "Open it on a phone",
+  phone_qr_hint: "Scan with the phone camera. Best in the Home Assistant app (App Store / Google Play): sign in once and SmartNest is in its menu.",
+  ab_kind: "The place",
+  ab_apartment: "Apartment",
+  ab_villa: "Villa",
+  ab_office: "Office",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1988,6 +2002,20 @@ const ar: Record<I18nKey, string> = {
   nudge_turn_off: "طفّيه",
   nudge_tv: "{tv} شغّال وما حدا بالبيت",
   nudge_later: "مش هلأ",
+  brand_logo: "اللوجو تبعك (بدل SmartNest)",
+  brand_hint: "بيبين بالشريط وعلى شاشة التوقف. من صفحة التراخيص بيوصل لكل البيوت لحاله.",
+  design_arrived: "اللي ركّبلك بعتلك تصميم جديد: {name}",
+  design_new: "داشبورد جديد",
+  design_apply: "طبّقه",
+  design_confirm: "تبدّل صفحات الداشبورد بالتصميم الجديد؟ المخطط وأسماء الأجهزة والإعدادات بيضلوا. (القديم بيضل محفوظ بالإعدادات ← السجل.)",
+  design_applied: "التصميم الجديد صار جاهز",
+  design_applied_dropped: "التصميم صار جاهز ({n} كروت لأجهزة مش موجودة هون انشالت)",
+  phone_qr: "افتحه على الموبايل",
+  phone_qr_hint: "امسحه بكاميرا الموبايل. الأحسن بتطبيق Home Assistant (App Store / Google Play): بتسجّل مرة و SmartNest بيطلع بالقائمة.",
+  ab_kind: "نوع المكان",
+  ab_apartment: "شقة",
+  ab_villa: "فيلا",
+  ab_office: "مكتب",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2982,6 +3010,20 @@ const he: Record<I18nKey, string> = {
   nudge_turn_off: "כבה",
   nudge_tv: "{tv} דולק ואף אחד לא בבית",
   nudge_later: "לא עכשיו",
+  brand_logo: "הלוגו שלך (במקום SmartNest)",
+  brand_hint: "מופיע בסרגל ובשומר המסך. מדף הרישיונות הוא מגיע לכל הבתים לבד.",
+  design_arrived: "המתקין שלח עיצוב חדש: {name}",
+  design_new: "דשבורד חדש",
+  design_apply: "השתמש",
+  design_confirm: "להחליף את עמודי הדשבורד בעיצוב החדש? התוכנית, שמות המכשירים וההגדרות נשארים. (הישן נשמר בהגדרות ← היסטוריה.)",
+  design_applied: "העיצוב החדש במקום",
+  design_applied_dropped: "העיצוב במקום ({n} כרטיסים למכשירים שאין כאן הושמטו)",
+  phone_qr: "פתח בטלפון",
+  phone_qr_hint: "סרקו במצלמת הטלפון. הכי טוב באפליקציית Home Assistant: מתחברים פעם אחת ו-SmartNest בתפריט.",
+  ab_kind: "סוג המקום",
+  ab_apartment: "דירה",
+  ab_villa: "וילה",
+  ab_office: "משרד",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

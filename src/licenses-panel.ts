@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Hass, PanelInfo } from "./types";
 import { fontFaceCss, shared, themeVars } from "./theme";
+import { logoDataUrl } from "./config";
 import "./ui/icon";
 
 interface Beat {
@@ -61,6 +62,8 @@ export class SmartNestLicenses extends LitElement {
   @state() private ready?: boolean;
   @state() private houses: House[] = [];
   @state() private blocked: string[] = [];
+  @state() private brand?: { name?: string; logo?: string | null; v?: number };
+  @state() private designs: Record<string, { name: string; v: number }> = {};
   @state() private beats: Record<string, Beat> = {};
   @state() private beatUrl = "";
   @state() private beatPath = "";
@@ -358,8 +361,19 @@ export class SmartNestLicenses extends LitElement {
 
   private async refresh() {
     try {
-      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; blocked?: string[]; heartbeat_url?: string; heartbeat_path?: string }>({ type: "smartnest/issuer/status" });
+      const s = await this.hass.callWS<{
+        ready: boolean;
+        houses: House[];
+        beats?: Record<string, Beat>;
+        blocked?: string[];
+        heartbeat_url?: string;
+        heartbeat_path?: string;
+        brand?: { name?: string; logo?: string | null; v?: number } | null;
+        designs?: Record<string, { name: string; v: number }>;
+      }>({ type: "smartnest/issuer/status" });
       this.blocked = s.blocked ?? [];
+      this.brand = s.brand ?? undefined;
+      this.designs = s.designs ?? {};
       this.ready = s.ready;
       this.houses = s.houses;
       this.beats = s.beats ?? {};
@@ -459,6 +473,90 @@ export class SmartNestLicenses extends LitElement {
     } catch (err: any) {
       this.toast(`ما زبطت: ${err?.message ?? ""}`);
     }
+  }
+
+  /** White label: your name and logo on every client's dashboard, sent with their heartbeat. */
+  private renderBrand() {
+    const b = this.brand;
+    return html`<details class="card">
+      <summary>🏷️ اسمك ولوجوك عند كل الزباين</summary>
+      <span class="muted" style="font-size:14px">بيطلعوا بدل SmartNest بشريط الداشبورد وعلى شاشة التوقف، بكل البيوت (2.0)، مع النبض الجاي.</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        ${b?.logo ? html`<img src=${b.logo} alt="" style="height:44px;max-width:140px;object-fit:contain" />` : nothing}
+        <input
+          type="text"
+          placeholder="اسم شركتك"
+          .value=${b?.name ?? ""}
+          style="flex:1;min-width:160px"
+          @change=${(e: any) => this.saveBrand({ name: e.target.value.trim() })}
+        />
+        <input
+          type="file"
+          accept="image/png,image/svg+xml,image/webp,image/jpeg"
+          @change=${async (e: any) => {
+            const file = e.target.files?.[0];
+            if (file) this.saveBrand({ logo: await logoDataUrl(file) });
+          }}
+        />
+        ${b?.name || b?.logo ? html`<button class="btn pressable" @click=${() => this.saveBrand({ clear: true })}>رجّع SmartNest</button>` : nothing}
+      </div>
+    </details>`;
+  }
+
+  private async saveBrand(change: Record<string, unknown>) {
+    try {
+      this.brand = await this.hass.callWS({ type: "smartnest/issuer/brand", ...change });
+      this.toast("✓ بيوصل للبيوت مع النبض الجاي");
+    } catch {
+      this.toast("ما زبطت (اللوجو لازم يكون صغير)");
+    }
+  }
+
+  /** Send a dashboard design to a house: this house's own, or a file exported from any SmartNest. */
+  private sendDesign(h: House) {
+    const pick = document.createElement("input");
+    pick.type = "file";
+    pick.accept = ".json,application/json";
+    const send = async (config: unknown, name: string) => {
+      try {
+        await this.hass.callWS({ type: "smartnest/issuer/send_design", install: h.install, config, name });
+        this.toast("✓ بيوصل مع النبض الجاي، وبيستنى موافقتهم");
+        this.refresh();
+      } catch {
+        this.toast("ما زبطت");
+      }
+    };
+    if (confirm(`تبعت لـ ${h.name} تصميم داشبورد بيتك هاد؟\n(إلغاء = اختار ملف تصميم مصدّر)`)) {
+      this.hass.callWS<{ config: unknown }>({ type: "smartnest/config/get" }).then((r: any) => send(r?.config ?? r, "تصميم من المركّب"), () => this.toast("ما زبطت"));
+      return;
+    }
+    pick.onchange = async () => {
+      const file = pick.files?.[0];
+      if (!file) return;
+      try {
+        const json = JSON.parse(await file.text());
+        send(json.config ?? json, file.name.replace(/\.json$/i, ""));
+      } catch {
+        this.toast("هاد مش ملف داشبورد");
+      }
+    };
+    pick.click();
+  }
+
+  /** A short health note for the client on WhatsApp, from what their house last reported. */
+  private reportText(h: House) {
+    const b = this.beats[h.install];
+    const lines = [`مرحبا ${h.name} 👋`, `تقرير بيتك الذكي:`];
+    if (!b) lines.push("لسا ما وصلني تقرير من البيت.");
+    else {
+      const hours = Math.round((Date.now() / 1000 - b.at) / 3600);
+      lines.push(hours < 24 ? "✅ البيت شغّال ومتصل" : `⚠️ البيت ما اتصل من ${Math.round(hours / 24)} يوم`);
+      lines.push(b.offline ? `🔌 ${b.offline} أجهزة فاصلة: ${b.offline_names.join("، ")}` : "🔌 كل الأجهزة شغّالة");
+      if (b.low_battery) lines.push(`🔋 ${b.low_battery} بطاريات ضعيفة، بدها تبديل`);
+      if (b.backup) lines.push(`💾 آخر نسخة احتياطية: ${b.backup.slice(0, 10)}`);
+    }
+    if (h.expires) lines.push(`📅 الاشتراك لحد ${fmt(h.expires)}`);
+    return lines.join("\n");
   }
 
   private renderSetup() {
@@ -577,6 +675,10 @@ export class SmartNestLicenses extends LitElement {
               + واتساب
             </button>`}
         <button class="btn pressable" @click=${() => this.renew(h, { days: 365 }, `مفتاح جديد لـ ${h.name} لمدة سنة من اليوم؟`)}>جدّد سنة</button>
+        <button class="btn pressable" @click=${() => this.sendDesign(h)}>🎨 ابعت تصميم${this.designs[h.install] ? " ✓" : ""}</button>
+        ${h.phone
+          ? html`<a class="btn pressable" target="_blank" rel="noopener" href=${`https://wa.me/${h.phone.replace(/\D/g, "")}?text=${encodeURIComponent(this.reportText(h))}`}>📋 تقرير</a>`
+          : nothing}
         <select
           @change=${(e: any) => {
             const plan = e.target.value as House["plan"];
@@ -719,6 +821,7 @@ export class SmartNestLicenses extends LitElement {
                         </details>`;
                       })()
                     : nothing}
+                  ${this.renderBrand()}
                   <details class="card">
                     <summary>أضف مفتاح قديم للقائمة</summary>
                     <form

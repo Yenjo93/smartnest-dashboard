@@ -20,6 +20,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_config)
     websocket_api.async_register_command(hass, ws_subscribe_config)
     from .license import ws_license_activate, ws_license_check, ws_license_status
+    from .heartbeat import ws_design_done, ws_design_pending
     from .automations import ws_automations_get, ws_automations_set
     from .messages import ws_feedback, ws_message_ack, ws_message_send, ws_message_subscribe
     from .timers import ws_timer_cancel, ws_timer_list, ws_timer_set
@@ -36,6 +37,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_license_status)
     websocket_api.async_register_command(hass, ws_license_activate)
     websocket_api.async_register_command(hass, ws_license_check)
+    websocket_api.async_register_command(hass, ws_design_pending)
+    websocket_api.async_register_command(hass, ws_design_done)
     for cmd in (
         ws_timer_list, ws_timer_set, ws_timer_cancel,
         ws_message_subscribe, ws_message_send, ws_message_ack,
@@ -43,7 +46,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_kv_get, ws_kv_set, ws_kv_subscribe, ws_fx_start, ws_fx_stop, ws_parcels,
         ws_history_list, ws_history_restore,
         issuer.ws_status, issuer.ws_setup, issuer.ws_forget, issuer.ws_issue, issuer.ws_renew,
-        issuer.ws_update, issuer.ws_remove, issuer.ws_import, issuer.ws_test_url, issuer.ws_block,
+        issuer.ws_update, issuer.ws_remove, issuer.ws_import, issuer.ws_test_url, issuer.ws_block, issuer.ws_brand, issuer.ws_send_design,
         ws_codes_list, ws_codes_add, ws_codes_remove, ws_photo_link,
     ):
         websocket_api.async_register_command(hass, cmd)
@@ -88,13 +91,21 @@ async def ws_save_config(hass: HomeAssistant, connection: websocket_api.ActiveCo
     if not isinstance(config.get("pages"), list) or not isinstance(config.get("settings"), dict):
         connection.send_error(msg["id"], "invalid_format", "Dashboard config is malformed")
         return
+    await async_set_config(hass, config, connection.user.name or "")
+    connection.send_result(msg["id"])
+
+
+async def async_set_config(hass: HomeAssistant, config: dict[str, Any], who: str) -> None:
+    """Saves the dashboard (keeping the previous one in history) and pushes it to every open screen."""
     from .history import async_remember
 
-    await async_remember(hass, data.get("config"), connection.user.name or "")
+    data = _data(hass)
+    if data is None:
+        return
+    await async_remember(hass, data.get("config"), who)
     await data["store"].async_save(config)
     data["config"] = config
     async_dispatcher_send(hass, SIGNAL_CONFIG_UPDATED, config)
-    connection.send_result(msg["id"])
 
 
 @websocket_api.websocket_command({vol.Required("type"): "smartnest/config/subscribe"})

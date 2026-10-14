@@ -6,6 +6,7 @@ import { domainOf } from "./entities";
 import { devicesByArea } from "./autofill";
 import { TEMPLATES, newWidget, pageFromTemplate, uid, type TemplateId } from "./config";
 import { shared } from "./theme";
+import type { I18nKey } from "./i18n";
 import "./ui/icon";
 
 interface Proposal {
@@ -17,6 +18,15 @@ interface Proposal {
 }
 
 const COLS = 12;
+
+type Kind = "apartment" | "villa" | "office";
+
+/** What each kind of place usually wants, on top of what its devices allow. */
+const KINDS: Record<Kind, { perArea: boolean; off: string[]; on: string[] }> = {
+  apartment: { perArea: false, off: ["garden", "car", "pets", "water"], on: ["media"] },
+  villa: { perArea: true, off: ["pets"], on: ["garden", "car", "water", "doorbell", "security"] },
+  office: { perArea: true, off: ["media", "garden", "car", "pets", "robot"], on: ["security", "doorbell", "power", "climate"] },
+};
 
 /** An icon for an HA area, from its name (Arabic, English or Hebrew). */
 function areaIcon(name: string): string {
@@ -97,6 +107,7 @@ export function proposals(ctx: Ctx, perArea: boolean): Proposal[] {
 export class SnAutobuild extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @state() private perArea = false;
+  @state() private kind?: Kind;
   @state() private replace = true;
   @state() private list: Proposal[] = [];
 
@@ -183,9 +194,13 @@ export class SnAutobuild extends LitElement {
     this.refresh();
   }
 
-  private refresh() {
+  private refresh(fresh = false) {
     const keep = new Map(this.list.map((p) => [p.key, p.on]));
-    this.list = proposals(this.ctx, this.perArea).map((p) => ({ ...p, on: keep.get(p.key) ?? p.on }));
+    const k = this.kind ? KINDS[this.kind] : undefined;
+    this.list = proposals(this.ctx, this.perArea).map((p) => {
+      const preset = k?.on.includes(p.key) ? true : k?.off.includes(p.key) ? false : undefined;
+      return { ...p, on: fresh ? preset ?? p.on : keep.get(p.key) ?? preset ?? p.on };
+    });
   }
 
   private build() {
@@ -211,6 +226,23 @@ export class SnAutobuild extends LitElement {
     const { t } = this.ctx;
     const on = this.list.filter((p) => p.on);
     return html`<p class="hint">${t("ab_hint")}</p>
+      <div class="opt">
+        <span>${t("ab_kind")}</span>
+        <div class="seg">
+          ${(["apartment", "villa", "office"] as Kind[]).map(
+            (v) => html`<button
+              aria-pressed=${this.kind === v}
+              @click=${() => {
+                this.kind = v;
+                this.perArea = KINDS[v].perArea;
+                this.refresh(true);
+              }}
+            >
+              ${t(`ab_${v}` as I18nKey)}
+            </button>`
+          )}
+        </div>
+      </div>
       <div class="opt">
         <span>${t("ab_per_area")}</span>
         <div class="seg">

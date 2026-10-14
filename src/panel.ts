@@ -33,6 +33,7 @@ import { watchNotes, type HaNote } from "./notifs";
 import { nowPlaying } from "./miniplayer";
 import { refreshTimers } from "./live-timers";
 import { dismissNudge, findNudge, nudgeDismissed, type Nudge } from "./nudges";
+import { applyDesign } from "./design-apply";
 import "./miniplayer";
 import { dayAccent, fontStack, occasionToday } from "./look";
 import { monogram, seasonNow } from "./flair";
@@ -43,7 +44,7 @@ import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
 import "./security";
 import { installerSupport, supportSheet } from "./business";
-import { readGuests, writeGuests } from "./guests";
+import { qrSvg, readGuests, writeGuests } from "./guests";
 import { rateSheet } from "./installer";
 import "./installer";
 import type { ScreenMessage } from "./message";
@@ -1251,6 +1252,41 @@ export class SmartNestPanel extends LitElement {
     return html`<sn-miniplayer .ctx=${ctx} .player=${p}></sn-miniplayer>`;
   }
 
+  /** A design the installer sent from afar: it waits here for the admin's yes. */
+  @state() private design?: { config: unknown; name: string; v: number };
+
+  private renderDesign(ctx: Ctx) {
+    const d = this.design;
+    if (!d || !ctx.isAdmin || ctx.editing) return nothing;
+    const done = () => {
+      this.design = undefined;
+      this.hass.callWS({ type: "smartnest/design/done" }).catch(() => undefined);
+    };
+    return html`<div class="nudge glass" role="status">
+      <sn-icon icon="palette" style="--icon-size:22px;color:var(--accent-text)"></sn-icon>
+      <span>${ctx.t("design_arrived", { name: d.name || ctx.t("design_new") })}</span>
+      <button
+        class="btn primary pressable"
+        @click=${async () => {
+          if (!confirm(ctx.t("design_confirm"))) return;
+          const { config, dropped } = applyDesign(this.config!, d.config, this.hass, this.uiLang);
+          try {
+            await saveConfig(this.hass, config);
+            this.config = config;
+            this.pageId = config.pages[0]?.id ?? "";
+            this.toast(dropped ? ctx.t("design_applied_dropped", { n: dropped }) : ctx.t("design_applied"));
+            done();
+          } catch {
+            this.toast(ctx.t("error"));
+          }
+        }}
+      >
+        ${ctx.t("design_apply")}
+      </button>
+      <button class="icon-btn small pressable" aria-label=${ctx.t("nudge_later")} @click=${done}><sn-icon icon="close" style="--icon-size:16px"></sn-icon></button>
+    </div>`;
+  }
+
   /** One gentle suggestion at the top of the page, when the house notices something wasteful. */
   private renderNudge(ctx: Ctx) {
     if (!this.pro || !ctx.allows("nudges") || ctx.editing || this.kids || this.simple) return nothing;
@@ -1507,6 +1543,8 @@ export class SmartNestPanel extends LitElement {
         },
         { type: "smartnest/message/subscribe" }
       );
+      if (this.hass.user?.is_admin)
+        this.hass.callWS<{ config: unknown; name: string; v: number } | null>({ type: "smartnest/design/pending" }).then((d) => (this.design = d ?? undefined), () => undefined);
       this.unsubNotes ??= watchNotes(this.hass, (n) => (this.notes = n)).catch(() => () => undefined);
       this.unsub = subscribeConfig(this.hass, (cfg) => {
         // Another screen saved. Take it, unless we're mid-edit here.
@@ -2012,11 +2050,11 @@ export class SmartNestPanel extends LitElement {
         ${this.pro && cfg.settings.monogram && ctx.allows("monogram")
           ? html`<span role="button" tabindex="0" style="cursor:pointer;display:inline-flex" @click=${() => this.aboutSheet()}>${monogram(cfg.settings.monogram, 40)}</span>`
           : html`<img
-              src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg"
-              alt="SmartNest"
+              src=${(ctx.allows("white_label") && cfg.settings.installer.brand?.logo) || `${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg`}
+              alt=${(ctx.allows("white_label") && cfg.settings.installer.brand?.name) || "SmartNest"}
               role="button"
               tabindex="0"
-              style="cursor:pointer"
+              style="cursor:pointer;object-fit:contain"
               @click=${() => this.aboutSheet()}
             />`}
         <span>${name}</span>
@@ -2316,6 +2354,15 @@ export class SmartNestPanel extends LitElement {
                 )}
               </div>
             </div>
+            ${c.isAdmin && c.allows("phone_qr")
+              ? html`<div class="field">
+                  ${c.t("phone_qr")}
+                  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+                    <span style="background:#fff;padding:8px;border-radius:12px;line-height:0">${qrSvg(location.origin + location.pathname, 132)}</span>
+                    <span class="hint" style="flex:1;min-width:180px">${c.t("phone_qr_hint")}</span>
+                  </div>
+                </div>`
+              : nothing}
             ${c.isAdmin && c.allows("showroom")
               ? html`<div class="field">
                   ${c.t("showroom")}
@@ -2632,7 +2679,7 @@ export class SmartNestPanel extends LitElement {
                 @pointercancel=${cur ? this.onSwipeUp : null}
               >
                 ${cur && this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
-                ${cur ? this.renderNudge(ctx) : nothing}
+                ${cur ? this.renderDesign(ctx) : nothing} ${cur ? this.renderNudge(ctx) : nothing}
                 <sn-page-grid .ctx=${cur ? ctx : this.parked.get(p.id) ?? ctx} .page=${p}></sn-page-grid>
               </main>`;
             }

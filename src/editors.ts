@@ -17,7 +17,7 @@ import { healthSheet } from "./health";
 import { planFor, widgetFeature } from "./plans";
 import { automationsSheet } from "./automations";
 import { exportConfig, importConfig, rateSheet } from "./installer";
-import { uid, uploadImage } from "./config";
+import { uid, uploadImage, logoDataUrl } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
 import { guessWater } from "./widgets/water";
@@ -1078,6 +1078,33 @@ export function settingsSheet(
           ? section(
               t("installer"),
               html`<label class="field">${t("installer_name")}<input type="text" .value=${s.installer.name ?? ""} placeholder="SmartNest" @change=${(e: any) => set((d) => (d.settings.installer.name = e.target.value.trim() || undefined))} /></label>`,
+              c.allows("white_label")
+                ? html`<div class="field">
+                    ${t("brand_logo")}
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                      ${s.installer.brand?.logo ? html`<img src=${s.installer.brand.logo} alt="" style="height:40px;max-width:120px;object-fit:contain" />` : nothing}
+                      <input
+                        type="file"
+                        accept="image/png,image/svg+xml,image/webp,image/jpeg"
+                        style="flex:1"
+                        @change=${async (e: any) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const logo = await logoDataUrl(file);
+                            set((d) => (d.settings.installer.brand = { ...(d.settings.installer.brand ?? {}), name: d.settings.installer.name, logo, v: -Date.now() }));
+                          } catch {
+                            c.toast(t("error"));
+                          }
+                        }}
+                      />
+                      ${s.installer.brand?.logo
+                        ? html`<button class="btn pressable" @click=${() => set((d) => (d.settings.installer.brand = { ...d.settings.installer.brand, logo: null }))}>${t("delete")}</button>`
+                        : nothing}
+                    </div>
+                    <span class="hint">${t("brand_hint")}</span>
+                  </div>`
+                : nothing,
               html`<label class="field"
                 >${t("installer_phone")}<input type="tel" class="ltr" .value=${s.installer.phone ?? ""} placeholder="972501234567" @change=${(e: any) => set((d) => (d.settings.installer.phone = e.target.value.trim() || undefined))} />
                 <span class="hint">${t("installer_phone_hint")}</span></label

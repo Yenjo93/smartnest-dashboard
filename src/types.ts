@@ -112,7 +112,13 @@ export interface Settings {
   /** What travel mode turns off, which lights it plays with, where the evening report goes. */
   travel: { off: string[]; lights: string[]; notify?: string; arm: boolean; simulate: boolean };
   /** Who installed this house: the client's "something's wrong" button messages them. */
-  installer: { name?: string; phone?: string; heartbeat_url?: string };
+  installer: {
+    name?: string;
+    phone?: string;
+    heartbeat_url?: string;
+    /** The installer's own name and logo in place of SmartNest's (sent from their licenses page, or set here). */
+    brand?: { name?: string; logo?: string | null; v?: number };
+  };
   /** Washer, dryer, dishwasher: announced when their power meter says the cycle ended. */
   appliances: { power: string; name: string; start_w?: number; quiet_min?: number }[];
   /** At night, motion lights a dim path. */

@@ -140,6 +140,13 @@ class Issuer:
         if install in db.get("blocked", []):
             return web.json_response({"revoke": True})
         answer: dict[str, Any] = {"revoke": False}
+        # The installer's brand, and a design sent to this house: only when the house doesn't have them yet.
+        brand = db.get("brand")
+        if brand and brand.get("v") != data.get("brand_v"):
+            answer["brand"] = brand
+        design = (db.get("designs") or {}).get(install)
+        if design and design.get("v") != data.get("design_v"):
+            answer["design"] = design
         newest = max((h for h in db.get("houses", []) if h.get("install") == install), key=lambda h: h.get("issued", 0), default=None)
         if newest and newest.get("issued", 0) > int(sent.get("t") or 0) and newest.get("key") != key:
             answer["key"] = newest["key"]
@@ -186,6 +193,11 @@ class Issuer:
     async def beats(self) -> dict[str, Any]:
         return (await self.db.async_load() or {}).get("beats", {})
 
+    async def update_db(self, **changes: Any) -> dict[str, Any]:
+        db = {**(await self.db.async_load() or {}), **changes}
+        await self.db.async_save(db)
+        return db
+
     async def blocked(self) -> list[str]:
         return (await self.db.async_load() or {}).get("blocked", [])
 
@@ -225,6 +237,8 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         return
     from homeassistant.components import webhook
 
+    db = await iss.db.async_load() or {}
+
     connection.send_result(
         msg["id"],
         {
@@ -232,6 +246,8 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
             "houses": await iss.houses(),
             "beats": await iss.beats(),
             "blocked": await iss.blocked(),
+            "brand": db.get("brand"),
+            "designs": {k: {"name": v.get("name", ""), "v": v.get("v")} for k, v in (db.get("designs") or {}).items()},
             "heartbeat_url": iss.webhook_url(),
             # The page builds the full link from the address it's opened on (a Cloudflare domain, DuckDNS…).
             "heartbeat_path": webhook.async_generate_path(iss.webhook_id),
@@ -402,3 +418,56 @@ async def ws_import(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     rec = _record(key, payload)
     await iss.save_houses([*houses, rec])
     connection.send_result(msg["id"], rec)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "smartnest/issuer/brand",
+        vol.Optional("name"): vol.All(str, vol.Length(max=60)),
+        # A small logo as a data: URL (PNG, SVG, WebP), sent to every house with its heartbeat.
+        vol.Optional("logo"): vol.Any(None, vol.All(str, vol.Length(max=200_000), vol.Match(r"^data:image/(png|svg\+xml|webp|jpeg);base64,"))),
+        vol.Optional("clear", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_brand(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The installer's name and logo, shown on every client's dashboard instead of SmartNest's."""
+    if not (iss := _ready(hass, connection, msg)):
+        return
+    db = await iss.db.async_load() or {}
+    if msg["clear"]:
+        brand = {"name": "", "logo": None, "v": int(time.time())}
+    else:
+        old = db.get("brand") or {}
+        brand = {"name": msg.get("name", old.get("name", "")), "logo": msg["logo"] if "logo" in msg else old.get("logo"), "v": int(time.time())}
+    await iss.update_db(brand=brand)
+    connection.send_result(msg["id"], brand)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "smartnest/issuer/send_design",
+        vol.Required("install"): vol.All(str, vol.Match(r"^[0-9a-f]{32}$")),
+        vol.Optional("config"): dict,
+        vol.Optional("name", default=""): str,
+    }
+)
+@websocket_api.async_response
+async def ws_send_design(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """A dashboard design for a client house: it arrives with the next heartbeat and waits there for their OK."""
+    if not (iss := _ready(hass, connection, msg)):
+        return
+    db = await iss.db.async_load() or {}
+    designs = dict(db.get("designs") or {})
+    config = msg.get("config")
+    if config is None:
+        designs.pop(msg["install"], None)
+    else:
+        if not isinstance(config.get("pages"), list) or len(json.dumps(config)) > 400_000:
+            connection.send_error(msg["id"], "invalid_format", "Not a dashboard, or too large")
+            return
+        designs[msg["install"]] = {"config": config, "name": msg["name"].strip()[:60], "v": int(time.time())}
+    await iss.update_db(designs=designs)
+    connection.send_result(msg["id"])

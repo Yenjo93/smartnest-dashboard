@@ -390,3 +390,23 @@ export function findWidget(config: DashboardConfig, widgetId: string): Widget | 
   }
   return undefined;
 }
+
+/** A logo small enough to travel inside the dashboard's settings: at most 256 px, as a WebP (or PNG) data: URL. */
+export async function logoDataUrl(file: File): Promise<string> {
+  if (file.type === "image/svg+xml" && file.size < 120_000) {
+    return await new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result));
+      r.onerror = fail;
+      r.readAsDataURL(file);
+    });
+  }
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 256 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const webp = canvas.toDataURL("image/webp", 0.9);
+  return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/png");
+}
