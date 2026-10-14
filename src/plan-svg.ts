@@ -1,4 +1,5 @@
-import type { Door, Room, RoomKind } from "./types";
+import type { Door, Floor, Room, RoomKind } from "./types";
+import { furnitureSvg } from "./furniture";
 
 /** A room's floor from its name when nobody chose one: tiles in wet rooms, wood where people live, open air outside. */
 export function guessKind(name: string): RoomKind {
@@ -29,7 +30,7 @@ const nearestEdge = (rooms: Room[], x: number, y: number) => {
  * with their swing. Neutral greys so it reads on light and dark themes. Coordinates are the same percentages as
  * markers, so devices already placed stay where they are.
  */
-export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800): string {
+export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, extra: Pick<Floor, "openings" | "furniture"> = {}): string {
   const X = (p: number) => ((p / 100) * w).toFixed(1);
   const Y = (p: number) => ((p / 100) * h).toFixed(1);
   const wall = Math.max(8, Math.round(w / 100));
@@ -64,6 +65,18 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800): s
       `<path d="M${hx.toFixed(1)} ${hy.toFixed(1)} L${lx.toFixed(1)} ${ly.toFixed(1)} A${open.toFixed(1)} ${open.toFixed(1)} 0 0 0 ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="#9AA4AD" stroke-opacity=".55" stroke-width="2"/>`
     );
   }
+  // Open walls: the wall between two rooms taken out (kept at the corners), a faint dashed line where the floor changes.
+  const seams: string[] = [];
+  for (const o of extra.openings ?? []) {
+    const [x1, y1, x2, y2] = [(o.a[0] / 100) * w, (o.a[1] / 100) * h, (o.b[0] / 100) * w, (o.b[1] / 100) * h];
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+    const ux = (x2 - x1) / len;
+    const uy = (y2 - y1) / len;
+    const k = wall * 0.5;
+    holes.push(`<line x1="${(x1 + ux * k).toFixed(1)}" y1="${(y1 + uy * k).toFixed(1)}" x2="${(x2 - ux * k).toFixed(1)}" y2="${(y2 - uy * k).toFixed(1)}" stroke="#000" stroke-width="${(wall * 1.6).toFixed(1)}"/>`);
+    seams.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#9AA4AD" stroke-opacity=".35" stroke-width="2" stroke-dasharray="8 8"/>`);
+  }
+  const furniture = (extra.furniture ?? []).map((f) => furnitureSvg(f, w, h)).join("");
   const inside = rooms.filter((r) => (r.kind ?? guessKind(r.name)) !== "outdoor");
   const walls = inside.map((r) => `<polygon points="${pts(r)}" fill="none"/>`).join("");
   // Balconies and gardens: a light dashed edge instead of a wall.
@@ -81,6 +94,8 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800): s
 <g>${floors}</g>
 <g mask="url(#doors)" stroke="#9AA4AD" stroke-width="${wall}" stroke-linejoin="miter" stroke-linecap="square">${walls}</g>
 <g>${edges}</g>
+<g>${seams.join("")}</g>
+<g fill="none" stroke="#9AA4AD" stroke-opacity=".75" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${furniture}</g>
 <g>${leaves.join("")}</g>
 </svg>`;
 }

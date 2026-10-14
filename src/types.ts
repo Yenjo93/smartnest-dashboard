@@ -260,6 +260,10 @@ export interface Floor {
   markers: Marker[];
   rooms?: Room[];
   doors?: Door[];
+  /** Walls taken out between rooms (a living room open to the kitchen): from a to b, in percent. */
+  openings?: { id: string; a: [number, number]; b: [number, number] }[];
+  /** Furniture on a drawn plan. */
+  furniture?: import("./furniture").Furniture[];
   /** The photo this plan was cleaned from, to go back to it. */
   photo?: string;
   /** Drawn in SmartNest: the picture is made from the rooms and redrawn when they change. */
