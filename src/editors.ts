@@ -109,6 +109,38 @@ export function multiField(ctx: Ctx, label: string, value: string[] | undefined,
   </div>`;
 }
 
+/** The devices hidden from the whole dashboard: tap one to bring it back, or hide another. */
+function hiddenDevices(ctx: Ctx, ids: string[], onChange: (ids: string[]) => void) {
+  const full = ctx.fullHass ?? ctx.hass;
+  return html`<span class="hint" style="margin-top:-4px">${ctx.t("hidden_hint")}</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${ids.map(
+        (id) => html`<button class="btn pressable" style="min-height:36px;font-size:14px" title=${ctx.t("hidden_show")} @click=${() => onChange(ids.filter((x) => x !== id))}>
+          <sn-icon icon="eye-off" style="--icon-size:16px"></sn-icon>${entityName(full, ctx.config, id)}<sn-icon icon="close" style="--icon-size:14px"></sn-icon>
+        </button>`
+      )}
+      <button
+        class="btn primary pressable"
+        style="min-height:36px;font-size:14px"
+        @click=${() =>
+          ctx.showSheet({
+            still: true,
+            title: ctx.t("hidden_add"),
+            render: (c) => html`<sn-entity-picker
+              .ctx=${c}
+              .filter=${{}}
+              .onPick=${(id: string) => {
+                onChange([...ids.filter((x) => x !== id), id]);
+                c.closeSheet();
+              }}
+            ></sn-entity-picker>`,
+          })}
+      >
+        <sn-icon icon="plus" style="--icon-size:16px"></sn-icon>${ctx.t("hidden_add")}
+      </button>
+    </div>`;
+}
+
 function titleField(ctx: Ctx, widgetId: string, value?: string) {
   return html`<label class="field"
     >${ctx.t("widget_title")}
@@ -915,6 +947,10 @@ export function settingsSheet(
           </label>`,
           html`<div class="field">${t("prayer")} ${toggle(c, s.prayer, (v) => set((d) => (d.settings.prayer = v)))}</div>`,
           html`<div class="field">${t("morning_summary")} ${toggle(c, s.morning, (v) => set((d) => (d.settings.morning = v)))}</div>`
+        ),
+        section(
+          t("hidden_devices"),
+          hiddenDevices(c, s.hidden, (ids) => set((d) => (d.settings.hidden = ids)))
         ),
         section(
           t("status_bar"),

@@ -721,6 +721,20 @@ export class SnEntityDetail extends LitElement {
         <span class="sub">${ctx.t("last_changed")} ${relativeTime(ctx.t, e.last_changed)}</span>
       </div>
       ${unavailable ? nothing : this.renderBody(e)} ${unavailable ? nothing : this.renderTimer(e)}
+      ${ctx.editing && ctx.isAdmin
+        ? html`<button
+            class="btn pressable"
+            style="justify-self:center;margin-top:8px;color:var(--text-2)"
+            @click=${() => {
+              const id = this.entityId;
+              ctx.update((d) => (d.settings.hidden = [...d.settings.hidden.filter((x) => x !== id), id]));
+              ctx.closeSheet();
+              ctx.toast(ctx.t("hidden_done"));
+            }}
+          >
+            <sn-icon icon="eye-off" style="--icon-size:18px"></sn-icon>${ctx.t("hidden_this")}
+          </button>`
+        : nothing}
     `;
   }
 }

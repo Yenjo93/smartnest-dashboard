@@ -487,7 +487,10 @@ export class SnPageGrid extends LitElement {
         <strong>${ctx.t("empty_page")}</strong>
         ${ctx.isAdmin && !ctx.editing ? html`<span>${ctx.t("empty_page_admin")}</span>` : nothing}
       </div>`;
-    const ordered = ctx.narrow ? [...widgets].sort((a, b) => a.y - b.y || a.x - b.x) : widgets;
+    // A card for one device the installer hid goes too (still shown while editing, so it can be removed).
+    const hidden = ctx.config.settings.hidden;
+    const visible = ctx.editing || !hidden.length ? widgets : widgets.filter((w) => !(w.config.entity && hidden.includes(w.config.entity)));
+    const ordered = ctx.narrow ? [...visible].sort((a, b) => a.y - b.y || a.x - b.x) : visible;
     return html`<div class="grid ${ctx.narrow ? "narrow" : ""} ${ctx.editing ? "editing" : ""}">
       ${repeat(
         ordered,

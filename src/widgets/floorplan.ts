@@ -2223,7 +2223,7 @@ export class SnFloorplan extends LitElement {
                   </svg>`
                 : nothing}
               ${!ctx.editing && ctx.allows("robot_on_plan") ? this.renderCleaned(floor) : nothing}
-              ${floor.markers.map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
+              ${(ctx.editing ? floor.markers : floor.markers.filter((m) => !ctx.config.settings.hidden.includes(m.entity))).map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
               ${this.lensOn && this.lens && !ctx.editing ? this.renderLens(floor, stage) : nothing}
             </div>`

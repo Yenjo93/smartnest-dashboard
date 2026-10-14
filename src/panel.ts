@@ -157,9 +157,24 @@ export class SmartNestPanel extends LitElement {
     this.pendingHass = undefined;
     this.requestUpdate("hass", old);
   }
+  /**
+   * What the dashboard sees: Home Assistant's states without the devices hidden in Settings. Hiding them here, once,
+   * keeps them off every page, the search, the status line, auto-built pages and the device pickers alike.
+   */
   get hass(): Hass {
-    return this._hass;
+    const h = this._hass;
+    const hidden = (this.draft ?? this.config)?.settings.hidden;
+    if (!h || !hidden?.length) return h;
+    const c = this.viewCache;
+    if (c && c.src === h && c.hidden === hidden) return c.out;
+    const skip = new Set(hidden);
+    const states: Hass["states"] = {};
+    for (const id in h.states) if (!skip.has(id)) states[id] = h.states[id];
+    const out = { ...h, states };
+    this.viewCache = { src: h, hidden, out };
+    return out;
   }
+  private viewCache?: { src: Hass; hidden: string[]; out: Hass };
   @property({ type: Boolean, reflect: true }) narrow = false;
   @property({ attribute: false }) panel?: PanelInfo;
   @property({ attribute: false }) route?: unknown;
@@ -1263,6 +1278,7 @@ export class SmartNestPanel extends LitElement {
     const lang = this.uiLang;
     return {
       hass: this.hass,
+      fullHass: this._hass,
       config: this.current!,
       lang,
       rtl: isRtl(lang),

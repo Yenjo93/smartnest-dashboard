@@ -84,6 +84,7 @@ export function defaultSettings(lang: Lang): Settings {
     maintenance: [],
     setup_done: true,
     chips_hidden: [],
+    hidden: [],
     travel: { off: [], lights: [], arm: true, simulate: true },
     emergency: { police: "100", contacts: [] },
     installer: {},
@@ -307,6 +308,7 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.screensaver = { ...base.screensaver, ...(raw?.settings?.screensaver ?? {}) };
   settings.doorbell = { ...base.doorbell, ...(raw?.settings?.doorbell ?? {}) };
   settings.chips_hidden = Array.isArray(raw?.settings?.chips_hidden) ? raw.settings.chips_hidden : [];
+  settings.hidden = Array.isArray(raw?.settings?.hidden) ? raw.settings.hidden : [];
   settings.speakers = Array.isArray(raw?.settings?.speakers) ? raw.settings.speakers : [];
   settings.maintenance = Array.isArray(raw?.settings?.maintenance) ? raw.settings.maintenance : [];
   settings.kiosk = { ...(raw?.settings?.kiosk ?? {}) };

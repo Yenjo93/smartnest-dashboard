@@ -930,6 +930,12 @@ const en = {
   picker_more: "Show {n} more",
   picker_show_extra: "Also show {n} technical entities",
   irr_pick: "Choose the valve: ✏️ → widget settings",
+  hidden_devices: "Hidden devices",
+  hidden_hint: "Hidden everywhere in the dashboard: pages, search, the status bar and auto-built pages. They keep working in Home Assistant.",
+  hidden_add: "Hide a device",
+  hidden_show: "Show it again",
+  hidden_this: "Hide from the dashboard",
+  hidden_done: "Hidden. Bring it back in Settings → Hidden devices",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1864,6 +1870,12 @@ const ar: Record<I18nKey, string> = {
   picker_more: "اعرض كمان {n}",
   picker_show_extra: "اعرض كمان {n} عناصر تقنية",
   irr_pick: "اختار المحبس من ✏️ ← إعدادات العنصر",
+  hidden_devices: "أجهزة مخفية",
+  hidden_hint: "مخفية من كل الداشبورد: الصفحات، البحث، شريط الحالة، والصفحات اللي بتنعمل لحالها. بتضل شغّالة بـ Home Assistant.",
+  hidden_add: "احجب جهاز",
+  hidden_show: "رجّعه",
+  hidden_this: "احجبه من الداشبورد",
+  hidden_done: "انحجب. بترجّعه من الإعدادات ← أجهزة مخفية",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2796,6 +2808,12 @@ const he: Record<I18nKey, string> = {
   picker_more: "הצג עוד {n}",
   picker_show_extra: "הצג גם {n} ישויות טכניות",
   irr_pick: "בחרו את הברז: ✏️ ← הגדרות הרכיב",
+  hidden_devices: "מכשירים מוסתרים",
+  hidden_hint: "מוסתרים מכל הדשבורד: עמודים, חיפוש, שורת הסטטוס ועמודים אוטומטיים. ממשיכים לעבוד ב-Home Assistant.",
+  hidden_add: "הסתר מכשיר",
+  hidden_show: "הצג שוב",
+  hidden_this: "הסתר מהדשבורד",
+  hidden_done: "הוסתר. אפשר להחזיר בהגדרות ← מכשירים מוסתרים",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

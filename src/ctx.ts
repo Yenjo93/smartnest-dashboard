@@ -23,6 +23,8 @@ export interface Ctx {
   config: DashboardConfig;
   lang: Lang;
   rtl: boolean;
+  /** Every state, including the devices hidden from the dashboard (for the list that unhides them). */
+  fullHass?: Hass;
   t: Translate;
   dark: boolean;
   narrow: boolean;

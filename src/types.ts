@@ -84,6 +84,8 @@ export interface Settings {
   greeting_name: string;
   /** Status chip types the installer switched off. */
   chips_hidden: string[];
+  /** Devices the installer hid from the whole dashboard (pages, search, auto-built pages, pickers…). */
+  hidden: string[];
   /** Prayer times from the Islamic Prayer Times integration, when installed. */
   prayer: boolean;
   /** Morning card the first time the screen is used after the night window. */
