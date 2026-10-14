@@ -20,13 +20,14 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_config)
     websocket_api.async_register_command(hass, ws_subscribe_config)
     from .license import ws_license_activate, ws_license_status
+    from .messages import ws_message_ack, ws_message_send, ws_message_subscribe
     from .timers import ws_timer_cancel, ws_timer_list, ws_timer_set
     from .visitors import ws_list_visitors
 
     websocket_api.async_register_command(hass, ws_list_visitors)
     websocket_api.async_register_command(hass, ws_license_status)
     websocket_api.async_register_command(hass, ws_license_activate)
-    for cmd in (ws_timer_list, ws_timer_set, ws_timer_cancel):
+    for cmd in (ws_timer_list, ws_timer_set, ws_timer_cancel, ws_message_subscribe, ws_message_send, ws_message_ack):
         websocket_api.async_register_command(hass, cmd)
 
 

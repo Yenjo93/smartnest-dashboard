@@ -26,6 +26,7 @@ from .const import (
     STORAGE_VERSION,
 )
 from .license import License
+from .messages import async_register_service as async_register_messages
 from .timers import Timers
 from .upload import SmartNestUploadView
 from .visitors import VisitorLog
@@ -65,6 +66,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_register_commands(hass)
         hass.data[_REGISTERED] = True
 
+    async_register_messages(hass)
+
     timers = Timers(hass)
     await timers.async_load()
     hass.data[DOMAIN]["timers"] = timers
@@ -94,6 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel; the saved dashboard stays on disk."""
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
+    hass.services.async_remove(DOMAIN, "show_message")
     data = hass.data.pop(DOMAIN, None) or {}
     if visitors := data.get("visitors"):
         visitors.async_stop()

@@ -9,5 +9,29 @@
     "abort": {
       "single_instance_allowed": "SmartNest Dashboard is already set up."
     }
+  },
+  "services": {
+    "show_message": {
+      "name": "Show a message on the home screens",
+      "description": "Pops a message up on every open SmartNest dashboard. With `ack`, it shows a button and fires smartnest_message_ack when pressed.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "What to show."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Shown above the message, e.g. who it's from."
+        },
+        "ack": {
+          "name": "Button",
+          "description": "Text of a confirm button, e.g. \"Taken ✓\"."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "pill, bell or message."
+        }
+      }
+    }
   }
 }

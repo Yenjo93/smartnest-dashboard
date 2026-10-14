@@ -75,12 +75,15 @@ export interface Settings {
   night_plan: boolean;
   /** Ramadan and Eid decorations: auto (Hijri calendar), always, or off. */
   season: "auto" | "off" | "ramadan" | "eid";
+  /** Page shown in kids mode (big buttons, everything else hidden until the PIN). */
+  kids_page?: string;
   /** Whole-home power sensor for the status chip. */
   power_entity?: string;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
 }
 
-export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check";
+export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check"
+  | "family" | "todo" | "calendar" | "forecast" | "countdown";
 
 export interface Widget {
   id: string;

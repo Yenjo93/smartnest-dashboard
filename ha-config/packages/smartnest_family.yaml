@@ -1,0 +1,93 @@
+# SmartNest: family routines (روتين العيلة)
+#
+# Copy to /config/packages/ (configuration.yaml needs `homeassistant: packages: !include_dir_named packages`),
+# fill the ✏️ lines, restart. Every automation here can be switched off on its own in Settings → Automations.
+
+automation:
+  # 💊 Medicine reminder: pops up on the wall screen with a "Taken ✓" button, and nags every 10 minutes until pressed.
+  - id: smartnest_medicine
+    alias: "SmartNest · medicine reminder"
+    mode: single
+    trigger:
+      - trigger: time
+        at: "09:00:00" # ✏️ add more times as needed
+    action:
+      - repeat:
+          sequence:
+            - action: smartnest.show_message
+              data:
+                title: "💊"
+                message: "وقت الدوا" # ✏️ "Time for grandma's pills"
+                ack: "أخذته ✓"
+                icon: pill
+            - wait_for_trigger:
+                - trigger: event
+                  event_type: smartnest_message_ack
+              timeout: "00:10:00"
+          until:
+            - condition: template
+              value_template: "{{ wait.trigger is not none }}"
+
+  # 👵 Elderly check: no movement in the house by 10:00 → tell the family.
+  - id: smartnest_no_motion
+    alias: "SmartNest · no movement this morning"
+    mode: single
+    trigger:
+      - trigger: time
+        at: "10:00:00"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.hallway_motion # ✏️ the motion sensors in grandma's flat
+        state: "off"
+        for: "06:00:00"
+    action:
+      - action: notify.send_message
+        target:
+          entity_id: notify.family # ✏️
+        data:
+          message: "👵 {{ states.zone.home.name }}: no movement since this morning. Worth a call."
+
+  # 📺 Screen time: the kids' TV switches off at 21:00 on school nights.
+  - id: smartnest_screen_time
+    alias: "SmartNest · TV off at bedtime"
+    mode: single
+    trigger:
+      - trigger: time
+        at: "21:00:00"
+    condition:
+      - condition: time
+        weekday: [sun, mon, tue, wed, thu] # ✏️ school nights here
+    action:
+      - action: smartnest.show_message
+        data:
+          message: "التلفزيون رح يطفي بعد 5 دقايق 📺"
+      - delay: "00:05:00"
+      - action: media_player.turn_off
+        target:
+          entity_id: media_player.kids_tv # ✏️
+
+  # 🕌 Adhan on the speakers at each prayer time (Islamic Prayer Times integration).
+  # Put an adhan recording you have the right to use at /config/www/adhan.mp3.
+  - id: smartnest_adhan
+    alias: "SmartNest · adhan"
+    mode: single
+    trigger:
+      - trigger: time
+        at:
+          - sensor.fajr_prayer
+          - sensor.dhuhr_prayer
+          - sensor.asr_prayer
+          - sensor.maghrib_prayer
+          - sensor.isha_prayer
+    action:
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.living_room_speaker # ✏️
+        data:
+          volume_level: 0.45
+      - action: media_player.play_media
+        target:
+          entity_id: media_player.living_room_speaker # ✏️
+        data:
+          media_content_id: /local/adhan.mp3
+          media_content_type: music

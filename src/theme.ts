@@ -196,6 +196,7 @@ export const shared = css`
   input[type="text"],
   input[type="number"],
   input[type="time"],
+  input[type="date"],
   input[type="search"],
   select {
     font: inherit;

@@ -86,6 +86,7 @@ function nameField(ctx: Ctx, entityId: string) {
 const ENTITY_FILTERS: Partial<Record<WidgetType, EntityFilter>> = {
   camera: { domains: ["camera"] },
   vacuum: { domains: ["vacuum"] },
+  todo: { domains: ["todo"] },
 };
 
 function editWidget(ctx: Ctx, widgetId: string, fn: (w: Widget, d: DashboardConfig) => void) {
@@ -112,6 +113,58 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             ),
             w.config.entity ? nameField(c, w.config.entity) : nothing
           );
+        case "todo":
+          return entityField(c, t("widget_todo"), w.config.entity, { domains: ["todo"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id)));
+        case "calendar": {
+          const cals = Object.keys(c.hass.states).filter((id) => id.startsWith("calendar."));
+          const chosen: string[] = w.config.entities ?? [];
+          return html`<div style="display:grid;gap:8px">
+            ${cals.map((id) => {
+              const on = !chosen.length || chosen.includes(id);
+              return html`<button
+                class="btn pressable ${on ? "primary" : ""}"
+                style="justify-content:flex-start;font-weight:500"
+                @click=${() =>
+                  editWidget(c, widgetId, (x) => {
+                    const cur: string[] = x.config.entities?.length ? x.config.entities : [...cals];
+                    x.config.entities = on ? cur.filter((y) => y !== id) : [...cur, id];
+                  })}
+              >
+                <sn-icon icon=${on ? "check" : "close"} style="--icon-size:18px"></sn-icon>${entityName(c.hass, c.config, id)}
+              </button>`;
+            })}
+          </div>`;
+        }
+        case "countdown": {
+          const events: { title: string; date: string }[] = w.config.events ?? [];
+          return col(
+            html`<div class="field">${t("next_ramadan")} / ${t("next_eid")} ${toggle(c, w.config.islamic ?? c.lang === "ar", (v) => editWidget(c, widgetId, (x) => (x.config.islamic = v)))}</div>`,
+            ...events.map(
+              (ev, i) => html`<div style="display:flex;gap:8px;align-items:center">
+                <span style="flex:1">${ev.title}</span><span class="muted ltr">${ev.date}</span>
+                <button class="icon-btn small pressable" aria-label=${t("delete")} @click=${() => editWidget(c, widgetId, (x) => x.config.events.splice(i, 1))}>
+                  <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+                </button>
+              </div>`
+            ),
+            html`<form
+              style="display:grid;gap:8px"
+              @submit=${(e: SubmitEvent) => {
+                e.preventDefault();
+                const f = e.currentTarget as HTMLFormElement;
+                const title = (f.elements.namedItem("title") as HTMLInputElement).value.trim();
+                const date = (f.elements.namedItem("date") as HTMLInputElement).value;
+                if (!title || !date) return;
+                editWidget(c, widgetId, (x) => (x.config.events = [...(x.config.events ?? []), { title, date }]));
+                f.reset();
+              }}
+            >
+              <input name="title" type="text" placeholder=${t("event_title")} />
+              <input name="date" type="date" />
+              <button class="btn primary pressable" type="submit" style="justify-self:start">${t("add_event")}</button>
+            </form>`
+          );
+        }
         case "energy_stats": {
           const g = guessBill(c.hass);
           const field = (key: "total" | "solar", label: I18nKey) =>
@@ -182,6 +235,11 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "energy_stats", icon: "lightning-bolt" },
   { type: "check", icon: "night" },
   { type: "panic", icon: "alert-circle-outline" },
+  { type: "family", icon: "family" },
+  { type: "todo", icon: "todo" },
+  { type: "calendar", icon: "calendar" },
+  { type: "forecast", icon: "w-partlycloudy" },
+  { type: "countdown", icon: "countdown" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -438,6 +496,15 @@ export function settingsSheet(
               </div>
             </div>`
           : nothing,
+        c.allows("kids")
+          ? html`<label class="field"
+              >${t("kids_page")}
+              <select @change=${(e: any) => set((d) => (d.settings.kids_page = e.target.value || undefined))}>
+                <option value="" ?selected=${!s.kids_page}>${t("none")}</option>
+                ${c.config.pages.map((p) => html`<option value=${p.id} ?selected=${s.kids_page === p.id}>${p.title}</option>`)}
+              </select>
+            </label>`
+          : nothing,
         html`<label class="field"
           >${t("default_page")}
           <select @change=${(e: any) => set((d) => (d.settings.default_page = e.target.value))}>
@@ -475,7 +542,7 @@ export function settingsSheet(
                           type="text"
                           class="ltr"
                           .value=${s.screensaver.photo_folder}
-                          @change=${(e: any) => set((d) => (d.settings.screensaver.photo_folder = e.target.value.trim().replace(/^\/+|\/+$/g, "") || "smartnest-photos"))}
+                          @change=${(e: any) => set((d) => (d.settings.screensaver.photo_folder = (e.target.value.trim().startsWith("media-source://") ? e.target.value.trim() : e.target.value.trim().replace(/^\/+|\/+$/g, "")) || "smartnest-photos"))}
                         />
                         <span class="hint">${t("photos_hint", { folder: s.screensaver.photo_folder })}</span>
                       </label>

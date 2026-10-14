@@ -21,6 +21,11 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   energy_stats: { w: 6, h: 8, minW: 4, minH: 6 },
   panic: { w: 3, h: 3, minW: 2, minH: 2 },
   check: { w: 6, h: 6, minW: 4, minH: 4 },
+  family: { w: 6, h: 3, minW: 3, minH: 2 },
+  todo: { w: 4, h: 7, minW: 3, minH: 4 },
+  calendar: { w: 4, h: 7, minW: 3, minH: 4 },
+  forecast: { w: 6, h: 4, minW: 4, minH: 3 },
+  countdown: { w: 4, h: 4, minW: 3, minH: 3 },
 };
 
 export function defaultSettings(lang: Lang): Settings {

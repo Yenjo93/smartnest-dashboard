@@ -189,7 +189,8 @@ export class SnScreensaver extends LitElement {
     try {
       const res = await this.ctx.hass.callWS<{ children?: { media_class: string; media_content_id: string }[] }>({
         type: "media_source/browse_media",
-        media_content_id: `media-source://media_source/local/${s.photo_folder}`,
+        // A folder name means HA's local media; a full media-source:// address can point at Google Photos, Immich, etc.
+        media_content_id: s.photo_folder.startsWith("media-source://") ? s.photo_folder : `media-source://media_source/local/${s.photo_folder}`,
       });
       this.photos = (res.children ?? []).filter((c) => c.media_class === "image").map((c) => c.media_content_id);
     } catch {

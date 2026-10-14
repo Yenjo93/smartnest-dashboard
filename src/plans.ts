@@ -6,13 +6,17 @@ export type Feature =
   | "w_floorplan" | "w_tile" | "w_camera" | "w_heading" | "w_clock" | "w_modes"
   | "w_vacuum" | "w_visitors" | "w_energy" | "w_energy_stats" | "w_panic" | "w_check"
   | "weather_bg" | "photo_frame" | "cinematic" | "morning" | "heat_map" | "room_glow" | "timers" | "fully"
-  | "camera_wall" | "seasons" | "alarm";
+  | "camera_wall" | "seasons" | "alarm"
+  | "w_family" | "w_todo" | "w_calendar" | "w_forecast" | "w_countdown" | "messages" | "kids";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
   alarm: "basic",
   w_vacuum: "pro", w_visitors: "pro", w_energy: "pro", w_check: "pro",
   weather_bg: "pro", photo_frame: "pro", cinematic: "pro", morning: "pro", heat_map: "pro", room_glow: "pro", timers: "pro", fully: "pro",
+  w_forecast: "basic",
+  w_family: "pro", w_todo: "pro", w_calendar: "pro", w_countdown: "pro", messages: "pro",
+  kids: "premium",
   w_energy_stats: "premium", w_panic: "premium", camera_wall: "premium", seasons: "premium",
 };
 

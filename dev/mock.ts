@@ -94,6 +94,12 @@ add(ent("sun.sun", "above_horizon", { friendly_name: "Sun" }));
   for (const [p, h, m] of [["fajr", 4, 52], ["dhuhr", 11, 41], ["asr", 15, 2], ["maghrib", 17, 33], ["isha", 18, 51]] as const)
     add(ent(`sensor.${p}_prayer`, at(h, m), { friendly_name: p, device_class: "timestamp" }));
 }
+add(ent("person.abu_mohammad", "home", { friendly_name: "أبو محمد" }));
+add(ent("person.um_mohammad", "not_home", { friendly_name: "أم محمد" }));
+add(ent("person.mohammad", "School", { friendly_name: "محمد" }));
+add(ent("todo.shopping", "2", { friendly_name: "قائمة المشتريات" }));
+add(ent("calendar.family", "off", { friendly_name: "تقويم العيلة" }));
+add(ent("calendar.school", "off", { friendly_name: "المدرسة" }));
 add(ent("input_select.house_mode", "home", { friendly_name: "House mode", options: ["home", "away", "sleep", "evening"] }));
 for (const m of ["away", "home", "sleep", "evening"]) add(ent(`script.smartnest_mode_${m}`, "off", { friendly_name: `SmartNest · ${m}` }));
 
@@ -150,6 +156,16 @@ export const DEMO_ROOMS = [
 
 type Listener = (msg: any) => void;
 const timers: Record<string, string> = {};
+let todoItems = [
+  { uid: "1", summary: "خبز", status: "needs_action" },
+  { uid: "2", summary: "حليب", status: "needs_action" },
+  { uid: "3", summary: "بندورة", status: "completed" },
+];
+const todoListeners = new Set<Listener>();
+const msgListeners = new Set<Listener>();
+let currentMessage: any = null;
+const pushTodo = () => todoListeners.forEach((cb) => cb({ items: todoItems }));
+const pushMessage = () => msgListeners.forEach((cb) => cb({ message: currentMessage }));
 const configListeners = new Set<Listener>();
 const KEY = "smartnest-dev-config";
 const isAdmin = params.get("role") !== "client";
@@ -194,8 +210,15 @@ function seedDemo(config: any) {
   return config;
 }
 
+function callServiceTodo(service: string, data: Record<string, any>) {
+  if (service === "add_item") todoItems = [{ uid: String(Date.now()), summary: data.item, status: "needs_action" }, ...todoItems];
+  if (service === "update_item") todoItems = todoItems.map((i) => (i.uid === data.item ? { ...i, status: data.status } : i));
+  pushTodo();
+}
+
 async function callService(domain: string, service: string, data: Record<string, any> = {}): Promise<any> {
   // Real HA accepts a list of entities in one call.
+  if (domain === "todo") return callServiceTodo(service, data);
   if (Array.isArray(data.entity_id)) return Promise.all(data.entity_id.map((entity_id: string) => callService(domain, service, { ...data, entity_id })));
   await new Promise((r) => later(120, () => r(null)));
   const id: string = data.entity_id;
@@ -286,6 +309,12 @@ async function callService(domain: string, service: string, data: Record<string,
       if (mode === "evening") set("light.living_room", "on", { brightness: 77, color_mode: "color_temp", color_temp_kelvin: 2700, rgb_color: [255, 180, 107] });
       return set("input_select.house_mode", mode);
     }
+    case "todo.add_item":
+      todoItems = [{ uid: String(Date.now()), summary: data.item, status: "needs_action" }, ...todoItems];
+      return pushTodo();
+    case "todo.update_item":
+      todoItems = todoItems.map((i) => (i.uid === data.item ? { ...i, status: data.status } : i));
+      return pushTodo();
     case "switch.turn_on":
       return set(id, "on");
     case "switch.turn_off":
@@ -342,6 +371,14 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/message/send":
+      currentMessage = { id: String(Date.now()), message: msg.message, title: isAdmin ? "Installer" : "Client" };
+      pushMessage();
+      return { id: currentMessage.id };
+    case "smartnest/message/ack":
+      if (currentMessage?.id === msg.id) currentMessage = null;
+      pushMessage();
+      return null;
     case "smartnest/timer/list":
       return { ...timers };
     case "smartnest/timer/set": {
@@ -373,7 +410,18 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "call_service":
       if (msg.domain === "weather" && msg.service === "get_forecasts")
-        return { response: { [msg.target.entity_id]: { forecast: [{ temperature: 31, templow: 19, condition: states[msg.target.entity_id].state }] } } };
+        return {
+          response: {
+            [msg.target.entity_id]: {
+              forecast: ["sunny", "partlycloudy", "cloudy", "rainy", "pouring", "partlycloudy", "sunny"].map((condition, i) => ({
+                datetime: new Date(Date.now() + i * 86_400_000).toISOString(),
+                temperature: [31, 29, 26, 22, 19, 24, 28][i],
+                templow: [19, 18, 16, 14, 12, 15, 17][i],
+                condition,
+              })),
+            },
+          },
+        };
       if (msg.domain === "roborock" && msg.service === "get_maps")
         return { response: { [msg.target.entity_id]: { maps: [{ flag: 0, name: "Home", rooms: { "16": "الصالة", "17": "المطبخ", "18": "غرفة النوم", "19": "السفرة", "20": "الممر", "21": "المدخل" } }] } } };
       return { response: null };
@@ -418,6 +466,19 @@ function snapshot(): Hass {
     callWS,
     hassUrl: (p = "") => p,
     fetchWithAuth: async (path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/calendars/")) {
+        const at = (days: number, h: number, m = 0) => {
+          const d = new Date();
+          d.setDate(d.getDate() + days);
+          d.setHours(h, m, 0, 0);
+          return d.toISOString();
+        };
+        const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+        const events = path.includes("school")
+          ? [{ summary: "اجتماع أولياء الأمور", start: { dateTime: at(1, 17) } }, { summary: "رحلة مدرسية", start: { date: day(3) } }]
+          : [{ summary: "عشا عند الأهل", start: { dateTime: at(0, 20, 30) } }, { summary: "موعد طبيب الأسنان", start: { dateTime: at(2, 10) } }];
+        return new Response(JSON.stringify(events), { status: 200 });
+      }
       if (path !== "/api/smartnest/upload") return new Response(null, { status: 404 });
       if (!isAdmin) return new Response(null, { status: 403 });
       const file = (init?.body as FormData).get("file") as File;
@@ -431,7 +492,16 @@ function snapshot(): Hass {
     connection: {
       subscribeMessage: async (cb: Listener, msg: Record<string, any>) => {
         if (msg.type === "smartnest/config/subscribe") configListeners.add(cb);
-        return () => configListeners.delete(cb);
+        if (msg.type === "todo/item/subscribe") {
+          todoListeners.add(cb);
+          cb({ items: todoItems });
+        }
+        if (msg.type === "smartnest/message/subscribe") msgListeners.add(cb);
+        return () => {
+          configListeners.delete(cb);
+          todoListeners.delete(cb);
+          msgListeners.delete(cb);
+        };
       },
     },
   } as Hass;
@@ -448,6 +518,10 @@ export function startMock(cb: (hass: Hass) => void) {
 }
 
 export const devActions = {
+  message: () => {
+    currentMessage = { id: String(Date.now()), title: "💊", message: "وقت دوا الستّ", ack: "أخذته ✓", icon: "pill" };
+    pushMessage();
+  },
   ring: () => set("event.doorbell", now(), { event_type: "ring" }),
   motion: () => {
     set("binary_sensor.hallway_motion", "on");

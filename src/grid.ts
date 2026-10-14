@@ -21,6 +21,11 @@ import "./widgets/energy";
 import "./widgets/energy-stats";
 import "./widgets/panic";
 import "./widgets/check";
+import "./widgets/family";
+import "./widgets/todo";
+import "./widgets/calendar";
+import "./widgets/forecast";
+import "./widgets/countdown";
 
 interface Gesture {
   id: string;
@@ -297,6 +302,16 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-panic .ctx=${ctx} .widget=${w}></sn-w-panic>`;
       case "check":
         return html`<sn-w-check .ctx=${ctx} .widget=${w}></sn-w-check>`;
+      case "family":
+        return html`<sn-w-family .ctx=${ctx} .widget=${w}></sn-w-family>`;
+      case "todo":
+        return html`<sn-w-todo .ctx=${ctx} .widget=${w}></sn-w-todo>`;
+      case "calendar":
+        return html`<sn-w-calendar .ctx=${ctx} .widget=${w}></sn-w-calendar>`;
+      case "forecast":
+        return html`<sn-w-forecast .ctx=${ctx} .widget=${w}></sn-w-forecast>`;
+      case "countdown":
+        return html`<sn-w-countdown .ctx=${ctx} .widget=${w}></sn-w-countdown>`;
       default:
         return nothing;
     }

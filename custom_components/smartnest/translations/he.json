@@ -9,5 +9,29 @@
     "abort": {
       "single_instance_allowed": "SmartNest Dashboard כבר מותקן."
     }
+  },
+  "services": {
+    "show_message": {
+      "name": "הצג הודעה במסכים",
+      "description": "מקפיץ הודעה בכל לוחות SmartNest הפתוחים. עם `ack` מוצג כפתור שמפעיל את smartnest_message_ack.",
+      "fields": {
+        "message": {
+          "name": "הודעה",
+          "description": "מה להציג."
+        },
+        "title": {
+          "name": "כותרת",
+          "description": "מעל ההודעה, למשל ממי."
+        },
+        "ack": {
+          "name": "כפתור",
+          "description": "טקסט כפתור אישור, למשל \"נלקח ✓\"."
+        },
+        "icon": {
+          "name": "סמל",
+          "description": "pill, bell או message."
+        }
+      }
+    }
   }
 }

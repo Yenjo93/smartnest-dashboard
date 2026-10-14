@@ -107,6 +107,17 @@ import {
   mdiMosqueOutline,
   mdiCoffeeOutline,
   mdiTransmissionTower,
+  mdiAccountGroup,
+  mdiFormatListChecks,
+  mdiCalendarMonth,
+  mdiTimerSand,
+  mdiMessageText,
+  mdiHumanChild,
+  mdiCheckboxBlankCircleOutline,
+  mdiCheckboxMarkedCircle,
+  mdiSend,
+  mdiAccount,
+  mdiPill,
 } from "@mdi/js";
 
 export const ICONS: Record<string, string> = {
@@ -218,6 +229,17 @@ export const ICONS: Record<string, string> = {
   mosque: mdiMosqueOutline,
   coffee: mdiCoffeeOutline,
   tower: mdiTransmissionTower,
+  family: mdiAccountGroup,
+  todo: mdiFormatListChecks,
+  calendar: mdiCalendarMonth,
+  countdown: mdiTimerSand,
+  message: mdiMessageText,
+  child: mdiHumanChild,
+  "circle-outline": mdiCheckboxBlankCircleOutline,
+  "circle-check": mdiCheckboxMarkedCircle,
+  send: mdiSend,
+  person: mdiAccount,
+  pill: mdiPill,
 };
 
 /** Icons offered when naming a page. */

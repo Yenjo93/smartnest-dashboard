@@ -9,5 +9,29 @@
     "abort": {
       "single_instance_allowed": "SmartNest Dashboard متركّب أصلاً."
     }
+  },
+  "services": {
+    "show_message": {
+      "name": "اعرض رسالة على الشاشات",
+      "description": "بتطلع رسالة على كل شاشات SmartNest المفتوحة. ومع `ack` بيطلع زر، ولما ينضغط بيصير حدث smartnest_message_ack.",
+      "fields": {
+        "message": {
+          "name": "الرسالة",
+          "description": "شو بدك تعرض."
+        },
+        "title": {
+          "name": "العنوان",
+          "description": "فوق الرسالة، مثلاً من مين."
+        },
+        "ack": {
+          "name": "الزر",
+          "description": "نص زر التأكيد، مثلاً \"أخذته ✓\"."
+        },
+        "icon": {
+          "name": "الأيقونة",
+          "description": "pill أو bell أو message."
+        }
+      }
+    }
   }
 }

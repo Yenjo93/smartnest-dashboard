@@ -1,0 +1,20 @@
+show_message:
+  fields:
+    message:
+      required: true
+      example: "Dinner is ready!"
+      selector:
+        text:
+          multiline: true
+    title:
+      example: "Mum"
+      selector:
+        text:
+    ack:
+      example: "Taken ✓"
+      selector:
+        text:
+    icon:
+      example: "pill"
+      selector:
+        text:

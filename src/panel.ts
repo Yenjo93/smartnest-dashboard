@@ -16,6 +16,8 @@ import "./screensaver";
 import "./weather-bg";
 import "./cinematic";
 import "./morning";
+import "./message";
+import type { ScreenMessage } from "./message";
 import { wallCameras } from "./camwall";
 import { markMorningShown, morningDue } from "./morning";
 import "./ui/pinpad";
@@ -73,6 +75,13 @@ export class SmartNestPanel extends LitElement {
   @state() private systemDark = matchMedia("(prefers-color-scheme: dark)").matches;
   @state() private wide = window.innerWidth >= 768;
   @state() private kiosk = readKiosk();
+  @state() private kids = (() => {
+    try {
+      return localStorage.getItem("smartnest-kids") === "1";
+    } catch {
+      return false;
+    }
+  })();
 
   private initStarted = false;
   private unsub?: Promise<() => void>;
@@ -84,6 +93,8 @@ export class SmartNestPanel extends LitElement {
   @state() private scene?: string;
   @state() private morning = false;
   @state() private camwall = false;
+  @state() private message?: ScreenMessage;
+  private unsubMsg?: Promise<() => void>;
   // Page changes slide in from the side they came from (+1 = the next page).
   private enterDir = 0;
   private swipe?: { x: number; y: number; t: number; id: number; active: boolean; dx: number };
@@ -243,6 +254,13 @@ export class SmartNestPanel extends LitElement {
         padding: 14px;
         padding-bottom: 120px;
       }
+      /* Kids mode: bigger targets everywhere on the one page they get. */
+      .kids main {
+        font-size: 1.15em;
+      }
+      .kids .home span::after {
+        content: " 🧸";
+      }
       .tabbar {
         position: fixed;
         z-index: 25;
@@ -374,6 +392,8 @@ export class SmartNestPanel extends LitElement {
     window.clearInterval(this.ticker);
     this.unsub?.then((u) => u()).catch(() => undefined);
     this.unsub = undefined;
+    this.unsubMsg?.then((u) => u()).catch(() => undefined);
+    this.unsubMsg = undefined;
     this.initStarted = false;
   }
 
@@ -455,6 +475,19 @@ export class SmartNestPanel extends LitElement {
         if (this.hass.user?.is_admin) saveConfig(this.hass, this.config).catch(() => undefined);
       }
       this.pageId = this.config.settings.default_page || this.config.pages[0]?.id || "";
+      this.unsubMsg = this.hass.connection.subscribeMessage<{ message: ScreenMessage | null }>(
+        (m) => {
+          this.message = m.message ?? undefined;
+          if (m.message) {
+            // A message wakes the house: off the screensaver, and the wall tablet's screen back on.
+            this.sleeping = false;
+            this.onActivity();
+            const tab = allows(this.lic.plan, "fully") ? thisTablet(this.hass) : undefined;
+            if (tab) setScreen(this.hass, tab, true).catch(() => undefined);
+          }
+        },
+        { type: "smartnest/message/subscribe" }
+      );
       this.unsub = subscribeConfig(this.hass, (cfg) => {
         // Another screen saved. Take it, unless we're mid-edit here.
         if (!this.draft && cfg) this.config = normalizeConfig(cfg, lang);
@@ -496,6 +529,37 @@ export class SmartNestPanel extends LitElement {
     writeKiosk(on);
     applyChrome(on);
     guardNavigation(on, this.panelPath);
+  }
+
+  private setKids(on: boolean) {
+    this.kids = on;
+    try {
+      on ? localStorage.setItem("smartnest-kids", "1") : localStorage.removeItem("smartnest-kids");
+    } catch {
+      /* per-device only */
+    }
+    if (on && this.config?.settings.kids_page) this.pageId = this.config.settings.kids_page;
+  }
+
+  /** Asks for the screen PIN, then runs onOk. No PIN set: runs straight away. */
+  private pinThen(onOk: () => void) {
+    const t = translator(this.uiLang);
+    const k = this.config?.settings.kiosk;
+    if (!k?.pin_hash || !k.pin_salt) return onOk();
+    this.pushSheet({
+      title: t("kiosk_unlock"),
+      render: (c) => html`<sn-pinpad
+        .length=${k.pin_length ?? 4}
+        prompt=${c.t("enter_pin")}
+        error=${c.t("wrong_pin")}
+        .onSubmit=${(pin: string) => {
+          if (hashPin(pin, k.pin_salt!) !== k.pin_hash) return false;
+          c.closeSheet();
+          onOk();
+          return true;
+        }}
+      ></sn-pinpad>`,
+    });
   }
 
   private unlockSheet() {
@@ -647,6 +711,7 @@ export class SmartNestPanel extends LitElement {
   }
 
   private goToPage(id: string) {
+    if (this.kids) return;
     const pages = this.current?.pages ?? [];
     const from = pages.findIndex((p) => p.id === this.pageId);
     const to = pages.findIndex((p) => p.id === id);
@@ -657,6 +722,7 @@ export class SmartNestPanel extends LitElement {
 
   /** The page a horizontal drag leads to. Forward is a drag toward the reading end: left in LTR, right in RTL. */
   private neighbour(dx: number): string | undefined {
+    if (this.kids) return undefined;
     const pages = this.current?.pages ?? [];
     const i = pages.findIndex((p) => p.id === this.pageId);
     const forward = isRtl(this.uiLang) ? dx > 0 : dx < 0;
@@ -767,7 +833,7 @@ export class SmartNestPanel extends LitElement {
         <img src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg" alt="" />
         <span>${name}</span>
       </div>
-      ${ctx.narrow
+      ${ctx.narrow || this.kids
         ? nothing
         : html`<nav>
             <div class="seg" role="tablist">
@@ -779,12 +845,23 @@ export class SmartNestPanel extends LitElement {
             </div>
           </nav>`}
       <div class="actions">
-        ${ctx.allows("camera_wall") && !ctx.editing && wallCameras(ctx).length
+        ${this.kids
+          ? html`<button class="icon-btn primary pressable" aria-label=${t("kids_mode")} title=${t("kids_mode")} @click=${() => this.pinThen(() => this.setKids(false))}>
+              <sn-icon icon="child" style="--icon-size:22px"></sn-icon>
+            </button>`
+          : ctx.allows("kids") && !ctx.editing && ctx.config.settings.kids_page && ctx.config.pages.some((p) => p.id === ctx.config.settings.kids_page)
+          ? html`<button class="icon-btn pressable" aria-label=${t("kids_mode")} title=${t("kids_mode")} @click=${() => this.setKids(true)}>
+              <sn-icon icon="child" style="--icon-size:22px"></sn-icon>
+            </button>`
+          : nothing}
+        ${!this.kids && ctx.allows("camera_wall") && !ctx.editing && wallCameras(ctx).length
           ? html`<button class="icon-btn pressable" aria-label=${t("camera_wall")} title=${t("camera_wall")} @click=${() => (this.camwall = true)}>
               <sn-icon icon="cctv" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
-        ${this.kiosk
+        ${this.kids
+          ? nothing
+          : this.kiosk
           ? html`<button class="icon-btn primary pressable" aria-label=${t("kiosk_unlock")} title=${t("kiosk_unlock")} @click=${() => this.unlockSheet()}>
               <sn-icon icon="lock" style="--icon-size:20px"></sn-icon>
             </button>`
@@ -793,7 +870,7 @@ export class SmartNestPanel extends LitElement {
               <sn-icon icon="lock-open" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
-        ${this.kiosk
+        ${this.kiosk || this.kids
           ? nothing
           : ctx.editing
           ? html`<button class="btn pressable" @click=${() => this.cancelEdit()}>${t("cancel")}</button>
@@ -806,7 +883,7 @@ export class SmartNestPanel extends LitElement {
             </button>`
           : nothing}
       </div>
-      ${ctx.editing ? nothing : this.renderChips(ctx)}
+      ${ctx.editing || this.kids ? nothing : this.renderChips(ctx)}
       ${this.renderExpiry(ctx)}
     </header>`;
   }
@@ -951,8 +1028,9 @@ export class SmartNestPanel extends LitElement {
       </div>`;
     }
     const ctx = this.makeCtx();
-    const page = ctx.config.pages.find((p) => p.id === this.pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${ctx.narrow ? "compact" : ""}">
+    const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
+    const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
+    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""}">
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page
@@ -971,11 +1049,12 @@ export class SmartNestPanel extends LitElement {
           )
         : nothing}
       ${ctx.editing ? this.renderDock(ctx) : nothing}
-      ${ctx.narrow && ctx.config.pages.length > 1 ? this.renderTabbar(ctx) : nothing}
+      ${ctx.narrow && ctx.config.pages.length > 1 && !this.kids ? this.renderTabbar(ctx) : nothing}
       <sn-sheet-host .ctx=${ctx} .sheets=${this.sheets}></sn-sheet-host>
       ${this.ringingAt
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
+      ${this.message && ctx.allows("messages") ? html`<sn-message .ctx=${ctx} .msg=${this.message}></sn-message>` : nothing}
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}
