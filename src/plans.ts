@@ -10,7 +10,8 @@ export type Feature =
   | "w_family" | "w_todo" | "w_calendar" | "w_forecast" | "w_countdown" | "messages" | "kids"
   | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history"
   | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests"
-  | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating";
+  | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating"
+  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -28,6 +29,11 @@ const NEEDS: Record<Feature, Plan> = {
   broadcast: "premium", cinema: "premium",
   w_frigate: "premium", w_schedule: "premium", automations: "premium",
   w_energy_stats: "premium", w_panic: "premium", camera_wall: "premium", seasons: "premium",
+  assistant: "premium",
+  ai_doorbell: "premium",
+  ai_summary: "premium",
+  habits: "premium",
+  ai_explain: "pro",
 };
 
 export const planFor = (f: Feature): Plan => NEEDS[f];

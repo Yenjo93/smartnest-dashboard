@@ -1,6 +1,7 @@
 import { html, nothing, type TemplateResult } from "lit";
 import type { Ctx } from "./ctx";
 import type { HassEntity } from "./types";
+import type { I18nKey } from "./i18n";
 import { domainOf, entityName, formatNumber, ltr, relativeTime } from "./entities";
 import { dashboardEntities } from "./chips";
 import { findTablets } from "./fully";
@@ -31,6 +32,69 @@ export class SnFaults extends LitElement {
   }
 }
 import "./ui/icon";
+import { aiEntity, askAI } from "./ai";
+
+/** Most likely cause of a device dropping off, from how it connects. */
+function cause(ctx: Ctx, id: string): I18nKey {
+  const platform = ctx.hass.entities?.[id]?.platform ?? "";
+  if (["zha", "zigbee2mqtt", "deconz"].includes(platform)) return "x_zigbee";
+  if (platform === "mqtt") return "x_mqtt";
+  if (["zwave_js"].includes(platform)) return "x_zwave";
+  if (["tuya", "ewelink", "sonoff", "smartthings", "google_assistant", "alexa", "xiaomi_miot", "roborock"].includes(platform)) return "x_cloud";
+  if (["esphome", "shelly", "tasmota", "wled", "tplink", "fully_kiosk"].includes(platform)) return "x_wifi";
+  return "x_generic";
+}
+
+/** "Why is this broken?": a likely cause and fix per problem, and an AI deeper look when the house has one. */
+@customElement("sn-explain")
+export class SnExplain extends LitElement {
+  @property({ attribute: false }) ctx!: Ctx;
+  @property({ attribute: false }) offline: HassEntity[] = [];
+  @property({ attribute: false }) low: HassEntity[] = [];
+  @state() private ai?: string;
+  @state() private busy = false;
+
+  createRenderRoot() {
+    return this;
+  }
+
+  render() {
+    const { ctx } = this;
+    const { t, hass, config } = ctx;
+    if (!this.offline.length && !this.low.length) return nothing;
+    const lines = [
+      ...this.offline.map((e) => [entityName(hass, config, e.entity_id), t(cause(ctx, e.entity_id))]),
+      ...this.low.map((e) => [entityName(hass, config, e.entity_id), t("x_battery")]),
+    ];
+    return html`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:700">
+        <sn-icon icon="wrench" style="--icon-size:20px;color:var(--accent-text)"></sn-icon>${t("x_title")}
+      </div>
+      <div style="display:grid;gap:6px;font-size:14px">
+        ${lines.map(([a, b]) => html`<div><b>${a}</b> <span class="muted">· ${b}</span></div>`)}
+      </div>
+      ${this.ai ? html`<div style="white-space:pre-line;font-size:14px;unicode-bidi:plaintext;border-top:1px solid var(--line, var(--surface-3));padding-top:8px">✨ ${this.ai}</div>` : nothing}
+      ${aiEntity(hass) && ctx.allows("ai_explain") && !this.ai
+        ? html`<button
+            class="btn pressable"
+            style="justify-self:start"
+            ?disabled=${this.busy}
+            @click=${async () => {
+              this.busy = true;
+              const facts = [
+                ...this.offline.map((e) => `${entityName(hass, config, e.entity_id)} (${e.entity_id}, ${hass.entities?.[e.entity_id]?.platform ?? "?"}) unavailable since ${e.last_changed}`),
+                ...this.low.map((e) => `${entityName(hass, config, e.entity_id)} battery ${e.state}`),
+              ];
+              this.ai = (await askAI(ctx, "explain", { facts })) ?? t("as_error");
+              this.busy = false;
+            }}
+          >
+            ✨ ${this.busy ? t("ai_looking") : t("x_ai")}
+          </button>`
+        : nothing}
+    </section>`;
+  }
+}
 
 const box = (title: string, ok: boolean, body: unknown, okText: string, always = false): TemplateResult => html`<section
   style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)"
@@ -146,6 +210,7 @@ export function healthSheet(ctx: Ctx) {
               );
             })()
           : nothing}
+        <sn-explain .ctx=${c} .offline=${offline} .low=${low}></sn-explain>
         <sn-faults .ctx=${c}></sn-faults>
         <p class="muted" style="margin:4px 0 0;font-size:13px">${t("h_telegram")}</p>
       </div>`;

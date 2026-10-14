@@ -17,6 +17,7 @@ import "./weather-bg";
 import "./cinematic";
 import "./morning";
 import "./message";
+import "./assistant";
 import { readGuests, writeGuests } from "./guests";
 import { rateSheet } from "./installer";
 import "./installer";
@@ -932,6 +933,16 @@ export class SmartNestPanel extends LitElement {
               }}
             >
               <sn-icon icon="guests" style="--icon-size:20px"></sn-icon>
+            </button>`
+          : nothing}
+        ${!this.kids && ctx.allows("assistant") && !ctx.editing
+          ? html`<button
+              class="icon-btn pressable"
+              aria-label=${t("assistant")}
+              title=${t("assistant")}
+              @click=${() => this.pushSheet({ title: t("assistant"), render: (c) => html`<sn-assistant .ctx=${c}></sn-assistant>` })}
+            >
+              <sn-icon icon="assistant" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
         ${!this.kids && ctx.allows("camera_wall") && !ctx.editing && wallCameras(ctx).length

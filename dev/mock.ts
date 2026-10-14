@@ -511,8 +511,49 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       }
       return out;
     }
-    case "history/history_during_period":
-      return history(msg.entity_ids[0]);
+    case "history/history_during_period": {
+      // Sensors get a day of readings; switchable devices get two weeks of a family's routine (for habit suggestions).
+      const out: Record<string, any[]> = {};
+      for (const id of msg.entity_ids) {
+        const d = id.split(".")[0];
+        if (!["light", "switch", "fan", "cover", "climate", "media_player"].includes(d)) {
+          Object.assign(out, history(id));
+          continue;
+        }
+        const seed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
+        const on = d === "cover" ? "open" : d === "climate" ? "cool" : "on";
+        const off = d === "cover" ? "closed" : "off";
+        const pts: any[] = [];
+        const t0 = Date.parse(msg.start_time);
+        for (let day = 0; day < 14; day++) {
+          const midnight = new Date(t0 + day * 86_400_000);
+          midnight.setHours(0, 0, 0, 0);
+          const jitter = () => ((seed * (day + 3)) % 17) - 8;
+          const at = (h: number, m: number) => (midnight.getTime() + (h * 60 + m + jitter()) * 60_000) / 1000;
+          if ((seed + day) % 7 === 0) continue; // a day off the routine
+          pts.push({ s: on, lu: at(17 + (seed % 3), 30) }, { s: off, lu: at(22 + (seed % 2), 10) });
+        }
+        out[id] = pts;
+      }
+      return out;
+    }
+    case "assist_pipeline/pipeline/list":
+      return { pipelines: [{ id: "p1", conversation_engine: "conversation.home_assistant", conversation_language: "ar" }], preferred_pipeline: "p1" };
+    case "conversation/process": {
+      await new Promise((r) => setTimeout(r, 700));
+      const text = String(msg.text);
+      const speech = /طف|off/i.test(text) ? "طفّيت 4 أضواء." : /حرار|temp/i.test(text) ? "الحرارة بالصالة 23.5 درجة." : /باب|door/i.test(text) ? "الباب مقفول." : "تمام، عملتها.";
+      return { conversation_id: "c1", response: { response_type: "action_done", speech: { plain: { speech } } } };
+    }
+    case "smartnest/ai/ask": {
+      await new Promise((r) => setTimeout(r, 1500));
+      const text: Record<string, string> = {
+        doorbell: "رجل بزي توصيل ومعه طرد صغير.",
+        summary: "صباح هادي: الباب الأمامي انفتح مرة بالليل والروبوت نضّف الساعة 4. اليوم مشمس وبتوصل 31، فخلي المكيف جاهز للظهر.",
+        explain: "حساس الحمام: Zigbee، البطارية غالباً خلصت (CR2032).\nمكيف الصالة: انقطع عن الواي فاي، افصله ورجعه.",
+      };
+      return { text: text[msg.task] };
+    }
     default:
       throw new Error(`[mock] unknown ws ${msg.type}`);
   }

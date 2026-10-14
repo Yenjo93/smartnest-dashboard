@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import secrets
-import shutil
 from typing import Any
 
 import voluptuous as vol
@@ -13,6 +11,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
+from .ai import ai_generate
 from .const import FILES_DIR
 from .license import NOT_LICENSED, is_licensed
 
@@ -45,51 +44,28 @@ async def ws_plan_read_rooms(hass: HomeAssistant, connection: websocket_api.Acti
     if not match:
         connection.send_error(msg["id"], "bad_image", "Upload the plan through SmartNest first")
         return
-    media_dir = hass.config.media_dirs.get("local")
-    if not media_dir:
-        connection.send_error(msg["id"], "no_media", "The Home Assistant media folder is not set up")
-        return
+    path = os.path.join(hass.config.path(FILES_DIR), "floorplans", match.group(1))
     try:
-        from homeassistant.components.ai_task import async_generate_data
+        body = await hass.async_add_executor_job(_read, path)
+        data = await ai_generate(
+            hass,
+            msg["entity_id"],
+            "floor plan rooms",
+            _INSTRUCTIONS.format(areas=json.dumps(msg["areas"], ensure_ascii=False)),
+            (body, os.path.splitext(path)[1]),
+        )
     except ImportError:
         connection.send_error(msg["id"], "no_ai", "Needs Home Assistant 2025.8 or newer with an AI Task entity")
         return
-
-    # AI Task takes images from the media browser, so lend it a copy for the one call.
-    src = os.path.join(hass.config.path(FILES_DIR), "floorplans", match.group(1))
-    name = f"plan-{secrets.token_hex(6)}{os.path.splitext(src)[1]}"
-    dst_dir = os.path.join(media_dir, "smartnest")
-    dst = os.path.join(dst_dir, name)
-
-    def _copy() -> None:
-        os.makedirs(dst_dir, exist_ok=True)
-        shutil.copyfile(src, dst)
-
-    try:
-        await hass.async_add_executor_job(_copy)
-    except OSError as err:
-        connection.send_error(msg["id"], "copy_failed", str(err))
-        return
-    try:
-        result = await async_generate_data(
-            hass,
-            task_name="SmartNest floor plan rooms",
-            entity_id=msg["entity_id"],
-            instructions=_INSTRUCTIONS.format(areas=json.dumps(msg["areas"], ensure_ascii=False)),
-            attachments=[
-                {
-                    "media_content_id": f"media-source://media_source/local/smartnest/{name}",
-                    "media_content_type": "image/png" if name.endswith(".png") else "image/jpeg",
-                }
-            ],
-        )
     except Exception as err:  # noqa: BLE001 - any AI provider error goes back to the installer as-is
         connection.send_error(msg["id"], "ai_failed", str(err))
         return
-    finally:
-        await hass.async_add_executor_job(lambda: os.path.exists(dst) and os.remove(dst))
+    connection.send_result(msg["id"], {"rooms": _parse(data)})
 
-    connection.send_result(msg["id"], {"rooms": _parse(result.data)})
+
+def _read(path: str) -> bytes:
+    with open(path, "rb") as fh:
+        return fh.read()
 
 
 def _parse(data: Any) -> list[dict[str, Any]]:

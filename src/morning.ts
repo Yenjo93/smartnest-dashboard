@@ -7,6 +7,7 @@ import { dashboardEntities } from "./chips";
 import { greetingKey, greetingName, prayerTimes, todayForecast, weatherIcon, type DayForecast } from "./daily";
 import { shared } from "./theme";
 import "./ui/icon";
+import { aiEntity, askAI } from "./ai";
 
 const KEY = "smartnest-morning";
 const todayKey = () => new Date().toDateString();
@@ -85,6 +86,7 @@ export class SnMorning extends LitElement {
   @property({ attribute: false }) onDone!: () => void;
   @state() private forecast: DayForecast = {};
   @state() private lines?: string[];
+  @state() private ai?: string;
   private timer?: number;
 
   static styles = [
@@ -188,6 +190,14 @@ export class SnMorning extends LitElement {
         gap: 6px;
         font-size: 15px;
       }
+      .ai {
+        margin: 6px 0 0;
+        max-width: 620px;
+        font-size: 17px;
+        line-height: 1.5;
+        unicode-bidi: plaintext;
+        animation: fade 600ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
       .go {
         justify-self: center;
         min-width: 200px;
@@ -212,8 +222,31 @@ export class SnMorning extends LitElement {
     super.connectedCallback();
     const id = this.ctx.config.settings.weather.entity;
     if (id && this.ctx.hass.states[id]) todayForecast(this.ctx.hass, id).then((f) => (this.forecast = f));
-    overnight(this.ctx).then((l) => (this.lines = l));
+    const fc = id && this.ctx.hass.states[id] ? todayForecast(this.ctx.hass, id) : Promise.resolve({} as DayForecast);
+    Promise.all([overnight(this.ctx), fc]).then(([l, f]) => {
+      this.lines = l;
+      if (this.ctx.allows("ai_summary") && aiEntity(this.ctx.hass)) askAI(this.ctx, "summary", { facts: this.facts(l, f) }).then((x) => (this.ai = x));
+    });
     this.timer = window.setTimeout(() => this.onDone(), 60_000);
+  }
+
+  /** Plain facts for the AI to turn into two friendly sentences. */
+  private facts(overnightLines: string[], f: DayForecast): string[] {
+    const { hass, config } = this.ctx;
+    const out = [...overnightLines];
+    const w = config.settings.weather.entity ? hass.states[config.settings.weather.entity] : undefined;
+    if (w) out.push(`Weather now: ${w.state}, ${w.attributes.temperature}°. Today high ${f.high ?? "?"}°, low ${f.low ?? "?"}°, ${f.condition ?? ""}`);
+    const ids = dashboardEntities(config);
+    const open = ids.filter((id) => {
+      const e = hass.states[id];
+      return e && domainOf(id) === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(e.attributes.device_class) && e.state === "on";
+    });
+    if (open.length) out.push(`Open right now: ${open.map((id) => entityName(hass, config, id)).join(", ")}`);
+    const lights = ids.filter((id) => domainOf(id) === "light" && hass.states[id]?.state === "on");
+    if (lights.length) out.push(`Lights still on: ${lights.map((id) => entityName(hass, config, id)).join(", ")}`);
+    const next = prayerTimes(hass).find((p) => p.at > new Date());
+    if (config.settings.prayer && next) out.push(`Next prayer: ${next.id} at ${next.at.toTimeString().slice(0, 5)}`);
+    return out;
   }
 
   disconnectedCallback() {
@@ -236,6 +269,7 @@ export class SnMorning extends LitElement {
         <div class="hello">
           <h1>${t(greetingKey(now))}${name ? (ctx.lang === "ar" ? "، " : ", ") + name : ""} ☀️</h1>
           <span class="date">${now.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" })}</span>
+          ${this.ai ? html`<p class="ai">✨ ${this.ai}</p>` : nothing}
         </div>
         <div class="cols">
           ${w

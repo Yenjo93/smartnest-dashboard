@@ -9,6 +9,7 @@ import { MODES } from "./widgets/modes";
 import { shared } from "./theme";
 import "./ui/icon";
 import "./ui/entity-picker";
+import { dismiss, findHabits, habitKey, type Habit } from "./suggest";
 
 // ---- model ----
 
@@ -143,6 +144,7 @@ export function builderSheet(ctx: Ctx, model?: AutoModel, onSaved?: () => void) 
 export class SnAutoList extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @state() private items?: AutoModel[];
+  @state() private habits?: Habit[];
 
   static styles = [
     shared,
@@ -183,6 +185,34 @@ export class SnAutoList extends LitElement {
 
   private async load() {
     this.items = await getSummaries(this.ctx.hass);
+    if (this.ctx.allows("habits")) findHabits(this.ctx, this.items).then((h) => (this.habits = h));
+  }
+
+  private renderHabits() {
+    const { ctx } = this;
+    const { t } = ctx;
+    if (!this.habits?.length) return nothing;
+    return html`<h4 style="margin:10px 0 0;display:flex;gap:6px;align-items:center">
+        <sn-icon icon="lightbulb-auto" style="--icon-size:20px;color:var(--accent-text)"></sn-icon>${t("habits_title")}
+      </h4>
+      ${this.habits.map(
+        (h) => html`<div class="row">
+          <span class="txt"
+            ><b>${sentence(h.model, ctx.hass, t, LOCALE[ctx.lang], ctx.config.names)}</b><span>${t("habits_seen", { n: h.days })}</span></span
+          >
+          <button class="btn primary pressable" @click=${() => builderSheet(ctx, h.model, () => this.load())}>${t("habits_make")}</button>
+          <button
+            class="icon-btn small pressable"
+            aria-label=${t("dismiss")}
+            @click=${() => {
+              dismiss(habitKey(h));
+              this.habits = this.habits!.filter((x) => x !== h);
+            }}
+          >
+            <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+          </button>
+        </div>`
+      )}`;
   }
 
   render() {
@@ -218,7 +248,8 @@ export class SnAutoList extends LitElement {
             <sn-icon icon="delete" style="--icon-size:16px"></sn-icon>
           </button>
         </div>`;
-      })}`;
+      })}
+      ${this.renderHabits()}`;
   }
 }
 

@@ -1,5 +1,8 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiLightbulbAutoOutline,
+  mdiMicrophone,
+  mdiCreation,
   mdiAutoFix,
   mdiAirConditioner,
   mdiAlertCircleOutline,
@@ -313,6 +316,9 @@ export const ICONS: Record<string, string> = {
   "star-outline": mdiStarOutline,
   "speaker-multi": mdiSpeakerMultiple,
   menu: mdiMenu,
+  assistant: mdiCreation,
+  microphone: mdiMicrophone,
+  "lightbulb-auto": mdiLightbulbAutoOutline,
 };
 
 /** Icons offered when naming a page. */

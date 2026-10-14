@@ -6,6 +6,7 @@ import { LOCALE } from "./i18n";
 import { liveUrl, snapshotUrl } from "./widgets/camera";
 import { shared } from "./theme";
 import "./ui/icon";
+import { aiEntity, askAI } from "./ai";
 
 /** Two-note chime made on the fly, so there's no audio file to ship. Browsers allow it after any earlier tap. */
 function chime() {
@@ -127,6 +128,28 @@ export class SnDoorbell extends LitElement {
         min-height: 52px;
         padding: 0 22px;
       }
+      .seen {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--accent-text);
+        unicode-bidi: plaintext;
+        animation: seen-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .shimmer {
+        opacity: 0.7;
+        animation: breathe 1.4s ease-in-out infinite;
+      }
+      @keyframes seen-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+      @keyframes breathe {
+        50% {
+          opacity: 0.35;
+        }
+      }
       @keyframes fade {
         from {
           opacity: 0;
@@ -164,8 +187,25 @@ export class SnDoorbell extends LitElement {
     `,
   ];
 
+  /** What the AI sees at the door: "a man with a parcel". */
+  @state() private seen?: string;
+  @state() private looking = false;
+
   connectedCallback() {
     super.connectedCallback();
+    const cam = this.ctx.config.settings.doorbell.camera_entity;
+    if (cam && this.ctx.allows("ai_doorbell") && aiEntity(this.ctx.hass)) {
+      this.looking = true;
+      // Give the camera a moment to catch whoever pressed the bell.
+      window.setTimeout(
+        () =>
+          askAI(this.ctx, "doorbell", { camera: cam }).then((text) => {
+            this.seen = text;
+            this.looking = false;
+          }),
+        1200
+      );
+    }
     if (!this.silent) chime();
     navigator.vibrate?.([120, 80, 120]);
   }
@@ -193,6 +233,11 @@ export class SnDoorbell extends LitElement {
               hour: "2-digit",
               minute: "2-digit",
             })}</span>
+            ${this.looking
+              ? html`<span class="seen shimmer">✨ ${t("ai_looking")}</span>`
+              : this.seen
+              ? html`<span class="seen">✨ ${this.seen}</span>`
+              : nothing}
           </span>
           <button class="btn pressable" @click=${() => this.onDismiss()}>${t("dismiss")}</button>
           ${lock && lock.state !== "unlocked"
