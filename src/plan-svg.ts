@@ -50,27 +50,45 @@ export function planSvg(rooms: Room[], doors: Door[] = [], w = 1200, h = 800, ex
     })
     .join("");
   // Door openings: cut out of the walls (mask), then a thin leaf and its quarter-circle swing.
-  const open = (w * 3.4) / 100; // about 85 cm on a 12 m plan
+  const unit = w / 100; // about 12 cm on a 12 m plan
+  const widths = { door: 7, double: 12, slide: 14, window: 10, wide_window: 18 } as const;
   const holes: string[] = [];
   const leaves: string[] = [];
   for (const d of doors) {
     const e = nearestEdge(wallSegments(rooms, extra.walls), d.x, d.y);
     if (!e) continue;
+    const kind = d.kind ?? "door";
+    const open = widths[kind] * unit * 0.85;
     const ang = Math.atan2(((e.b[1] - e.a[1]) / 100) * h, ((e.b[0] - e.a[0]) / 100) * w);
     const cx = (d.x / 100) * w;
     const cy = (d.y / 100) * h;
     const deg = (ang * 180) / Math.PI;
+    const cos = Math.cos(ang);
+    const sin = Math.sin(ang);
+    const nx = -sin; // across the wall
+    const ny = cos;
+    const P = (along: number, across: number) => `${(cx + cos * along + nx * across).toFixed(1)} ${(cy + sin * along + ny * across).toFixed(1)}`;
     holes.push(`<rect x="${(cx - open / 2).toFixed(1)}" y="${(cy - wall).toFixed(1)}" width="${open.toFixed(1)}" height="${wall * 2}" transform="rotate(${deg.toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)})" fill="#000"/>`);
-    // Hinge at one end of the opening, the leaf standing open into the room, its swing back to the wall.
-    const hx = cx - (Math.cos(ang) * open) / 2;
-    const hy = cy - (Math.sin(ang) * open) / 2;
-    const lx = hx + Math.cos(ang + Math.PI / 2) * open;
-    const ly = hy + Math.sin(ang + Math.PI / 2) * open;
-    const ex = hx + Math.cos(ang) * open;
-    const ey = hy + Math.sin(ang) * open;
-    leaves.push(
-      `<path d="M${hx.toFixed(1)} ${hy.toFixed(1)} L${lx.toFixed(1)} ${ly.toFixed(1)} A${open.toFixed(1)} ${open.toFixed(1)} 0 0 0 ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="#9AA4AD" stroke-opacity=".55" stroke-width="2"/>`
-    );
+    const line = (d2: string, op = 0.55, sw = 2) => leaves.push(`<path d="${d2}" fill="none" stroke="#9AA4AD" stroke-opacity="${op}" stroke-width="${sw}"/>`);
+    const half = open / 2;
+    if (kind === "window" || kind === "wide_window") {
+      // A window: the wall's two faces carried across thin, with the glass line in the middle.
+      const t = wall / 2;
+      line(`M${P(-half, -t)} L${P(half, -t)} M${P(-half, t)} L${P(half, t)}`, 0.7, 1.5);
+      line(`M${P(-half, 0)} L${P(half, 0)}`, 0.9, 2);
+      line(`M${P(-half, -t)} L${P(-half, t)} M${P(half, -t)} L${P(half, t)}`, 0.7, 1.5);
+    } else if (kind === "slide") {
+      // Two panels overlapping on rails.
+      const t = wall / 4;
+      line(`M${P(-half, -t)} L${P(half * 0.15, -t)} M${P(-half * 0.15, t)} L${P(half, t)}`, 0.8, 3);
+    } else if (kind === "double") {
+      // Two leaves from either side meeting in the middle.
+      line(`M${P(-half, 0)} L${P(-half, half)} A${half.toFixed(1)} ${half.toFixed(1)} 0 0 0 ${P(0, 0)}`);
+      line(`M${P(half, 0)} L${P(half, half)} A${half.toFixed(1)} ${half.toFixed(1)} 0 0 1 ${P(0, 0)}`);
+    } else {
+      // Hinge at one end, the leaf standing open into the room, its swing back to the wall.
+      line(`M${P(-half, 0)} L${P(-half, open)} A${open.toFixed(1)} ${open.toFixed(1)} 0 0 0 ${P(half, 0)}`);
+    }
   }
   // Open walls: the wall between two rooms taken out (kept at the corners), a faint dashed line where the floor changes.
   const seams: string[] = [];

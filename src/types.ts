@@ -253,6 +253,8 @@ export interface Door {
   id: string;
   x: number;
   y: number;
+  /** What sits in the wall there (a hinged door when unset). */
+  kind?: "door" | "double" | "slide" | "window" | "wide_window";
 }
 
 export interface Floor {

@@ -50,6 +50,15 @@ export class SnPlanDraw extends LitElement {
   @state() private walls: Wall[] = [];
   /** Selected wall line. */
   @state() private selW?: string;
+  /** How a new room is drawn: dragged as a rectangle, or point by point for any shape. */
+  @state() private shape: "rect" | "poly" = "rect";
+  /** A room being drawn point by point, and where the next point would go. */
+  @state() private poly: Pt[] = [];
+  @state() private hover?: Pt;
+  /** What a tap on a wall puts there in the doors mode. */
+  @state() private doorKind: NonNullable<Door["kind"]> = "door";
+  /** Selected corner of the selected room (to remove it). */
+  @state() private selV?: number;
   @state() private furniture: Furniture[] = [];
   /** Selected piece of furniture. */
   @state() private selF?: string;
@@ -158,6 +167,40 @@ export class SnPlanDraw extends LitElement {
         border: 3px solid var(--accent);
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         cursor: nwse-resize;
+      }
+      .handle.on {
+        background: var(--accent);
+      }
+      /* "+" in the middle of each side: drag it to add a corner there. */
+      .mid {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        border-radius: 50%;
+        background: var(--surface-solid);
+        color: var(--accent-text);
+        border: 2px dashed var(--accent);
+        font: 700 14px/16px var(--font);
+        text-align: center;
+        cursor: copy;
+        opacity: 0.85;
+      }
+      .dot {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        margin: -7px 0 0 -7px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid #fff;
+        pointer-events: none;
+      }
+      .dot.first {
+        width: 22px;
+        height: 22px;
+        margin: -11px 0 0 -11px;
+        box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent);
       }
       .door {
         position: absolute;
@@ -373,12 +416,36 @@ export class SnPlanDraw extends LitElement {
       this.sel = (target as SVGElement).dataset?.room ?? this.sel;
       return;
     }
+    // Point by point: each tap is the next corner; back on the first one closes the room.
+    if (this.shape === "poly" && (this.poly.length || !(target as SVGElement).dataset?.room) && (target as HTMLElement).dataset?.corner === undefined && (target as HTMLElement).dataset?.mid === undefined) {
+      const q = this.nextPoint(e);
+      if (this.poly.length >= 3 && q[0] === this.poly[0][0] && q[1] === this.poly[0][1]) return this.finishPoly();
+      this.poly = [...this.poly, q];
+      this.sel = undefined;
+      haptic("tick");
+      return;
+    }
+    const mid = (target as HTMLElement).dataset?.mid;
+    if (mid !== undefined && this.sel) {
+      // A new corner in the middle of a side, dragged straight away.
+      const i = Number(mid);
+      const r = this.rooms.find((x) => x.id === this.sel)!;
+      const a = r.points[i];
+      const b = r.points[(i + 1) % r.points.length];
+      const points = [...r.points.slice(0, i + 1), [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] as Pt, ...r.points.slice(i + 1)];
+      this.rooms = this.rooms.map((x) => (x.id === r.id ? { ...x, points } : x));
+      this.selV = i + 1;
+      this.drag = { kind: "corner", id: r.id, corner: i + 1, orig: points.map((q) => [...q] as Pt) };
+      return;
+    }
     const corner = (target as HTMLElement).dataset?.corner;
     if (corner !== undefined && this.sel) {
       const r = this.rooms.find((x) => x.id === this.sel)!;
+      this.selV = Number(corner);
       this.drag = { kind: "corner", id: r.id, corner: Number(corner), orig: r.points.map((q) => [...q] as Pt) };
       return;
     }
+    this.selV = undefined;
     const id = (target as SVGElement).dataset?.room;
     if (id) {
       this.sel = id;
@@ -396,8 +463,33 @@ export class SnPlanDraw extends LitElement {
     return [((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100];
   }
 
+  /** Where the next corner of a point-by-point room goes: a nearby corner, else straightened from the last one. */
+  private nextPoint(e: PointerEvent): Pt {
+    const end = this.endSnap(this.raw(e));
+    if (end) return end;
+    const q = this.poly.length ? this.lineEnd(this.poly[this.poly.length - 1], e) : this.at(e);
+    // Line up with the room's other corners (so the last side comes out square with the first).
+    for (const c of this.poly.slice(0, -1)) {
+      if (Math.abs(q[0] - c[0]) < 1.5) q[0] = c[0];
+      if (Math.abs(q[1] - c[1]) < 1.5) q[1] = c[1];
+    }
+    return q;
+  }
+
+  private finishPoly() {
+    if (this.poly.length < 3) return;
+    const room: Room = { id: uid(), name: this.ctx.t("plan_room_n", { n: this.rooms.length + 1 }), points: this.poly };
+    this.rooms = [...this.rooms, room];
+    this.poly = [];
+    this.hover = undefined;
+    this.sel = room.id;
+    haptic("success");
+    requestAnimationFrame(() => this.renderRoot.querySelector<HTMLInputElement>(".foot input")?.select());
+  }
+
   private move = (e: PointerEvent) => {
     const d = this.drag;
+    if (!d && this.poly.length) return void (this.hover = this.nextPoint(e));
     if (!d) return;
     if (d.kind === "new") return void (this.drag = { ...d, to: this.at(e) });
     if (d.kind === "line") return void (this.drag = { ...d, to: this.lineEnd(d.from, e) });
@@ -452,7 +544,7 @@ export class SnPlanDraw extends LitElement {
 
   /** The nearest wall end or room corner, when the finger is right next to one: lines join up into one wall. */
   private endSnap(p: Pt): Pt | undefined {
-    const ends: Pt[] = [...this.walls.flatMap((w) => [w.a, w.b]), ...this.rooms.flatMap((r) => r.points)];
+    const ends: Pt[] = [...this.poly, ...this.walls.flatMap((w) => [w.a, w.b]), ...this.rooms.flatMap((r) => r.points)];
     let best: Pt | undefined;
     let bd = 1.6;
     for (const q of ends) {
@@ -584,7 +676,7 @@ export class SnPlanDraw extends LitElement {
         if (!best || d < best.d) best = { x, y, d };
       }
     if (best && best.d < 6) {
-      this.doors = [...this.doors, { id: uid(), x: best.x, y: best.y }];
+      this.doors = [...this.doors, { id: uid(), x: best.x, y: best.y, kind: this.doorKind }];
       haptic("tap");
     }
   }
@@ -645,6 +737,9 @@ export class SnPlanDraw extends LitElement {
               (r) => svg`<polygon class="room ${r.id === this.sel ? "sel" : ""}" data-room=${r.id} points=${r.points.map((p) => p.join(",")).join(" ")}></polygon>`
             )}
             ${d?.kind === "new" ? svg`<polygon class="ghost" points=${rect(d.from, d.to).map((p) => p.join(",")).join(" ")}></polygon>` : nothing}
+            ${this.poly.length
+              ? svg`<polyline class="ghost" points=${[...this.poly, ...(this.hover ? [this.hover] : [])].map((p) => p.join(",")).join(" ")}></polyline>`
+              : nothing}
             ${d?.kind === "line" ? svg`<line class="ghostline" x1=${d.from[0]} y1=${d.from[1]} x2=${d.to[0]} y2=${d.to[1]}></line>` : nothing}
             ${this.mode === "line"
               ? this.walls.map((w) => svg`<line class="wl ${w.id === this.selW ? "sel" : ""}" data-wall=${w.id} x1=${w.a[0]} y1=${w.a[1]} x2=${w.b[0]} y2=${w.b[1]}></line>`)
@@ -670,7 +765,14 @@ export class SnPlanDraw extends LitElement {
             const cy = r.points.reduce((s, p) => s + p[1], 0) / r.points.length;
             return html`<span class="label" style="left:${cx}%;top:${cy}%">${r.name}</span>`;
           })}
-          ${sel && this.mode === "room" ? sel.points.map((p, i) => html`<span class="handle" data-corner=${i} style="left:${p[0]}%;top:${p[1]}%"></span>`) : nothing}
+          ${sel && this.mode === "room"
+            ? html`${sel.points.map((p, i) => {
+                const n = sel.points[(i + 1) % sel.points.length];
+                return html`<span class="mid" data-mid=${i} style="left:${(p[0] + n[0]) / 2}%;top:${(p[1] + n[1]) / 2}%">+</span>`;
+              })}
+              ${sel.points.map((p, i) => html`<span class="handle ${i === this.selV ? "on" : ""}" data-corner=${i} style="left:${p[0]}%;top:${p[1]}%"></span>`)}`
+            : nothing}
+          ${this.poly.map((p, i) => html`<span class="dot ${i === 0 && this.poly.length >= 3 ? "first" : ""}" style="left:${p[0]}%;top:${p[1]}%"></span>`)}
           ${this.mode === "door" ? this.doors.map((dr) => html`<span class="door" data-door=${dr.id} style="left:${dr.x}%;top:${dr.y}%"></span>`) : nothing}
         </div>
       </div>
@@ -706,16 +808,45 @@ export class SnPlanDraw extends LitElement {
                 </button>
                 <button class="btn primary pressable" @click=${() => (this.selW = undefined)}>${t("done")}</button>`
             : html`<span class="hint">${t("plan_line_hint")}</span>`
+          : this.mode === "door"
+          ? html`<div class="seg">
+                ${(["door", "double", "slide", "window", "wide_window"] as const).map(
+                  (k) => html`<button aria-pressed=${this.doorKind === k} @click=${() => (this.doorKind = k)}>${t(`plan_opening_${k}` as any)}</button>`
+                )}
+              </div>
+              <span class="hint">${t("plan_door_hint")}</span>`
+          : this.poly.length
+          ? html`<span class="hint">${t("plan_poly_drawing")}</span>
+              <button class="btn pressable" @click=${() => (this.poly = this.poly.slice(0, -1))}><sn-icon icon="undo" style="--icon-size:18px"></sn-icon>${t("plan_poly_undo")}</button>
+              <button class="btn pressable" @click=${() => ((this.poly = []), (this.hover = undefined))}>${t("cancel")}</button>
+              <button class="btn primary pressable" ?disabled=${this.poly.length < 3} @click=${() => this.finishPoly()}>${t("plan_poly_close")}</button>`
           : sel
           ? html`<input type="text" .value=${sel.name} @input=${(e: any) => this.patch({ name: e.target.value })} />
               <div class="seg">${kinds.map(([k, label]) => html`<button aria-pressed=${(sel.kind ?? guessKind(sel.name)) === k} @click=${() => this.patch({ kind: k })}>${label}</button>`)}</div>
               <button class="btn pressable" aria-pressed=${!sel.nowall} title=${t("plan_room_walls")} @click=${() => this.patch({ nowall: !sel.nowall })}>
                 <sn-icon icon=${sel.nowall ? "border-none-variant" : "border-all-variant"} style="--icon-size:18px"></sn-icon>${t(sel.nowall ? "plan_room_nowall" : "plan_room_walls")}
               </button>
+              ${this.selV !== undefined && sel.points.length > 3
+                ? html`<button
+                    class="btn pressable"
+                    @click=${() => {
+                      this.patch({ points: sel.points.filter((_, i) => i !== this.selV) });
+                      this.selV = undefined;
+                    }}
+                  >
+                    ${t("plan_point_remove")}
+                  </button>`
+                : nothing}
               <button class="icon-btn pressable" aria-label=${t("delete")} @click=${() => ((this.rooms = this.rooms.filter((r) => r.id !== this.sel)), (this.sel = undefined))}>
                 <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>
               </button>`
-          : html`<span class="hint">${t(this.mode === "door" ? "plan_door_hint" : this.rooms.length ? "plan_draw_more" : "plan_draw_hint")}</span>`}
+          : html`${this.mode === "room"
+                ? html`<div class="seg">
+                    <button aria-pressed=${this.shape === "rect"} @click=${() => (this.shape = "rect")}><sn-icon icon="square-outline" style="--icon-size:16px"></sn-icon>${t("plan_shape_rect")}</button>
+                    <button aria-pressed=${this.shape === "poly"} @click=${() => (this.shape = "poly")}><sn-icon icon="vector-polygon" style="--icon-size:16px"></sn-icon>${t("plan_shape_poly")}</button>
+                  </div>`
+                : nothing}
+              <span class="hint">${t(this.shape === "poly" ? "plan_poly_hint" : this.rooms.length ? "plan_draw_more" : "plan_draw_hint")}</span>`}
       </div>`;
   }
 }

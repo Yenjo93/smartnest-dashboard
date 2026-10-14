@@ -4,7 +4,9 @@
 
 export type FurnitureKind =
   | "sofa" | "sofa_l" | "armchair" | "coffee" | "tv" | "dining" | "round_table" | "bed2" | "bed1" | "wardrobe" | "desk"
-  | "toilet" | "basin" | "bath" | "shower" | "counter" | "stove" | "fridge" | "ksink" | "washer" | "plant" | "stairs" | "car" | "rug";
+  | "toilet" | "basin" | "bath" | "shower" | "counter" | "stove" | "fridge" | "ksink" | "washer" | "plant" | "stairs" | "car" | "rug"
+  | "nightstand" | "dresser" | "bookshelf" | "chair" | "crib" | "bunk" | "island" | "dishwasher" | "oven" | "bidet" | "basin2"
+  | "jacuzzi" | "dryer" | "ac" | "boiler" | "fireplace" | "piano" | "tree" | "pool" | "bbq" | "outdoor" | "shoes" | "mirror";
 
 export interface FurnitureDef {
   w: number;
@@ -66,6 +68,29 @@ export const FURNITURE: Record<FurnitureKind, FurnitureDef> = {
     w: 100, h: 260, group: "other",
     draw: (w, h) => r(0, 0, w, h, 2) + Array.from({ length: 9 }, (_, i) => l(0, ((i + 1) * h) / 10, w, ((i + 1) * h) / 10)).join("") + `<path d="M${w / 2} ${h * 0.9} V${h * 0.12} M${w / 2 - 10} ${h * 0.2} L${w / 2} ${h * 0.12} L${w / 2 + 10} ${h * 0.2}"/>`,
   },
+  nightstand: { w: 45, h: 40, group: "sleep", draw: (w, h) => r(0, 0, w, h, 3) + c(w / 2, h / 2, Math.min(w, h) * 0.25) },
+  dresser: { w: 120, h: 50, group: "sleep", draw: (w, h) => r(0, 0, w, h, 3) + l(w / 3, 0, w / 3, h) + l((2 * w) / 3, 0, (2 * w) / 3, h) },
+  bookshelf: { w: 100, h: 35, group: "living", draw: (w, h) => r(0, 0, w, h, 2) + Array.from({ length: 5 }, (_, i) => l(((i + 1) * w) / 6, 4, ((i + 1) * w) / 6, h - 4)).join("") },
+  chair: { w: 48, h: 48, group: "living", draw: (w, h) => r(0, h * 0.2, w, h * 0.8, 8) + r(0, 0, w, h * 0.22, 6) },
+  crib: { w: 70, h: 130, group: "sleep", draw: (w, h) => r(0, 0, w, h, 6) + Array.from({ length: 6 }, (_, i) => l(4, ((i + 1) * h) / 7, w - 4, ((i + 1) * h) / 7)).join("") },
+  bunk: { w: 95, h: 200, group: "sleep", draw: (w, h) => r(0, 0, w, h, 6) + r(w * 0.12, h * 0.05, w * 0.76, h * 0.12, 6) + l(0, 0, w, h) + l(w, 0, 0, h) },
+  island: { w: 180, h: 90, group: "kitchen", draw: (w, h) => r(0, 0, w, h, 6) + [0.2, 0.5, 0.8].map((k) => c(w * k, h + 22, 16)).join("") },
+  dishwasher: { w: 60, h: 60, group: "kitchen", draw: (w, h) => r(0, 0, w, h, 4) + l(6, h * 0.2, w - 6, h * 0.2) + r(w * 0.2, h * 0.35, w * 0.6, h * 0.5, 4) },
+  oven: { w: 60, h: 60, group: "kitchen", draw: (w, h) => r(0, 0, w, h, 4) + r(w * 0.12, h * 0.3, w * 0.76, h * 0.58, 4) + l(w * 0.2, h * 0.18, w * 0.8, h * 0.18) },
+  bidet: { w: 38, h: 58, group: "bath", draw: (w, h) => e(w / 2, h * 0.55, w * 0.46, h * 0.42) + c(w / 2, h * 0.3, 3) },
+  basin2: { w: 130, h: 50, group: "bath", draw: (w, h) => r(0, 0, w, h, 6) + e(w * 0.27, h * 0.55, w * 0.15, h * 0.3) + e(w * 0.73, h * 0.55, w * 0.15, h * 0.3) },
+  jacuzzi: { w: 180, h: 180, group: "bath", draw: (w, h) => r(0, 0, w, h, 20) + e(w / 2, h / 2, w * 0.38, h * 0.38) + [0, 1, 2, 3].map((i) => c(w / 2 + Math.cos(i * 1.5708 + 0.785) * w * 0.3, h / 2 + Math.sin(i * 1.5708 + 0.785) * h * 0.3, 3)).join("") },
+  dryer: { w: 60, h: 60, group: "other", draw: (w, h) => r(0, 0, w, h, 4) + c(w / 2, h * 0.55, w * 0.3) + c(w / 2, h * 0.55, w * 0.12) },
+  ac: { w: 90, h: 22, group: "other", draw: (w, h) => r(0, 0, w, h, 6) + l(w * 0.1, h * 0.7, w * 0.9, h * 0.7) + `<path d="M${w * 0.3} ${h + 8} q8 6 0 12 M${w / 2} ${h + 8} q8 6 0 12 M${w * 0.7} ${h + 8} q8 6 0 12"/>` },
+  boiler: { w: 55, h: 55, group: "other", draw: (w, h) => c(w / 2, h / 2, w / 2) + c(w / 2, h / 2, w * 0.15) },
+  fireplace: { w: 140, h: 45, group: "living", draw: (w, h) => r(0, 0, w, h, 2) + r(w * 0.2, h * 0.25, w * 0.6, h * 0.75, 2) + `<path d="M${w / 2} ${h * 0.9} q-12 -14 0 -30 q12 16 0 30"/>` },
+  piano: { w: 150, h: 60, group: "living", draw: (w, h) => r(0, 0, w, h, 4) + l(0, h * 0.62, w, h * 0.62) + Array.from({ length: 11 }, (_, i) => l(((i + 1) * w) / 12, h * 0.62, ((i + 1) * w) / 12, h)).join("") + r(w * 0.35, h + 10, w * 0.3, 18, 4) },
+  tree: { w: 120, h: 120, group: "other", draw: (w, h) => `<path d="M${w / 2} 0 C${w * 0.9} ${h * 0.05} ${w} ${h * 0.45} ${w * 0.9} ${h * 0.7} C${w * 0.8} ${h} ${w * 0.2} ${h} ${w * 0.1} ${h * 0.7} C0 ${h * 0.45} ${w * 0.1} ${h * 0.05} ${w / 2} 0 Z"/>` + c(w / 2, h / 2, 6) },
+  pool: { w: 400, h: 220, group: "other", draw: (w, h) => r(0, 0, w, h, 16) + r(14, 14, w - 28, h - 28, 10) + `<path d="M${w * 0.2} ${h / 2} q${w * 0.05} -12 ${w * 0.1} 0 t${w * 0.1} 0 t${w * 0.1} 0 t${w * 0.1} 0"/>` },
+  bbq: { w: 80, h: 55, group: "other", draw: (w, h) => r(0, 0, w, h, 6) + Array.from({ length: 5 }, (_, i) => l(((i + 1) * w) / 6, 6, ((i + 1) * w) / 6, h - 6)).join("") },
+  outdoor: { w: 120, h: 120, group: "other", draw: (w, h) => c(w / 2, h / 2, w * 0.28) + [0, 1, 2, 3].map((i) => r(w / 2 + Math.cos(i * 1.5708) * w * 0.42 - 13, h / 2 + Math.sin(i * 1.5708) * h * 0.42 - 13, 26, 26, 6)).join("") },
+  shoes: { w: 90, h: 35, group: "other", draw: (w, h) => r(0, 0, w, h, 2) + l(w / 2, 0, w / 2, h) },
+  mirror: { w: 80, h: 8, group: "bath", draw: (w, h) => r(0, 0, w, h, 4) + l(w * 0.1, h + 5, w * 0.9, h + 5) },
   car: {
     w: 190, h: 450, group: "other",
     draw: (w, h) => r(0, 0, w, h, 40) + `<path d="M${w * 0.12} ${h * 0.3} Q${w / 2} ${h * 0.24} ${w * 0.88} ${h * 0.3}"/>` + `<path d="M${w * 0.14} ${h * 0.78} Q${w / 2} ${h * 0.83} ${w * 0.86} ${h * 0.78}"/>` + r(w * 0.16, h * 0.34, w * 0.68, h * 0.4, 14),
@@ -73,11 +98,11 @@ export const FURNITURE: Record<FurnitureKind, FurnitureDef> = {
 };
 
 export const FURNITURE_ORDER: FurnitureKind[] = [
-  "sofa", "sofa_l", "armchair", "coffee", "tv", "rug", "dining", "round_table",
-  "bed2", "bed1", "wardrobe", "desk",
-  "toilet", "basin", "bath", "shower",
-  "counter", "ksink", "stove", "fridge", "washer",
-  "plant", "stairs", "car",
+  "sofa", "sofa_l", "armchair", "chair", "coffee", "tv", "rug", "bookshelf", "fireplace", "piano", "dining", "round_table",
+  "bed2", "bed1", "bunk", "crib", "nightstand", "dresser", "wardrobe", "desk",
+  "toilet", "bidet", "basin", "basin2", "mirror", "bath", "jacuzzi", "shower",
+  "counter", "island", "ksink", "stove", "oven", "dishwasher", "fridge", "washer", "dryer",
+  "ac", "boiler", "shoes", "plant", "stairs", "car", "tree", "pool", "bbq", "outdoor",
 ];
 
 /** One piece placed on a plan: centre in percent (like markers), size in plan units, turned in steps of 90°. */
