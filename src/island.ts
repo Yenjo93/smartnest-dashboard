@@ -206,7 +206,7 @@ export class SnIsland extends LitElement {
       if (domainOf(id) === "media_player" && e.state === "playing")
         out.push({ id, icon: "speaker", color: "#e85d9e", title: e.attributes.media_title ?? name(id), detail: e.attributes.media_artist ?? name(id), stop: () => hass.callService("media_player", "media_pause", { entity_id: id }).catch(() => undefined) });
     }
-    const boiler = guessBoiler(Object.keys(hass.states));
+    const boiler = guessBoiler(Object.keys(hass.states), hass);
     if (boiler && hass.states[boiler]?.state === "on") out.push({ id: boiler, icon: "water-boiler", color: "#ff8a3d", title: name(boiler), detail: t("act_heating"), stop: off(boiler) });
     const now = Date.now();
     for (const [id, iso] of Object.entries(this.timers)) {

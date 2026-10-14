@@ -32,6 +32,12 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/prayer";
+import "./widgets/group";
+import "./widgets/batteries";
+import "./widgets/sensor";
+import "./widgets/scenes";
+import "./widgets/ac";
 import "./widgets/room";
 import "./widgets/stack";
 import "./widgets/hero";
@@ -404,6 +410,20 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-stack .ctx=${ctx} .widget=${w}></sn-w-stack>`;
       case "room":
         return html`<sn-w-room .ctx=${ctx} .widget=${w}></sn-w-room>`;
+      case "ac":
+        return html`<sn-w-ac .ctx=${ctx} .widget=${w}></sn-w-ac>`;
+      case "scenes":
+        return html`<sn-w-scenes .ctx=${ctx} .widget=${w}></sn-w-scenes>`;
+      case "sensor":
+        return html`<sn-w-sensor .ctx=${ctx} .widget=${w}></sn-w-sensor>`;
+      case "batteries":
+        return html`<sn-w-batteries .ctx=${ctx} .widget=${w}></sn-w-batteries>`;
+      case "lights":
+        return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="light"></sn-w-group>`;
+      case "covers":
+        return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="cover"></sn-w-group>`;
+      case "prayer":
+        return html`<sn-w-prayer .ctx=${ctx} .widget=${w}></sn-w-prayer>`;
       default:
         return nothing;
     }

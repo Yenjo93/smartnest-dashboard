@@ -73,6 +73,47 @@ export function entityField(
   </div>`;
 }
 
+/** Several devices: the chosen ones as chips (tap to drop), and a button to add one more. Empty means "all, automatically". */
+export function multiField(ctx: Ctx, label: string, value: string[] | undefined, filter: EntityFilter, onChange: (ids: string[] | undefined) => void) {
+  const ids = value ?? [];
+  return html`<div class="field">
+    ${label}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${ids.map(
+        (id) => html`<button class="btn pressable" style="min-height:36px;font-size:14px" @click=${() => onChange(ids.length > 1 ? ids.filter((x) => x !== id) : undefined)}>
+          ${entityName(ctx.hass, ctx.config, id)}<sn-icon icon="close" style="--icon-size:14px"></sn-icon>
+        </button>`
+      )}
+      <button
+        class="btn primary pressable"
+        style="min-height:36px;font-size:14px"
+        @click=${() =>
+          ctx.showSheet({
+            title: label,
+            render: (c) => html`<sn-entity-picker
+              .ctx=${c}
+              .filter=${filter}
+              .onPick=${(id: string) => {
+                if (!ids.includes(id)) onChange([...ids, id]);
+                c.closeSheet();
+              }}
+            ></sn-entity-picker>`,
+          })}
+      >
+        <sn-icon icon="plus" style="--icon-size:16px"></sn-icon>${ctx.t("add")}
+      </button>
+    </div>
+    ${ids.length ? nothing : html`<span class="hint">${ctx.t("auto_all")}</span>`}
+  </div>`;
+}
+
+function titleField(ctx: Ctx, widgetId: string, value?: string) {
+  return html`<label class="field"
+    >${ctx.t("widget_title")}
+    <input type="text" .value=${value ?? ""} @change=${(e: any) => editWidget(ctx, widgetId, (x) => (x.config.title = e.target.value.trim() || undefined))} />
+  </label>`;
+}
+
 function nameField(ctx: Ctx, entityId: string) {
   return html`<label class="field"
     >${ctx.t("display_name")}
@@ -285,6 +326,57 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             pick("valve", "water_valve", { domains: ["valve", "switch"] })
           );
         }
+        case "ac":
+          return entityField(c, t("entity"), w.config.entity, { domains: ["climate"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id)));
+        case "sensor":
+          return col(
+            entityField(c, t("entity"), w.config.entity, { domains: ["sensor"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id))),
+            w.config.entity ? nameField(c, w.config.entity) : nothing
+          );
+        case "batteries":
+          return html`<label class="field"
+            >${t("bat_low_at")}
+            <input type="number" min="5" max="60" .value=${String(w.config.low ?? 20)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.low = Number(e.target.value) || 20))} />
+          </label>`;
+        case "scenes":
+          return col(
+            titleField(c, widgetId, w.config.title),
+            multiField(c, t("widget_scenes"), w.config.entities, { domains: ["scene", "script"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)))
+          );
+        case "lights":
+        case "covers": {
+          const areas = Object.values(c.hass.areas ?? {});
+          return col(
+            titleField(c, widgetId, w.config.title),
+            html`<label class="field"
+              >${t("room_area")}
+              <select @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.area = e.target.value || undefined))}>
+                <option value="">${t("area_all")}</option>
+                ${areas.map((a) => html`<option value=${a.area_id} ?selected=${w.config.area === a.area_id}>${a.name}</option>`)}
+              </select>
+            </label>`,
+            multiField(c, t(w.type === "lights" ? "widget_lights" : "widget_covers"), w.config.entities, { domains: [w.type === "lights" ? "light" : "cover"] }, (ids) =>
+              editWidget(c, widgetId, (x) => (x.config.entities = ids))
+            )
+          );
+        }
+        case "boiler":
+          return entityField(c, t("boiler_pick"), w.config.entity, { domains: ["switch", "water_heater", "input_boolean", "light"] }, (id) =>
+            editWidget(c, widgetId, (x) => (x.config.entity = id))
+          );
+        case "irrigation":
+          return entityField(c, t("widget_irrigation"), w.config.entity, { domains: ["valve", "switch", "input_boolean"] }, (id) =>
+            editWidget(c, widgetId, (x) => (x.config.entity = id))
+          );
+        case "air":
+          return col(
+            entityField(c, t("air_purifier"), w.config.purifier, { domains: ["fan", "humidifier", "switch", "climate"] }, (id) => editWidget(c, widgetId, (x) => (x.config.purifier = id)), true),
+            multiField(c, t("air_sensors"), w.config.entities, { domains: ["sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)))
+          );
+        case "commute":
+          return multiField(c, t("widget_commute"), w.config.entities, { domains: ["sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)));
+        case "timeline":
+          return entityField(c, t("widget_camera"), w.config.camera, { domains: ["camera"] }, (id) => editWidget(c, widgetId, (x) => (x.config.camera = id)), true);
         case "heading":
           return html`<label class="field"
             >${t("heading_text")}
@@ -350,6 +442,13 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "hero", icon: "home" },
   { type: "stack", icon: "layers" },
   { type: "room", icon: "sofa" },
+  { type: "ac", icon: "air-conditioner" },
+  { type: "scenes", icon: "palette" },
+  { type: "sensor", icon: "chart-line" },
+  { type: "batteries", icon: "battery" },
+  { type: "lights", icon: "lightbulb-group" },
+  { type: "covers", icon: "blinds" },
+  { type: "prayer", icon: "mosque" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

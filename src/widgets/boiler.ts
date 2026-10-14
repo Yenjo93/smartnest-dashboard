@@ -8,6 +8,7 @@ import { LOCALE } from "../i18n";
 import { loadKv, saveKv, watchKv } from "../kv";
 import { shared } from "../theme";
 import "../ui/icon";
+import { pickEntity } from "../ui/pick";
 
 interface Plan {
   id: string;
@@ -29,8 +30,14 @@ export interface Boiler {
 const EMPTY: Boiler = { heat_minutes: 40, keep_minutes: 20, plans: [] };
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-export const guessBoiler = (ids: string[]) =>
-  ids.find((id) => id.startsWith("water_heater.")) ?? ids.find((id) => id.startsWith("switch.") && /boiler|heater|geyser|سخان|دود|بويلر/i.test(id));
+const BOILER_RE = /boiler|heater|geyser|water.?heat|سخان|دود|بويلر|קומקום|דוד/i;
+
+/** The water heater: a water_heater entity, or a switch whose id or name says so. */
+export const guessBoiler = (ids: string[], hass?: Ctx["hass"]) =>
+  ids.find((id) => id.startsWith("water_heater.")) ??
+  ids.find((id) => /^(switch|input_boolean)\./.test(id) && BOILER_RE.test(`${id} ${hass?.states[id]?.attributes.friendly_name ?? ""}`));
+
+export const BOILER_FILTER = { domains: ["switch", "water_heater", "input_boolean", "light"] };
 
 /** The water heater: "hot water by 7", a timer, and how long until it's ready. */
 @customElement("sn-w-boiler")
@@ -155,7 +162,24 @@ export class SnBoiler extends LitElement {
   }
 
   private get entity() {
-    return this.b.entity ?? guessBoiler(Object.keys(this.ctx.hass.states));
+    return this.widget.config.entity ?? this.b.entity ?? guessBoiler(Object.keys(this.ctx.hass.states), this.ctx.hass);
+  }
+
+  /** The hub runs the plans on the device saved in the store, so a device chosen in the widget's settings goes there too. */
+  updated() {
+    const chosen = this.widget.config.entity;
+    if (this.loaded && chosen && this.b.entity !== chosen) this.save({ ...this.b, entity: chosen });
+  }
+
+  private choose() {
+    const { ctx } = this;
+    if (!ctx.isAdmin) return;
+    pickEntity(ctx, ctx.t("boiler_pick"), BOILER_FILTER, (id) => {
+      ctx.update((d) => {
+        for (const p of d.pages) for (const w of p.widgets) if (w.id === this.widget.id) w.config.entity = id;
+      });
+      this.save({ ...this.b, entity: id });
+    });
   }
 
   private power(on: boolean, minutes?: number) {
@@ -180,11 +204,11 @@ export class SnBoiler extends LitElement {
     return html`<div class="card glass">
       <div class="head">
         <span class="tank ${on ? "on" : ""}" style="--fill:${fill}%"><i></i></span>
-        <div style="flex:1">
-          <b>${id ? entityName(hass, config, id) : t("widget_boiler")}</b>
+        <div style="flex:1;cursor:${ctx.isAdmin ? "pointer" : "default"}" @click=${() => this.choose()} title=${ctx.isAdmin ? t("boiler_pick") : ""}>
+          <b>${id ? entityName(hass, config, id) : t("widget_boiler")}${ctx.isAdmin ? html` <sn-icon icon="pencil" style="--icon-size:14px;opacity:.5"></sn-icon>` : nothing}</b>
           <span
             >${!id
-              ? t("no_entities")
+              ? t(ctx.isAdmin ? "boiler_tap_pick" : "no_entities")
               : on
               ? left
                 ? t("boiler_ready_in", { n: left })

@@ -124,8 +124,14 @@ export class SnIrrigation extends LitElement {
     this.unwatch?.then((u) => u()).catch(() => undefined);
   }
 
+  /** A valve chosen in the widget's settings goes to the store the hub waters from. */
+  updated() {
+    const chosen = this.widget.config.entity;
+    if (chosen && this.ir.entity !== chosen) this.save({ entity: chosen });
+  }
+
   private save(p: Partial<Irrigation>) {
-    const entity = this.ir.entity ?? guess(Object.keys(this.ctx.hass.states));
+    const entity = this.widget.config.entity ?? this.ir.entity ?? guess(Object.keys(this.ctx.hass.states));
     this.ir = { ...this.ir, entity, ...p };
     saveKv(this.ctx.hass, "irrigation", this.ir).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
@@ -134,10 +140,10 @@ export class SnIrrigation extends LitElement {
     const { ctx } = this;
     const { t, hass, config, lang } = ctx;
     const ir = this.ir;
-    const id = ir.entity ?? guess(Object.keys(hass.states));
+    const id = this.widget.config.entity ?? ir.entity ?? guess(Object.keys(hass.states));
     const e = id ? hass.states[id] : undefined;
     const running = isActive(e) || e?.state === "open";
-    const candidates = Object.keys(hass.states).filter((x) => x.startsWith("valve.") || x.startsWith("switch."));
+    const candidates = Object.keys(hass.states).filter((x) => /^(valve|switch|input_boolean)\./.test(x));
     return html`<div class="card glass">
       <div class="head">
         <span class="drop ${running ? "on" : ""}"><sn-icon icon="sprinkler" style="--icon-size:24px"></sn-icon></span>
@@ -147,7 +153,15 @@ export class SnIrrigation extends LitElement {
         </div>
         <div class="seg">${[true, false].map((v) => html`<button aria-pressed=${ir.on === v} @click=${() => this.save({ on: v })}>${t(v ? "on" : "off")}</button>`)}</div>
       </div>
-      <select @change=${(ev: any) => this.save({ entity: ev.target.value })}>
+      <select
+        @change=${(ev: any) => {
+          const v = ev.target.value;
+          ctx.update((d) => {
+            for (const p of d.pages) for (const w of p.widgets) if (w.id === this.widget.id) w.config.entity = v || undefined;
+          });
+          this.save({ entity: v });
+        }}
+      >
         ${!id ? html`<option value="">–</option>` : nothing}
         ${candidates.map((x) => html`<option value=${x} ?selected=${x === id}>${entityName(hass, config, x)}</option>`)}
       </select>

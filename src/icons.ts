@@ -1,5 +1,12 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiArrowDown,
+  mdiArrowUp,
+  mdiLightbulbGroup,
+  mdiBatteryAlert,
+  mdiChartLine,
+  mdiThermostat,
+  mdiThermostatAuto,
   mdiRefresh,
   mdiHomeCityOutline,
   mdiTimerOutline,
@@ -372,6 +379,14 @@ export const ICONS: Record<string, string> = {
   timer: mdiTimerOutline,
   "home-city": mdiHomeCityOutline,
   refresh: mdiRefresh,
+  "water-percent": mdiWaterPercent,
+  "thermostat-auto": mdiThermostatAuto,
+  thermostat: mdiThermostat,
+  "chart-line": mdiChartLine,
+  "battery-alert": mdiBatteryAlert,
+  "lightbulb-group": mdiLightbulbGroup,
+  "arrow-up": mdiArrowUp,
+  "arrow-down": mdiArrowDown,
 };
 
 /** Icons offered when naming a page. */
