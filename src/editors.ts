@@ -19,7 +19,7 @@ import { uid } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
 import { guessWater } from "./widgets/water";
-import { historySheet, presetPicker, printReport } from "./business";
+import { historySheet, licensesSheet, presetPicker, printReport } from "./business";
 
 const col = (...items: unknown[]) => html`<div style="display:grid;gap:18px">${items}</div>`;
 const row = (...items: unknown[]) => html`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${items}</div>`;
@@ -504,6 +504,7 @@ export function settingsSheet(
           ${c.allows("automations")
             ? html`<button class="btn pressable" @click=${() => automationsSheet(c)}><sn-icon icon="automation" style="--icon-size:20px"></sn-icon>${t("automations")}</button>`
             : nothing}
+          <button class="btn pressable" @click=${() => licensesSheet(c)}><sn-icon icon="key" style="--icon-size:20px"></sn-icon>التراخيص</button>
           ${c.allows("history") ? html`<button class="btn pressable" @click=${() => historySheet(c)}><sn-icon icon="history" style="--icon-size:20px"></sn-icon>${t("history")}</button>` : nothing}
           ${c.allows("report")
             ? html`<button class="btn pressable" @click=${() => printReport(c, c.assetBase).catch(() => c.toast(t("error")))}><sn-icon icon="file-chart" style="--icon-size:20px"></sn-icon>${t("report")}</button>`

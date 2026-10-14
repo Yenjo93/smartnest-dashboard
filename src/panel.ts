@@ -1081,38 +1081,6 @@ export class SmartNestPanel extends LitElement {
   }
 
   /** For everyone: who installed it, the version, rate the installer, and this screen's own preferences. */
-  private taps: number[] = [];
-
-  /** Five quick taps on the version (admins): set up the installer's license page on this house. */
-  private secretTap(c: Ctx) {
-    if (!c.isAdmin) return;
-    const now = Date.now();
-    this.taps = [...this.taps.filter((x) => now - x < 2500), now];
-    if (this.taps.length < 5) return;
-    this.taps = [];
-    this.pushSheet({
-      title: "🔑 التراخيص",
-      render: (cc) => html`<div style="display:grid;gap:12px">
-        <span class="muted">ارفع ملف <b class="ltr">license-private.pem</b> (من <span class="ltr">~/.smartnest</span> على الكمبيوتر). بعدها بتطلع صفحة <b>التراخيص</b> بالقائمة الجانبية بـ Home Assistant، بهالبيت بس، وللأدمن بس.</span>
-        <input
-          type="file"
-          accept=".pem"
-          @change=${async (e: any) => {
-            const file: File | undefined = e.target.files?.[0];
-            if (!file) return;
-            try {
-              await cc.hass.callWS({ type: "smartnest/issuer/setup", pem: await file.text() });
-              cc.toast("تمام ✓ صفحة التراخيص انضافت بالقائمة الجانبية");
-              cc.closeSheet();
-            } catch {
-              cc.toast("هاد مش مفتاح SmartNest الصح");
-            }
-          }}
-        />
-      </div>`,
-    });
-  }
-
   private aboutSheet() {
     const t = translator(this.uiLang);
     this.pushSheet({
@@ -1130,9 +1098,7 @@ export class SmartNestPanel extends LitElement {
             <div style="display:grid;gap:2px">
               <strong>SmartNest</strong>
               <span class="muted" style="font-size:13px">${c.t("tagline")}</span>
-              <span class="muted ltr" style="font-size:12px;user-select:none" @click=${() => this.secretTap(c)}
-                >${c.t("version")} ${VERSION}${this.lic.licensee ? ` · ${this.lic.licensee}` : ""}</span
-              >
+              <span class="muted ltr" style="font-size:12px">${c.t("version")} ${VERSION}${this.lic.licensee ? ` · ${this.lic.licensee}` : ""}</span>
             </div>
           </div>
           ${installerSupport(c)

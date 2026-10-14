@@ -1,5 +1,7 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiUpload,
+  mdiKeyChain,
   mdiSprinklerVariant,
   mdiPaw,
   mdiFileChartOutline,
@@ -352,6 +354,8 @@ export const ICONS: Record<string, string> = {
   "file-chart": mdiFileChartOutline,
   paw: mdiPaw,
   sprinkler: mdiSprinklerVariant,
+  key: mdiKeyChain,
+  upload: mdiUpload,
 };
 
 /** Icons offered when naming a page. */

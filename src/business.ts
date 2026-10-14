@@ -226,3 +226,48 @@ export const historySheet = (ctx: Ctx) => ctx.showSheet({ title: ctx.t("history"
 
 export const installerSupport = (ctx: Ctx) => !!ctx.config.settings.installer.phone && ctx.allows("support");
 
+
+// ---- the installer's licenses page ----
+
+/**
+ * Settings → Licenses. Where the signing key is already set up, it opens the Licenses page; otherwise it takes the
+ * key file. Clients never get the file, so on their houses this goes nowhere.
+ */
+export async function licensesSheet(ctx: Ctx) {
+  let ready = false;
+  try {
+    ready = (await ctx.hass.callWS<{ ready: boolean }>({ type: "smartnest/issuer/status" })).ready;
+  } catch {
+    /* older integration: show the upload */
+  }
+  const open = () => {
+    history.pushState(null, "", "/smartnest-licenses");
+    window.dispatchEvent(new CustomEvent("location-changed"));
+  };
+  if (ready) return open();
+  ctx.showSheet({
+    title: "🔑 التراخيص",
+    render: (c) => html`<div style="display:grid;gap:12px">
+      <span class="muted">ارفع ملف <bdi><b>license-private.pem</b></bdi> من فولدر <bdi><b>.smartnest</b></bdi> على الكمبيوتر. بعدها بتطلع صفحة <b>التراخيص</b> بالقائمة الجانبية، بهالبيت بس وللأدمن بس.</span>
+      <label class="btn primary pressable" style="min-height:52px;cursor:pointer">
+        <sn-icon icon="upload" style="--icon-size:20px"></sn-icon>اختار الملف
+        <input
+          type="file"
+          style="display:none"
+          @change=${async (e: any) => {
+            const file: File | undefined = e.target.files?.[0];
+            if (!file) return;
+            try {
+              await c.hass.callWS({ type: "smartnest/issuer/setup", pem: await file.text() });
+              c.toast("تمام ✓");
+              c.closeSheet();
+              window.setTimeout(open, 600);
+            } catch {
+              c.toast("هاد مش مفتاح SmartNest الصح");
+            }
+          }}
+        />
+      </label>
+    </div>`,
+  });
+}
