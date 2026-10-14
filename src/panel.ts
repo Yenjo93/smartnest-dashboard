@@ -23,6 +23,7 @@ import { setVoice, voiceOn } from "./voice";
 import { tourDone, type TourStep } from "./tour";
 import { ambientColor, followLight, midnightVars, proVars, registerAnimatedVars, type Material } from "./pro";
 import "./tour";
+import "./island";
 import { photoDropSheet } from "./business";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
@@ -151,6 +152,77 @@ export class SmartNestPanel extends LitElement {
   private alarmHiddenAt?: string;
   /** Weather alert dismissed: condition + day. */
   @state() private wxDismissed = "";
+  /** Wallpaper the accent was taken from, and that accent. */
+  private wallSrc?: string;
+  @state() private wallAccent?: string;
+  /** The dock's icons grow towards the finger; this is where it is. */
+  @state() private dockX?: number;
+
+  /** The liveliest colour in the wallpaper: saturated, not too dark or too light (like Material You). */
+  private pickWallAccent(src: string) {
+    this.wallSrc = src;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const c = document.createElement("canvas");
+        c.width = c.height = 40;
+        const g = c.getContext("2d", { willReadFrequently: true })!;
+        g.drawImage(img, 0, 0, 40, 40);
+        const px = g.getImageData(0, 0, 40, 40).data;
+        let best = { score: -1, rgb: [233, 151, 29] };
+        for (let i = 0; i < px.length; i += 4) {
+          const [r, gg, b] = [px[i], px[i + 1], px[i + 2]];
+          const max = Math.max(r, gg, b);
+          const min = Math.min(r, gg, b);
+          const l = (max + min) / 510;
+          const sat = max === min ? 0 : (max - min) / (255 - Math.abs(max + min - 255));
+          const score = sat * (1 - Math.abs(l - 0.52) * 1.6);
+          if (score > best.score) best = { score, rgb: [r, gg, b] };
+        }
+        this.wallAccent = `#${best.rgb.map((v) => v.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+      } catch {
+        /* cross-origin image: keep the chosen accent */
+      }
+    };
+    img.src = src;
+  }
+
+  private useDock(ctx: Ctx) {
+    return this.pro && ctx.config.settings.nav === "dock" && ctx.allows("dock") && !ctx.narrow && !ctx.editing;
+  }
+
+  private renderPageDock(ctx: Ctx) {
+    const pages = ctx.config.pages.filter((p) => !p.person || !ctx.allows("person_pages"));
+    return html`<div
+      role="navigation"
+      class="pagedock glass"
+      @pointermove=${(e: PointerEvent) => (this.dockX = e.clientX)}
+      @pointerleave=${() => (this.dockX = undefined)}
+    >
+      ${pages.map((p) => html`<button
+          class="dock-btn ${p.id === this.pageId ? "on" : ""}"
+          aria-label=${p.title}
+          title=${p.title}
+          style="--s:${this.dockScale(p.id)}"
+          @click=${() => this.tabClick(ctx, p.id)}
+        >
+          <sn-icon .icon=${p.icon}></sn-icon>
+          <span class="tip">${p.title}</span>
+        </button>`)}
+    </div>`;
+  }
+
+  /** macOS-style magnification: icons near the finger grow, smoothly falling off. */
+  private dockScale(id: string): number {
+    if (this.dockX === undefined) return 1;
+    const btn = this.renderRoot.querySelector<HTMLElement>(`.dock-btn[title="${CSS.escape(this.current?.pages.find((p) => p.id === id)?.title ?? "")}"]`);
+    if (!btn) return 1;
+    const r = btn.getBoundingClientRect();
+    const d = Math.abs(r.left + r.width / 2 - this.dockX);
+    return 1 + 0.55 * Math.max(0, 1 - d / 150);
+  }
+
   /** SmartNest 2.0 look is on. */
   @state() private pro = false;
   private stopLight?: () => void;
@@ -222,6 +294,79 @@ export class SmartNestPanel extends LitElement {
         opacity: var(--grain-opacity, 0.05);
         z-index: 30;
         mix-blend-mode: overlay;
+      }
+      .wall {
+        position: fixed;
+        inset: -30px;
+        z-index: -2;
+        background-size: cover;
+        background-position: center;
+        filter: blur(18px) saturate(1.15);
+      }
+      .wall::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, var(--bg) calc(var(--dim, 0.35) * 100%), transparent);
+      }
+      .pagedock {
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        translate: -50% 0;
+        z-index: 25;
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        padding: 8px 10px;
+        border-radius: 26px;
+      }
+      .dock-btn {
+        position: relative;
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        background: var(--surface-2);
+        transform: scale(var(--s, 1));
+        transform-origin: bottom center;
+        margin-inline: calc((var(--s, 1) - 1) * 14px);
+        transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), margin 160ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms;
+        --icon-size: 26px;
+      }
+      .dock-btn.on {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+      .dock-btn.on::after {
+        content: "";
+        position: absolute;
+        bottom: -6px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--text);
+      }
+      .dock-btn .tip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        padding: 4px 10px;
+        border-radius: 8px;
+        background: var(--surface-solid);
+        box-shadow: var(--shadow);
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 200ms;
+        color: var(--text);
+      }
+      .dock-btn:hover .tip {
+        opacity: 1;
+      }
+      .app:has(.pagedock) main {
+        padding-bottom: 110px;
       }
       .leaks {
         position: fixed;
@@ -1033,8 +1178,10 @@ export class SmartNestPanel extends LitElement {
     }
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
     const s = this.current?.settings;
-    const vars = themeVars(this.dark, s?.accent ?? "");
     const pro = s?.style === "pro" && allows(this.lic.plan, "style_pro");
+    const wallOn = pro && !!s?.wallpaper && allows(this.lic.plan, "wallpaper");
+    if (wallOn && s!.wallpaper !== this.wallSrc) this.pickWallAccent(s!.wallpaper!);
+    const vars = themeVars(this.dark, wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : s?.accent ?? "");
     const midnight = !!s && pro && (s.theme === "midnight" || (s.night_midnight && this.dark && s.theme === "schedule"));
     if (midnight) Object.assign(vars, midnightVars());
     Object.assign(vars, proVars(pro, this.dark, midnight, (s?.material ?? "none") as Material, pro && this.hass && this.current ? ambientColor(this.hass, this.current) : undefined, vars["--accent"]));
@@ -1074,6 +1221,7 @@ export class SmartNestPanel extends LitElement {
             <sn-icon icon="grid"></sn-icon>
           </button>`
         : nothing}
+      ${ctx.allows("island") && !ctx.editing && !this.kids ? html`<sn-island .ctx=${ctx}></sn-island>` : nothing}
       <div class="home">
         <img
           src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg"
@@ -1085,7 +1233,7 @@ export class SmartNestPanel extends LitElement {
         />
         <span>${name}</span>
       </div>
-      ${ctx.narrow || this.kids
+      ${ctx.narrow || this.kids || this.useDock(ctx)
         ? nothing
         : html`<nav>
             <div class="seg" role="tablist">
@@ -1503,6 +1651,9 @@ export class SmartNestPanel extends LitElement {
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
     return html`<div class="app ${this.pro ? "pro" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+      ${this.pro && ctx.config.settings.wallpaper && ctx.allows("wallpaper")
+        ? html`<div class="wall" aria-hidden="true" style="background-image:url('${ctx.config.settings.wallpaper}');--dim:${ctx.config.settings.wallpaper_dim}"></div>`
+        : nothing}
       ${this.pro ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
@@ -1553,6 +1704,7 @@ export class SmartNestPanel extends LitElement {
           ></sn-overload>`
         : nothing}
       ${this.touring ? html`<sn-tour .ctx=${ctx} .steps=${this.tourSteps()} .onDone=${() => (this.touring = false)}></sn-tour>` : nothing}
+      ${this.useDock(ctx) && !this.kids ? this.renderPageDock(ctx) : nothing}
       ${this.voice && ctx.allows("voice") && !ctx.editing && !this.sleeping ? html`<sn-voice .ctx=${ctx}></sn-voice>` : nothing}
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}

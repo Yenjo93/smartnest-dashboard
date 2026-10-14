@@ -123,6 +123,12 @@ export interface Settings {
   style: "classic" | "pro";
   /** A surface behind everything (2.0 only). */
   material: "none" | "marble" | "wood" | "sand" | "olive";
+  /** A photo behind everything (2.0), how much it's darkened (0-0.8), and whether the accent comes from it. */
+  wallpaper?: string;
+  wallpaper_dim: number;
+  accent_from_wallpaper: boolean;
+  /** Pages as tabs in the bar, or a floating dock at the bottom (2.0, big screens). */
+  nav: "tabs" | "dock";
   /** At night, the dark look becomes Midnight (pure black, only what's on glows). */
   night_midnight: boolean;
   /** Numbers on the alarm screen. */
@@ -146,7 +152,10 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "verse"
   | "radar"
   | "commute"
-  | "parcels";
+  | "parcels"
+  | "hero"
+  | "stack"
+  | "room";
 
 export interface Widget {
   id: string;

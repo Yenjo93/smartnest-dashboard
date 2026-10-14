@@ -32,6 +32,9 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/room";
+import "./widgets/stack";
+import "./widgets/hero";
 import "./widgets/parcels";
 import "./widgets/commute";
 import "./widgets/radar";
@@ -372,6 +375,12 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-commute .ctx=${ctx} .widget=${w}></sn-w-commute>`;
       case "parcels":
         return html`<sn-w-parcels .ctx=${ctx} .widget=${w}></sn-w-parcels>`;
+      case "hero":
+        return html`<sn-w-hero .ctx=${ctx} .widget=${w}></sn-w-hero>`;
+      case "stack":
+        return html`<sn-w-stack .ctx=${ctx} .widget=${w}></sn-w-stack>`;
+      case "room":
+        return html`<sn-w-room .ctx=${ctx} .widget=${w}></sn-w-room>`;
       default:
         return nothing;
     }

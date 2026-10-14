@@ -1,7 +1,7 @@
 import type { DashboardConfig, Floor, Hass, Lang, Page, Settings, Widget, WidgetType } from "./types";
 import { domainOf, listEntities } from "./entities";
 import type { I18nKey, Translate } from "./i18n";
-import { roomsWidgets } from "./autofill";
+import { devicesByArea, roomsWidgets } from "./autofill";
 
 export const COLS = 12;
 export const DEFAULT_ACCENT = "#E9971D";
@@ -33,6 +33,9 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   schedule: { w: 12, h: 6, minW: 6, minH: 4 },
   media: { w: 6, h: 5, minW: 4, minH: 4 },
   remote: { w: 4, h: 8, minW: 3, minH: 6 },
+  room: { w: 4, h: 6, minW: 3, minH: 4 },
+  stack: { w: 4, h: 6, minW: 3, minH: 4 },
+  hero: { w: 12, h: 4, minW: 6, minH: 3 },
   parcels: { w: 6, h: 5, minW: 3, minH: 3 },
   commute: { w: 6, h: 4, minW: 3, minH: 3 },
   radar: { w: 6, h: 6, minW: 4, minH: 4 },
@@ -84,6 +87,9 @@ export function defaultSettings(lang: Lang): Settings {
     style: "classic",
     material: "none",
     night_midnight: false,
+    wallpaper_dim: 0.35,
+    accent_from_wallpaper: true,
+    nav: "tabs",
     tou: { enabled: false, cheap_from: "23:00", cheap_to: "07:00", peak_from: "17:00", peak_to: "22:00" },
   };
 }
@@ -148,7 +154,7 @@ function flow(widgets: Widget[], startY = 0): Widget[] {
   });
 }
 
-export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot" | "water" | "car" | "garden" | "pets";
+export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot" | "water" | "car" | "garden" | "pets" | "bento";
 
 export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "blank", icon: "dashboard", label: "template_blank" },
@@ -163,6 +169,7 @@ export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "car", icon: "car", label: "template_car" },
   { id: "garden", icon: "sprinkler", label: "template_garden" },
   { id: "pets", icon: "paw", label: "template_pets" },
+  { id: "bento", icon: "dashboard", label: "template_bento" },
 ];
 
 // Words that give away what a device is for, in the ids and names installers actually use.
@@ -234,6 +241,22 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
     case "rooms":
       widgets = roomsWidgets(hass, t("other_devices"));
       break;
+    case "bento": {
+      // A greeting with the house in one sentence, the modes, a smart stack, then the busiest rooms as photo cards.
+      const rooms = devicesByArea(hass)
+        .filter((g) => g.areaId)
+        .sort((a, b) => b.ids.length - a.ids.length)
+        .slice(0, 5)
+        .map((g) => g.areaId!);
+      const cards = rooms.map((area, i) => newWidget("room", { area }, { x: ((i + 1) % 3) * 4, y: 6 + Math.floor((i + 1) / 3) * 6, w: 4, h: 6 }));
+      widgets = [
+        newWidget("hero", {}, { x: 0, y: 0, w: 12, h: 4 }),
+        ...(hass.states["script.smartnest_mode_away"] ? [newWidget("modes", {}, { y: 4 })] : []),
+        newWidget("stack", {}, { x: 0, y: 6, w: 4, h: 6 }),
+        ...cards,
+      ];
+      break;
+    }
     case "car":
     case "garden":
     case "pets": {

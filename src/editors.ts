@@ -15,7 +15,7 @@ import { healthSheet } from "./health";
 import { planFor, widgetFeature } from "./plans";
 import { automationsSheet } from "./automations";
 import { exportConfig, importConfig, rateSheet } from "./installer";
-import { uid } from "./config";
+import { uid, uploadImage } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
 import { guessWater } from "./widgets/water";
@@ -243,6 +243,36 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             field("home", "e_home_entity", ["power"])
           );
         }
+        case "room": {
+          const areas = Object.values(c.hass.areas ?? {});
+          return col(
+            html`<label class="field"
+              >${t("room_area")}
+              <select @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.area = e.target.value || undefined))}>
+                <option value="">–</option>
+                ${areas.map((a) => html`<option value=${a.area_id} ?selected=${w.config.area === a.area_id}>${a.name}</option>`)}
+              </select>
+            </label>`,
+            html`<label class="field">${t("room_name")}<input type="text" .value=${w.config.name ?? ""} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.name = e.target.value.trim() || undefined))} /></label>`,
+            html`<label class="field"
+              >${t("room_photo")}
+              <input
+                type="file"
+                accept="image/*"
+                @change=${async (e: any) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const url = await uploadImage(c.hass, file);
+                    editWidget(c, widgetId, (x) => (x.config.photo = url));
+                  } catch {
+                    c.toast(t("error"));
+                  }
+                }}
+              />
+            </label>`
+          );
+        }
         case "water": {
           const g = guessWater(c.hass);
           const pick = (key: "usage" | "tank" | "valve", label: I18nKey, filter: EntityFilter) =>
@@ -315,6 +345,9 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "radar", icon: "weather-pouring" },
   { type: "commute", icon: "car" },
   { type: "parcels", icon: "package" },
+  { type: "hero", icon: "home" },
+  { type: "stack", icon: "layers" },
+  { type: "room", icon: "sofa" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -571,7 +604,44 @@ export function settingsSheet(
                         (m) => html`<button aria-pressed=${s.material === m} @click=${() => set((d) => (d.settings.material = m))}>${t(`material_${m}` as I18nKey)}</button>`
                       )}
                     </div>
-                    <div class="field" style="margin-top:8px">${t("night_midnight")} ${toggle(c, s.night_midnight, (v) => set((d) => (d.settings.night_midnight = v)))}</div>`
+                    <div class="field" style="margin-top:8px">${t("night_midnight")} ${toggle(c, s.night_midnight, (v) => set((d) => (d.settings.night_midnight = v)))}</div>
+                    ${c.allows("wallpaper")
+                      ? html`<div class="field" style="margin-top:8px">
+                          ${t("wallpaper")}
+                          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                            ${s.wallpaper ? html`<img src=${s.wallpaper} alt="" style="width:64px;height:40px;object-fit:cover;border-radius:8px" />` : nothing}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style="flex:1"
+                              @change=${async (e: any) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                  const url = await uploadImage(c.hass, file);
+                                  set((d) => (d.settings.wallpaper = url));
+                                } catch {
+                                  c.toast(t("error"));
+                                }
+                              }}
+                            />
+                            ${s.wallpaper ? html`<button class="btn pressable" @click=${() => set((d) => delete d.settings.wallpaper)}>${t("delete")}</button>` : nothing}
+                          </div>
+                          ${s.wallpaper
+                            ? html`<label style="display:flex;gap:8px;align-items:center;font-size:14px"
+                                  >${t("wallpaper_dim")}
+                                  <input type="range" min="0" max="0.8" step="0.05" .value=${String(s.wallpaper_dim)} @change=${(e: any) => set((d) => (d.settings.wallpaper_dim = Number(e.target.value)))} style="flex:1"
+                                /></label>
+                                <div>${t("accent_from_wallpaper")} ${toggle(c, s.accent_from_wallpaper, (v) => set((d) => (d.settings.accent_from_wallpaper = v)))}</div>`
+                            : nothing}
+                        </div>`
+                      : nothing}
+                    ${c.allows("dock")
+                      ? html`<div class="field" style="margin-top:8px">
+                          ${t("nav_style")}
+                          <div class="seg">${(["tabs", "dock"] as const).map((v) => html`<button aria-pressed=${s.nav === v} @click=${() => set((d) => (d.settings.nav = v))}>${t(v === "dock" ? "nav_dock" : "nav_tabs")}</button>`)}</div>
+                        </div>`
+                      : nothing}`
                 : nothing}
               <span class="hint">${t("style_hint")}</span>
             </div>`
