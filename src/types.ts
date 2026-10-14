@@ -107,6 +107,8 @@ export interface Settings {
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
   /** What travel mode turns off, which lights it plays with, where the evening report goes. */
   travel: { off: string[]; lights: string[]; notify?: string; arm: boolean; simulate: boolean };
+  /** Who installed this house: the client's "something's wrong" button messages them. */
+  installer: { name?: string; phone?: string };
   /** Numbers on the alarm screen. */
   emergency: { police: string; contacts: { name: string; phone: string }[] };
 }

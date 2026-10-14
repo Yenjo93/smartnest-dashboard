@@ -49,6 +49,7 @@ export class SnChores extends LitElement {
   @state() private c: Chores = EMPTY;
   @state() private setup = false;
   @state() private burst?: string;
+  @state() private loaded = false;
   private unwatch?: Promise<() => void>;
 
   static styles = [
@@ -203,7 +204,10 @@ export class SnChores extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    loadKv<Chores>(this.ctx.hass, "chores").then((v) => (this.c = { ...EMPTY, ...(v ?? {}) }));
+    loadKv<Chores>(this.ctx.hass, "chores").then((v) => {
+      this.c = { ...EMPTY, ...(v ?? {}) };
+      this.loaded = true;
+    });
     this.unwatch = watchKv<Chores>(this.ctx.hass, "chores", (v) => (this.c = { ...EMPTY, ...(v ?? {}) }));
   }
 
@@ -288,7 +292,9 @@ export class SnChores extends LitElement {
           <sn-icon icon=${this.setup ? "check" : "cog"} style="--icon-size:18px"></sn-icon>
         </button>
       </div>
-      ${this.setup || !c.kids.length || !c.tasks.length
+      ${!this.loaded
+        ? html`<span class="muted">${t("loading")}</span>`
+        : this.setup || !c.kids.length || !c.tasks.length
         ? this.renderSetup()
         : html`<div class="kids">
               ${c.kids.map((k) => {

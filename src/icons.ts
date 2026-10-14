@@ -1,5 +1,9 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiSprinklerVariant,
+  mdiPaw,
+  mdiFileChartOutline,
+  mdiWhatsapp,
   mdiAirPurifier,
   mdiLeaf,
   mdiAirFilter,
@@ -344,6 +348,10 @@ export const ICONS: Record<string, string> = {
   "air-filter": mdiAirFilter,
   leaf: mdiLeaf,
   "air-purifier": mdiAirPurifier,
+  whatsapp: mdiWhatsapp,
+  "file-chart": mdiFileChartOutline,
+  paw: mdiPaw,
+  sprinkler: mdiSprinklerVariant,
 };
 
 /** Icons offered when naming a page. */

@@ -21,6 +21,7 @@ import "./assistant";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
 import "./security";
+import { installerSupport, supportSheet } from "./business";
 import { readGuests, writeGuests } from "./guests";
 import { rateSheet } from "./installer";
 import "./installer";
@@ -1099,6 +1100,9 @@ export class SmartNestPanel extends LitElement {
               <span class="muted ltr" style="font-size:12px">${c.t("version")} ${VERSION}${this.lic.licensee ? ` · ${this.lic.licensee}` : ""}</span>
             </div>
           </div>
+          ${installerSupport(c)
+            ? html`<button class="btn primary pressable" @click=${() => supportSheet(c, VERSION)}><sn-icon icon="whatsapp" style="--icon-size:20px"></sn-icon>${c.t("support_title")}</button>`
+            : nothing}
           ${c.allows("rating")
             ? html`<button class="btn primary pressable" @click=${() => rateSheet(c)}><sn-icon icon="star" style="--icon-size:20px"></sn-icon>${c.t("rate_service")}</button>`
             : nothing}

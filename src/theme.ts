@@ -198,6 +198,8 @@ export const shared = css`
   input[type="time"],
   input[type="date"],
   input[type="search"],
+  input[type="tel"],
+  textarea,
   select {
     font: inherit;
     font-size: 16px; /* 16px stops iOS from zooming into the field */
@@ -211,7 +213,12 @@ export const shared = css`
     outline: none;
     transition: border-color var(--dur-fast) var(--ease-out);
   }
+  textarea {
+    padding: 10px 12px;
+    resize: vertical;
+  }
   input:focus,
+  textarea:focus,
   select:focus {
     border-color: var(--accent);
   }

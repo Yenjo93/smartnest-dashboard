@@ -19,6 +19,7 @@ import { uid } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
 import { guessWater } from "./widgets/water";
+import { historySheet, presetPicker, printReport } from "./business";
 
 const col = (...items: unknown[]) => html`<div style="display:grid;gap:18px">${items}</div>`;
 const row = (...items: unknown[]) => html`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${items}</div>`;
@@ -503,6 +504,10 @@ export function settingsSheet(
           ${c.allows("automations")
             ? html`<button class="btn pressable" @click=${() => automationsSheet(c)}><sn-icon icon="automation" style="--icon-size:20px"></sn-icon>${t("automations")}</button>`
             : nothing}
+          ${c.allows("history") ? html`<button class="btn pressable" @click=${() => historySheet(c)}><sn-icon icon="history" style="--icon-size:20px"></sn-icon>${t("history")}</button>` : nothing}
+          ${c.allows("report")
+            ? html`<button class="btn pressable" @click=${() => printReport(c, c.assetBase).catch(() => c.toast(t("error")))}><sn-icon icon="file-chart" style="--icon-size:20px"></sn-icon>${t("report")}</button>`
+            : nothing}
         </div>`,
         html`<label class="field"
           >${t("home_name")}
@@ -535,6 +540,7 @@ export function settingsSheet(
               )
             : nothing}
         </div>`,
+        c.allows("presets") ? presetPicker(c, set) : nothing,
         html`<div class="field">
           ${t("accent")}
           ${row(
@@ -696,6 +702,16 @@ export function settingsSheet(
             )
           : nothing,
         c.allows("travel") ? travelSettings(c, set) : nothing,
+        c.allows("support")
+          ? section(
+              t("installer"),
+              html`<label class="field">${t("installer_name")}<input type="text" .value=${s.installer.name ?? ""} placeholder="SmartNest" @change=${(e: any) => set((d) => (d.settings.installer.name = e.target.value.trim() || undefined))} /></label>`,
+              html`<label class="field"
+                >${t("installer_phone")}<input type="tel" class="ltr" .value=${s.installer.phone ?? ""} placeholder="972501234567" @change=${(e: any) => set((d) => (d.settings.installer.phone = e.target.value.trim() || undefined))} />
+                <span class="hint">${t("installer_phone_hint")}</span></label
+              >`
+            )
+          : nothing,
         c.allows("alarm_screen")
           ? section(
               t("emergency"),

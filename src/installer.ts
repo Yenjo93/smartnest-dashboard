@@ -207,13 +207,13 @@ export function rateSheet(ctx: Ctx) {
 
 // ---- faults this week (for the health sheet) ----
 
-export async function weeklyFaults(ctx: Ctx): Promise<{ id: string; name: string; n: number }[]> {
+export async function weeklyFaults(ctx: Ctx, days = 7): Promise<{ id: string; name: string; n: number }[]> {
   const ids = dashboardEntities(ctx.config).filter((id) => ctx.hass.states[id] && domainOf(id) !== "event");
   if (!ids.length) return [];
   try {
     const ev = await ctx.hass.callWS<{ entity_id: string; state?: string }[]>({
       type: "logbook/get_events",
-      start_time: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+      start_time: new Date(Date.now() - days * 86_400_000).toISOString(),
       end_time: new Date().toISOString(),
       entity_ids: ids,
     });

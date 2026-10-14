@@ -24,6 +24,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     from .messages import ws_feedback, ws_message_ack, ws_message_send, ws_message_subscribe
     from .timers import ws_timer_cancel, ws_timer_list, ws_timer_set
     from .ai import ws_ai_ask
+    from .history import ws_history_list, ws_history_restore
     from .family import ws_fx_start, ws_fx_stop, ws_kv_get, ws_kv_set, ws_kv_subscribe
     from .plan_ai import ws_plan_read_rooms
     from .visitors import ws_list_visitors
@@ -36,6 +37,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_message_subscribe, ws_message_send, ws_message_ack,
         ws_automations_get, ws_automations_set, ws_feedback, ws_plan_read_rooms, ws_ai_ask,
         ws_kv_get, ws_kv_set, ws_kv_subscribe, ws_fx_start, ws_fx_stop,
+        ws_history_list, ws_history_restore,
     ):
         websocket_api.async_register_command(hass, cmd)
 
@@ -79,6 +81,9 @@ async def ws_save_config(hass: HomeAssistant, connection: websocket_api.ActiveCo
     if not isinstance(config.get("pages"), list) or not isinstance(config.get("settings"), dict):
         connection.send_error(msg["id"], "invalid_format", "Dashboard config is malformed")
         return
+    from .history import async_remember
+
+    await async_remember(hass, data.get("config"), connection.user.name or "")
     await data["store"].async_save(config)
     data["config"] = config
     async_dispatcher_send(hass, SIGNAL_CONFIG_UPDATED, config)

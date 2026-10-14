@@ -28,6 +28,7 @@ export class SnWake extends LitElement {
   @property({ attribute: false }) widget!: Widget;
   @state() private alarms: WakeAlarm[] = [];
   @state() private adding = false;
+  @state() private loaded = false;
   private unwatch?: Promise<() => void>;
 
   static styles = [
@@ -117,7 +118,10 @@ export class SnWake extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    loadKv<{ alarms: WakeAlarm[] }>(this.ctx.hass, "wake").then((v) => (this.alarms = v?.alarms ?? []));
+    loadKv<{ alarms: WakeAlarm[] }>(this.ctx.hass, "wake").then((v) => {
+      this.alarms = v?.alarms ?? [];
+      this.loaded = true;
+    });
     this.unwatch = watchKv<{ alarms: WakeAlarm[] }>(this.ctx.hass, "wake", (v) => (this.alarms = v?.alarms ?? []));
   }
 
@@ -196,7 +200,7 @@ export class SnWake extends LitElement {
         : html`<button class="btn pressable" style="justify-self:start" @click=${() => (this.adding = true)}>
             <sn-icon icon="plus" style="--icon-size:18px"></sn-icon>${t("wake_add")}
           </button>`}
-      ${!this.alarms.length && !this.adding ? html`<span class="muted" style="font-size:14px">${t("wake_hint")}</span>` : nothing}
+      ${this.loaded && !this.alarms.length && !this.adding ? html`<span class="muted" style="font-size:14px">${t("wake_hint")}</span>` : nothing}
     </div>`;
   }
 }

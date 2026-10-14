@@ -73,6 +73,14 @@ add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", un
 add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.tesla_battery", "78", { friendly_name: "بطارية السيارة", unit_of_measurement: "%", device_class: "battery" }));
+add(ent("lock.tesla_doors", "locked", { friendly_name: "أبواب السيارة" }));
+add(ent("switch.tesla_charger", "off", { friendly_name: "شاحن السيارة" }));
+add(ent("switch.garden_irrigation", "off", { friendly_name: "ري الجنينة" }));
+add(ent("sensor.pool_temperature", "27.5", { friendly_name: "حرارة المسبح", unit_of_measurement: "°C", device_class: "temperature" }));
+add(ent("switch.pool_pump", "on", { friendly_name: "مضخة المسبح" }));
+add(ent("button.petkit_feeder_feed", "unknown", { friendly_name: "أطعم القطة" }));
+add(ent("sensor.cat_litter_level", "35", { friendly_name: "رمل القطة", unit_of_measurement: "%" }));
 add(ent("switch.smartnest_travel_mode", "off", { friendly_name: "SmartNest travel mode", icon: "mdi:airplane", simulating: [] }));
 add(ent("sensor.front_door_package_count", "1", { friendly_name: "طرود عالباب" }));
 add(ent("sensor.robot_current_room", "الصالة", { friendly_name: "الروبوت · الغرفة" }));
@@ -421,6 +429,11 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       if (!isAdmin) throw { code: "unauthorized", message: "Unauthorized" };
       let config = msg.config;
       if (!localStorage.getItem(KEY)) config = seedDemo(structuredClone(config));
+      else {
+        const hist = JSON.parse(localStorage.getItem("smartnest-dev-history") ?? "[]");
+        hist.unshift({ id: Math.random().toString(36).slice(2), time: Date.now() / 1000, user: isAdmin ? "Installer" : "Client", config: JSON.parse(localStorage.getItem(KEY)!) });
+        localStorage.setItem("smartnest-dev-history", JSON.stringify(hist.slice(0, 20)));
+      }
       localStorage.setItem(KEY, JSON.stringify(config));
       configListeners.forEach((cb) => cb({ config }));
       return null;
@@ -567,6 +580,18 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       const text = String(msg.text);
       const speech = /طف|off/i.test(text) ? "طفّيت 4 أضواء." : /حرار|temp/i.test(text) ? "الحرارة بالصالة 23.5 درجة." : /باب|door/i.test(text) ? "الباب مقفول." : "تمام، عملتها.";
       return { conversation_id: "c1", response: { response_type: "action_done", speech: { plain: { speech } } } };
+    }
+    case "smartnest/history/list":
+      return {
+        items: JSON.parse(localStorage.getItem("smartnest-dev-history") ?? "[]").map((i: any) => ({
+          id: i.id, time: i.time, user: i.user, pages: i.config.pages.length, widgets: i.config.pages.reduce((n: number, p: any) => n + p.widgets.length, 0),
+        })),
+      };
+    case "smartnest/history/restore": {
+      const item = JSON.parse(localStorage.getItem("smartnest-dev-history") ?? "[]").find((i: any) => i.id === msg.version);
+      localStorage.setItem(KEY, JSON.stringify(item.config));
+      configListeners.forEach((cb) => cb({ config: item.config }));
+      return null;
     }
     case "smartnest/kv/get":
       return { value: JSON.parse(localStorage.getItem(`smartnest-dev-kv-${msg.key}`) ?? "null") };

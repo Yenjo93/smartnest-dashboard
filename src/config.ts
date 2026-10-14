@@ -67,6 +67,7 @@ export function defaultSettings(lang: Lang): Settings {
     chips_hidden: [],
     travel: { off: [], lights: [], arm: true, simulate: true },
     emergency: { police: "100", contacts: [] },
+    installer: {},
   };
 }
 
@@ -130,7 +131,7 @@ function flow(widgets: Widget[], startY = 0): Widget[] {
   });
 }
 
-export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot" | "water";
+export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot" | "water" | "car" | "garden" | "pets";
 
 export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "blank", icon: "dashboard", label: "template_blank" },
@@ -142,7 +143,31 @@ export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "climate", icon: "air-conditioner", label: "template_climate" },
   { id: "robot", icon: "robot-vacuum", label: "template_robot" },
   { id: "water", icon: "water", label: "template_water" },
+  { id: "car", icon: "car", label: "template_car" },
+  { id: "garden", icon: "sprinkler", label: "template_garden" },
+  { id: "pets", icon: "paw", label: "template_pets" },
 ];
+
+// Words that give away what a device is for, in the ids and names installers actually use.
+const KEYWORDS: Record<"car" | "garden" | "pets", RegExp> = {
+  car: /\b(car|tesla|bmw|toyota|hyundai|kia|volkswagen|vw|audi|mercedes|skoda|byd|mg|ev|wallbox|charger|easee|zappi)\b|_car_|سيار|شاحن/i,
+  garden: /garden|pool|spa|irrigat|sprinkler|lawn|pump|soil|plant|hose|حديق|جنين|مسبح|ري_|رشاش|مضخ|زرع/i,
+  pets: /\b(pet|cat|dog|feeder|litter|petkit|aquarium|fish)\b|_pet_|قط|كلب|حيوان|سمك|أكل_ال/i,
+};
+const USEFUL = ["sensor", "binary_sensor", "switch", "lock", "climate", "button", "valve", "number", "select", "device_tracker", "camera", "light", "fan", "water_heater"];
+
+/** Devices whose id or name says they belong to the car, the garden or the pets. */
+function matching(hass: Hass, kind: keyof typeof KEYWORDS, limit = 12): string[] {
+  return Object.values(hass.states)
+    .filter((e) => {
+      const reg = hass.entities?.[e.entity_id];
+      if (reg?.entity_category || reg?.hidden) return false;
+      return USEFUL.includes(domainOf(e.entity_id)) && KEYWORDS[kind].test(`${e.entity_id} ${e.attributes.friendly_name ?? ""}`);
+    })
+    .sort((a, b) => USEFUL.indexOf(domainOf(a.entity_id)) - USEFUL.indexOf(domainOf(b.entity_id)))
+    .slice(0, limit)
+    .map((e) => e.entity_id);
+}
 
 /** Builds a page pre-filled with the client's matching devices, so a new install starts useful. */
 export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardConfig, t: Translate): Page {
@@ -192,6 +217,13 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
     case "rooms":
       widgets = roomsWidgets(hass, t("other_devices"));
       break;
+    case "car":
+    case "garden":
+    case "pets": {
+      const ids = matching(hass, id);
+      widgets = flow([...cams(ids.filter((x) => domainOf(x) === "camera"), 6, 5), ...tiles(ids.filter((x) => domainOf(x) !== "camera"))]);
+      break;
+    }
     case "water":
       widgets = flow([newWidget("water"), ...tiles(ents(["binary_sensor"], ["moisture"])), ...tiles(ents(["valve"]))]);
       break;
@@ -229,6 +261,7 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.fully = { ...base.fully, ...(raw?.settings?.fully ?? {}) };
   settings.travel = { ...base.travel, ...(raw?.settings?.travel ?? {}) };
   settings.emergency = { ...base.emergency, ...(raw?.settings?.emergency ?? {}) };
+  settings.installer = { ...(raw?.settings?.installer ?? {}) };
   return { version: 1, settings, names: { ...(raw?.names ?? {}) }, pages: Array.isArray(raw?.pages) ? raw.pages : [] };
 }
 
