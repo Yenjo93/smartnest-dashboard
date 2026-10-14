@@ -10,16 +10,19 @@
 //   node scripts/license.mjs <installation-id> "Name" --trial
 //       14-day Premium trial
 //
+//   npm run licenses
+//       the same, from a private page in your browser, with a list of every house
+//
 // Back up ~/.smartnest/license-private.pem (password manager): without it you can't issue new keys,
 // and anyone who has it can.
-import { createPrivateKey, createPublicKey, generateKeyPairSync, sign } from "node:crypto";
+import { createPrivateKey, createPublicKey, generateKeyPairSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { issue } from "./license-lib.mjs";
 
 const dir = join(homedir(), ".smartnest");
 const keyFile = join(dir, "license-private.pem");
-const b64u = (buf) => Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -63,16 +66,8 @@ if (!existsSync(keyFile)) {
   process.exit(1);
 }
 
-const now = Math.floor(Date.now() / 1000);
-const validDays = trial ? 14 : days ? Number(days) : undefined;
-const payload = { v: 1, i: cmd.trim(), n: name, t: now, p: trial ? "premium" : plan };
-if (validDays) payload.x = now + validDays * 86400;
-if (trial) payload.tr = 1;
-if (typeof reseller === "string") payload.r = reseller;
-
-const body = Buffer.from(JSON.stringify(payload));
-const signature = sign(null, body, createPrivateKey(readFileSync(keyFile)));
-console.log(`SN1.${b64u(body)}.${b64u(signature)}`);
+const { key, payload } = issue({ id: cmd, name, plan, days, trial, reseller: typeof reseller === "string" ? reseller : undefined });
+console.log(key);
 console.error(
   `${payload.p}${payload.tr ? " trial" : ""} · ${name || "(no name)"}${payload.x ? ` · until ${new Date(payload.x * 1000).toISOString().slice(0, 10)}` : " · no expiry"}${payload.r ? ` · via ${payload.r}` : ""}`
 );

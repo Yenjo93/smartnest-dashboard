@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/sync-version.mjs",
     "typecheck": "tsc --noEmit",
-    "demo": "vite --open /dev/index.html"
+    "demo": "vite --open /dev/index.html",
+    "licenses": "node scripts/license-desk.mjs"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
