@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Hass, Widget } from "../types";
@@ -35,7 +35,7 @@ const ms = (v: number | string) => (typeof v === "number" ? (v > 1e12 ? v : v * 
 export class SnEnergyStats extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
-  @state() private data?: { used: number; projected: number; lastSame: number; solar: number; top: { id: string; kwh: number }[] };
+  @state() private data?: { used: number; projected: number; lastSame: number; solar: number; top: { id: string; kwh: number }[]; daily: number[] };
   private timer?: number;
 
   static styles = [
@@ -53,6 +53,63 @@ export class SnEnergyStats extends LitElement {
         align-content: start;
         gap: 14px;
         overflow: auto;
+      }
+      .budget {
+        display: grid;
+        gap: 6px;
+      }
+      .bt {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--text-2);
+      }
+      .bt .warn {
+        color: var(--alert-text);
+        font-weight: 700;
+      }
+      .bt .ok {
+        color: var(--success);
+        font-weight: 600;
+      }
+      .track {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+      }
+      .track .fill {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: var(--success);
+        transition: transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .track .fill.warn {
+        background: var(--alert);
+      }
+      .track .tick {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 3px;
+        margin-inline-start: -1.5px;
+        border-radius: 2px;
+        background: var(--text);
+      }
+      .daily {
+        width: 100%;
+        height: 44px;
+      }
+      .daily .past {
+        fill: color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+      .daily .now {
+        fill: var(--accent);
+      }
+      .daily .future {
+        fill: var(--surface-2);
       }
       h3 {
         margin: 0;
@@ -149,7 +206,7 @@ export class SnEnergyStats extends LitElement {
   private get cfg() {
     const g = guessBill(this.ctx.hass);
     const c = this.widget.config;
-    return { total: c.total ?? g.total, solar: c.solar ?? g.solar, tariff: Number(c.tariff ?? 0.6), currency: c.currency ?? "₪" };
+    return { total: c.total ?? g.total, solar: c.solar ?? g.solar, tariff: Number(c.tariff ?? 0.6), currency: c.currency ?? "₪", budget: Number(c.budget) || 0 };
   }
 
   private async load() {
@@ -197,13 +254,41 @@ export class SnEnergyStats extends LitElement {
         .filter((x) => x.kwh > 0)
         .sort((a, b) => b.kwh - a.kwh)
         .slice(0, 5),
+      daily: Array.from({ length: daysInMonth }, (_, i) => sum(total, new Date(now.getFullYear(), now.getMonth(), i + 1), new Date(now.getFullYear(), now.getMonth(), i + 2))),
     };
+  }
+
+  /** Spent so far against the monthly budget, with a tick where the month is heading. */
+  private renderBudget(spent: number, projected: number, budget: number, money: (v: number) => string) {
+    const { t, rtl } = this.ctx;
+    const over = projected > budget;
+    const from = rtl ? "right" : "left";
+    return html`<div class="budget">
+      <div class="bt">
+        <span>${t("bill_budget")} ${money(budget)}</span>
+        <span class=${over ? "warn" : "ok"}>${over ? t("bill_over", { v: money(projected - budget) }) : t("bill_within")}</span>
+      </div>
+      <div class="track">
+        <span class="fill ${over ? "warn" : ""}" style="transform:scaleX(${Math.min(1, spent / budget)});transform-origin:${from}"></span>
+        <span class="tick" style="${from}:${Math.min(100, (projected / budget) * 100)}%"></span>
+      </div>
+    </div>`;
+  }
+
+  /** This month day by day; today is the bright bar. */
+  private renderDaily(daily: number[]) {
+    const max = Math.max(...daily, 0.001);
+    const today = new Date().getDate() - 1;
+    const n = daily.length;
+    return html`<svg class="daily" viewBox="0 0 ${n * 4} 30" preserveAspectRatio="none" aria-hidden="true" style="transform:${this.ctx.rtl ? "scaleX(-1)" : "none"}">
+      ${daily.map((v, i) => svg`<rect x=${i * 4 + 0.5} y=${30 - Math.max(i <= today ? 1 : 0, (v / max) * 28)} width="3" height=${Math.max(i <= today ? 1 : 0, (v / max) * 28)} rx="1" class=${i === today ? "now" : i < today ? "past" : "future"}></rect>`)}
+    </svg>`;
   }
 
   render() {
     const { ctx } = this;
     const { t, lang } = ctx;
-    const { tariff, currency, total } = this.cfg;
+    const { tariff, currency, total, budget } = this.cfg;
     const money = (v: number) => ltr(`${currency} ${formatNumber(v, lang, 0)}`);
     const d = this.data;
     if (!total) return html`<div class="card glass"><h3><sn-icon icon="lightning-bolt"></sn-icon>${t("bill_title")}</h3><span class="muted">${t("no_entities")}</span></div>`;
@@ -216,6 +301,8 @@ export class SnEnergyStats extends LitElement {
               <span class="lbl">${t("bill_projected")}</span>
               <span class="big"><sn-num .value=${money(d.projected * tariff)}></sn-num></span>
             </div>
+            ${budget && ctx.allows("bill_budget") ? this.renderBudget(d.used * tariff, d.projected * tariff, budget, money) : nothing}
+            ${this.renderDaily(d.daily)}
             <div class="row">
               <span class="pill">${t("bill_used")} ${ltr(`${formatNumber(d.used, lang, 0)} kWh`)}</span>
               ${change !== undefined

@@ -33,6 +33,8 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   schedule: { w: 12, h: 6, minW: 6, minH: 4 },
   media: { w: 6, h: 5, minW: 4, minH: 4 },
   remote: { w: 4, h: 8, minW: 3, minH: 6 },
+  water: { w: 6, h: 5, minW: 4, minH: 4 },
+  consumers: { w: 6, h: 5, minW: 4, minH: 4 },
 };
 
 export function defaultSettings(lang: Lang): Settings {
@@ -123,7 +125,7 @@ function flow(widgets: Widget[], startY = 0): Widget[] {
   });
 }
 
-export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot";
+export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot" | "water";
 
 export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "blank", icon: "dashboard", label: "template_blank" },
@@ -134,6 +136,7 @@ export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "doorbell", icon: "doorbell", label: "template_doorbell" },
   { id: "climate", icon: "air-conditioner", label: "template_climate" },
   { id: "robot", icon: "robot-vacuum", label: "template_robot" },
+  { id: "water", icon: "water", label: "template_water" },
 ];
 
 /** Builds a page pre-filled with the client's matching devices, so a new install starts useful. */
@@ -158,6 +161,7 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
     case "power":
       widgets = flow([
         ...(Object.keys(hass.states).some((id) => /solar|pv/.test(id)) ? [newWidget("energy")] : []),
+        ...(Object.values(hass.states).some((e) => e.attributes.device_class === "power") ? [newWidget("consumers")] : []),
         ...tiles(ents(["sensor"], ["power", "energy"])),
         ...tiles(ents(["switch"], undefined, 8)),
       ]);
@@ -182,6 +186,9 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
     }
     case "rooms":
       widgets = roomsWidgets(hass, t("other_devices"));
+      break;
+    case "water":
+      widgets = flow([newWidget("water"), ...tiles(ents(["binary_sensor"], ["moisture"])), ...tiles(ents(["valve"]))]);
       break;
     case "robot":
       widgets = ents(["vacuum"], undefined, 2).map((entity, i) => newWidget("vacuum", { entity }, { y: i * 9 }));

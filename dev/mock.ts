@@ -69,6 +69,13 @@ add(ent("sensor.home_power", "1840", { friendly_name: "استهلاك البيت
 add(ent("sensor.solar_power", "2310", { friendly_name: "الطاقة الشمسية", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.ac_power", "1220", { friendly_name: "استهلاك المكيفات", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.grid_power", "-170", { friendly_name: "الشبكة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.water_today", "312", { friendly_name: "المي اليوم", unit_of_measurement: "L", device_class: "water", state_class: "total_increasing" }));
+add(ent("sensor.water_tank_level", "64", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
+add(ent("valve.main_water", "open", { friendly_name: "محبس المي" }));
 add(ent("sensor.home_battery_power", "300", { friendly_name: "شحن البطارية", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.home_battery", "76", { friendly_name: "بطارية البيت", unit_of_measurement: "%", device_class: "battery" }));
 add(ent("sensor.backup_last_successful_automatic_backup", new Date(Date.now() - 2 * 86_400_000).toISOString(), { friendly_name: "Last backup", device_class: "timestamp" }));
@@ -132,6 +139,9 @@ const entityRegistry: Record<string, any> = Object.fromEntries(
 entityRegistry["remote.living_tv"] = { entity_id: "remote.living_tv", platform: "androidtv_remote" };
 for (const id of ["vacuum.robot", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
   entityRegistry[id] = { entity_id: id, device_id: "dev-robot", platform: "roborock" };
+// Plug meters on the same device as what they power, so "turn off" and "standby" find the switch.
+for (const [sensor, control, dev] of [["sensor.water_heater_power", "switch.water_heater", "dev-heater"], ["sensor.coffee_machine_power", "switch.coffee_machine", "dev-coffee"], ["sensor.tv_power", "media_player.living_tv", "dev-tv"]])
+  for (const id of [sensor, control]) entityRegistry[id] = { ...(entityRegistry[id] ?? { entity_id: id }), device_id: dev };
 // HA areas, named like the rooms drawn on the demo plan, so "Fill rooms" has something to match.
 const areas: Record<string, { area_id: string; name: string }> = Object.fromEntries(
   [["living", "الصالة"], ["kitchen", "المطبخ"], ["bath", "الحمام"], ["hall", "الممر"], ["entry", "المدخل"], ["bedroom", "غرفة النوم"]].map(([area_id, name]) => [area_id, { area_id, name }])
@@ -360,6 +370,10 @@ async function callService(domain: string, service: string, data: Record<string,
       return set(id, "on");
     case "switch.turn_off":
       return set(id, "off");
+    case "valve.open_valve":
+      return set(id, "open");
+    case "valve.close_valve":
+      return set(id, "closed");
     case "number.set_value":
       return set(id, String(data.value));
     case "media_player.play_media":

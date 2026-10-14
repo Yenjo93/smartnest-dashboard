@@ -32,6 +32,8 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/water";
+import "./widgets/consumers";
 
 interface Gesture {
   id: string;
@@ -330,6 +332,10 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-media .ctx=${ctx} .widget=${w}></sn-w-media>`;
       case "remote":
         return html`<sn-w-remote .ctx=${ctx} .widget=${w}></sn-w-remote>`;
+      case "consumers":
+        return html`<sn-w-consumers .ctx=${ctx} .widget=${w}></sn-w-consumers>`;
+      case "water":
+        return html`<sn-w-water .ctx=${ctx} .widget=${w}></sn-w-water>`;
       default:
         return nothing;
     }

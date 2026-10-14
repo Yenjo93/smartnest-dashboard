@@ -17,6 +17,7 @@ import { exportConfig, importConfig, rateSheet } from "./installer";
 import { uid } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
+import { guessWater } from "./widgets/water";
 
 const col = (...items: unknown[]) => html`<div style="display:grid;gap:18px">${items}</div>`;
 const row = (...items: unknown[]) => html`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${items}</div>`;
@@ -208,6 +209,10 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
               <input type="number" step="0.01" min="0" .value=${String(w.config.tariff ?? 0.6)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.tariff = Number(e.target.value) || 0))} />
             </label>`,
             html`<label class="field"
+              >${t("bill_budget")}
+              <input type="number" min="0" .value=${String(w.config.budget ?? "")} placeholder="–" @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.budget = Number(e.target.value) || undefined))} />
+            </label>`,
+            html`<label class="field"
               >${t("currency")}
               <input type="text" maxlength="4" .value=${w.config.currency ?? "₪"} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.currency = e.target.value.trim() || "₪"))} />
             </label>`
@@ -227,6 +232,16 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             flip("flip_battery"),
             field("soc", "e_soc_entity", ["battery"]),
             field("home", "e_home_entity", ["power"])
+          );
+        }
+        case "water": {
+          const g = guessWater(c.hass);
+          const pick = (key: "usage" | "tank" | "valve", label: I18nKey, filter: EntityFilter) =>
+            entityField(c, t(label), w.config[key] ?? g[key], filter, (id) => editWidget(c, widgetId, (x) => (x.config[key] = id)), true);
+          return col(
+            pick("usage", "water_usage", { domains: ["sensor"], deviceClasses: ["water"] }),
+            pick("tank", "water_tank", { domains: ["sensor"] }),
+            pick("valve", "water_valve", { domains: ["valve", "switch"] })
           );
         }
         case "heading":
@@ -277,6 +292,8 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "schedule", icon: "schedule" },
   { type: "media", icon: "speaker" },
   { type: "remote", icon: "television" },
+  { type: "consumers", icon: "lightning-bolt" },
+  { type: "water", icon: "water" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -645,7 +662,14 @@ export function settingsSheet(
               </button>`;
             })}
           </div>`,
-          entityField(c, t("power_entity"), s.power_entity, { domains: ["sensor"], deviceClasses: ["power"] }, (id) => set((d) => (d.settings.power_entity = id)), true)
+          entityField(c, t("power_entity"), s.power_entity, { domains: ["sensor"], deviceClasses: ["power"] }, (id) => set((d) => (d.settings.power_entity = id)), true),
+          c.allows("overload")
+            ? html`<label class="field"
+                >${t("power_limit")}
+                <input type="number" min="0" step="100" class="ltr" .value=${String(s.power_limit ?? "")} placeholder="6000" @change=${(e: any) => set((d) => (d.settings.power_limit = Number(e.target.value) || undefined))} />
+                <span class="hint">${t("power_limit_hint")}</span>
+              </label>`
+            : nothing
         ),
         c.allows("guests")
           ? section(

@@ -91,7 +91,34 @@ export class SnEnergy extends LitElement {
         stroke-width: 4;
         stroke-linecap: round;
       }
+      .wrap {
+        position: relative;
+      }
+      .tip {
+        position: absolute;
+        inset-inline: 12px;
+        bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        background: color-mix(in srgb, #f5b301 22%, var(--surface-solid));
+        color: var(--text);
+        animation: tip-in 500ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      @keyframes tip-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
       @media (prefers-reduced-motion: reduce) {
+        .tip {
+          animation: none;
+        }
         .dot {
           display: none;
         }
@@ -159,6 +186,13 @@ export class SnEnergy extends LitElement {
         ${c.battery ? this.node("battery", "battery", t("e_battery"), kw(battery), soc && !Number.isNaN(Number(soc)) ? ltr(`${Math.round(Number(soc))}%`) : undefined) : nothing}
         ${this.node("home", "home", t("e_home"), kw(home))}
       </svg>
+      ${(() => {
+        // Spare sun going to the grid (or the battery is full): the moment for the washer, dishwasher or heater.
+        const spare = (solar ?? 0) - home;
+        return solar !== undefined && spare >= 1200 && ctx.allows("solar_tip")
+          ? html`<div class="tip" role="status"><sn-icon icon="solar" style="--icon-size:18px"></sn-icon>${t("solar_tip", { kw: kw(spare) })}</div>`
+          : nothing;
+      })()}
     </div>`;
   }
 }

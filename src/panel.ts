@@ -18,6 +18,7 @@ import "./cinematic";
 import "./morning";
 import "./message";
 import "./assistant";
+import "./overload";
 import { readGuests, writeGuests } from "./guests";
 import { rateSheet } from "./installer";
 import "./installer";
@@ -97,6 +98,10 @@ export class SmartNestPanel extends LitElement {
   @state() private scene?: string;
   @state() private morning = false;
   @state() private camwall = false;
+  /** Watts while the house is over its power limit. */
+  @state() private overload?: number;
+  private overSince = 0;
+  private overSnooze = 0;
   @state() private guests = readGuests();
   @state() private tvMode = (() => {
     try {
@@ -431,6 +436,25 @@ export class SmartNestPanel extends LitElement {
       if (Date.now() - this.lastActive > s.timeout_min * 60_000) this.sleeping = true;
     this.fullyTick();
     this.checkMorning();
+    this.checkOverload();
+  }
+
+  /** Over the limit for 20 seconds straight (a kettle blip doesn't count); then quiet for 10 minutes after "dismiss". */
+  private checkOverload() {
+    const s = this.config?.settings;
+    const e = s?.power_limit && s.power_entity ? this.hass.states[s.power_entity] : undefined;
+    const v = Number(e?.state);
+    const w = e?.attributes.unit_of_measurement === "kW" ? v * 1000 : v;
+    if (!e || Number.isNaN(w) || w <= s!.power_limit!) {
+      this.overSince = 0;
+      this.overload = undefined;
+      return;
+    }
+    if (!this.overSince) this.overSince = Date.now();
+    if (Date.now() - this.overSince >= 20_000 && Date.now() > this.overSnooze && this.makeCtx().allows("overload")) {
+      this.overload = w;
+      this.sleeping = false;
+    }
   }
 
   /** The morning card shows on the first touch of the day, never on an empty room. */
@@ -1232,6 +1256,16 @@ export class SmartNestPanel extends LitElement {
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
       ${this.message && ctx.allows("messages") ? html`<sn-message .ctx=${ctx} .msg=${this.message}></sn-message>` : nothing}
+      ${this.overload
+        ? html`<sn-overload
+            .ctx=${ctx}
+            .watts=${this.overload}
+            .onDismiss=${() => {
+              this.overload = undefined;
+              this.overSnooze = Date.now() + 10 * 60_000;
+            }}
+          ></sn-overload>`
+        : nothing}
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}

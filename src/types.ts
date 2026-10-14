@@ -102,13 +102,17 @@ export interface Settings {
   setup_done: boolean;
   /** Whole-home power sensor for the status chip. */
   power_entity?: string;
+  /** Watts the house shouldn't go over (the main breaker or the solar inverter's limit). */
+  power_limit?: number;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
 }
 
 export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check"
   | "family" | "todo" | "calendar" | "forecast" | "countdown"
   | "gauge" | "gate" | "frigate" | "schedule"
-  | "media" | "remote";
+  | "media" | "remote"
+  | "consumers"
+  | "water";
 
 export interface Widget {
   id: string;
