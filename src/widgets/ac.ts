@@ -7,6 +7,7 @@ import { hasKey } from "../i18n";
 import { shared } from "../theme";
 import "../ui/icon";
 import "../ui/dial";
+import "../ui/num";
 
 const MODE_ICON: Record<string, string> = { off: "power", cool: "snowflake", heat: "fire", fan_only: "fan", dry: "water-percent", auto: "thermostat-auto", heat_cool: "thermostat-auto" };
 
@@ -139,7 +140,7 @@ export class SnAc extends LitElement {
       <div class="head" @click=${() => ctx.openEntity(id, this)}>
         <sn-icon icon=${MODE_ICON[e.state] ?? "thermostat"} style="--icon-size:20px;color:${on ? "var(--accent-text)" : "var(--text-2)"}"></sn-icon>
         <b>${entityName(hass, config, id)}</b>
-        ${now !== undefined ? html`<span>${t("current_temp")} ${ltr(`${formatNumber(now, lang)}°`)}</span>` : nothing}
+        ${now !== undefined ? html`<span>${t("current_temp")} <sn-num .value=${ltr(`${formatNumber(now, lang)}°`)}></sn-num></span>` : nothing}
       </div>
       <div class="mid">
         ${!on || target === undefined
@@ -157,7 +158,7 @@ export class SnAc extends LitElement {
             ></sn-dial>`
           : html`<div class="big">
               <button class="icon-btn pressable" aria-label="-" @click=${() => this.set(Math.max(min, target - step))}><sn-icon icon="minus"></sn-icon></button>
-              <span class="v ltr">${formatNumber(target, lang)}°</span>
+              <span class="v ltr"><sn-num .value=${`${formatNumber(target, lang)}°`}></sn-num></span>
               <button class="icon-btn pressable" aria-label="+" @click=${() => this.set(Math.min(max, target + step))}><sn-icon icon="plus"></sn-icon></button>
             </div>`}
       </div>

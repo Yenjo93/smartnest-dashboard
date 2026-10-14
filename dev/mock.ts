@@ -111,7 +111,7 @@ add(ent("cover.living_blinds", "open", { friendly_name: "برادي الصالة
 add(ent("scene.movie_night", "scening", { friendly_name: "سهرة فيلم" }));
 add(ent("ai_task.openai", "unknown", { friendly_name: "OpenAI AI Task" }));
 add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
-add(ent("sun.sun", "above_horizon", { friendly_name: "Sun", elevation: Number(params.get("elev") ?? 4), rising: false, next_rising: new Date(Date.now() + 9 * 3600_000).toISOString(), next_setting: new Date(Date.now() + 1 * 3600_000).toISOString() }));
+add(ent("sun.sun", "above_horizon", { friendly_name: "Sun", elevation: Number(params.get("elev") ?? 4), azimuth: Number(params.get("az") ?? 250), rising: false, next_rising: new Date(Date.now() + 9 * 3600_000).toISOString(), next_setting: new Date(Date.now() + 1 * 3600_000).toISOString() }));
 add(ent("sensor.bedroom_humidity", "68", { friendly_name: "رطوبة غرفة النوم", unit_of_measurement: "%", device_class: "humidity" }));
 add(ent("sensor.living_pm25", "22", { friendly_name: "غبار الصالة", unit_of_measurement: "µg/m³", device_class: "pm25" }));
 add(ent("fan.air_purifier", "off", { friendly_name: "منقّي الهوا" }));
@@ -279,9 +279,21 @@ function callServiceTodo(service: string, data: Record<string, any>) {
   pushTodo();
 }
 
+const snapshots: Record<string, any[]> = {};
+
 async function callService(domain: string, service: string, data: Record<string, any> = {}): Promise<any> {
   // Real HA accepts a list of entities in one call.
   if (domain === "todo") return callServiceTodo(service, data);
+  // Snapshot scenes, for the undo pill.
+  if (domain === "scene" && service === "create") {
+    snapshots[data.scene_id] = (data.snapshot_entities as string[]).map((id) => ({ ...states[id] }));
+    return null;
+  }
+  if (domain === "scene" && service === "turn_on" && String(data.entity_id).startsWith("scene.smartnest_")) {
+    for (const old of snapshots[String(data.entity_id).slice(6)] ?? []) states[old.entity_id] = { ...old, last_updated: new Date().toISOString() };
+    onChange(snapshot());
+    return null;
+  }
   if (Array.isArray(data.entity_id)) return Promise.all(data.entity_id.map((entity_id: string) => callService(domain, service, { ...data, entity_id })));
   await new Promise((r) => later(120, () => r(null)));
   const id: string = data.entity_id;

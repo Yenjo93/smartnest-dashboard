@@ -1,6 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "./icon";
+import { haptic } from "./haptic";
 
 /**
  * The tall pill slider from Control Centre. Drag anywhere on it; the value is committed on release,
@@ -135,7 +136,7 @@ export class SnVSlider extends LitElement {
 
   private set(v: number | undefined) {
     // A light tick every 10%, like a physical detent.
-    if (v !== undefined && this.drag !== undefined && Math.floor(v / 10) !== Math.floor(this.drag / 10)) navigator.vibrate?.(3);
+    if (v !== undefined && this.drag !== undefined && Math.floor(v / 10) !== Math.floor(this.drag / 10)) haptic("tick");
     this.drag = v;
     this.onPreview?.(v);
   }

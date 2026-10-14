@@ -4,6 +4,7 @@ import type { Ctx, SheetSpec } from "../ctx";
 import { shared } from "../theme";
 import "./icon";
 import { spring } from "./spring";
+import { haptic } from "./haptic";
 
 /**
  * Renders the stack of sheets. On a phone they rise from the bottom; on wider screens they sit centred.
@@ -209,7 +210,7 @@ export class SnSheetHost extends LitElement {
       p.scrim.style.backgroundColor = "";
     };
     if (p.dy > h * 0.28 || p.v > 0.55) {
-      navigator.vibrate?.(4);
+      haptic("tick");
       const end = h + 40;
       const ms = Math.max(140, Math.min(320, ((end - p.dy) / Math.max(p.v, 1.2)) | 0));
       p.scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, fill: "forwards" });

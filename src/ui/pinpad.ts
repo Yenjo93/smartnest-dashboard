@@ -1,6 +1,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "./icon";
+import { haptic } from "./haptic";
 
 /** iPhone-style passcode pad. Calls onSubmit when the last digit lands; a wrong code shakes and clears. */
 @customElement("sn-pinpad")
@@ -119,7 +120,7 @@ export class SnPinpad extends LitElement {
     if (this.value.length >= this.length) return;
     this.wrong = false;
     this.value += d;
-    navigator.vibrate?.(4);
+    haptic("tick");
     if (this.value.length === this.length) {
       const pin = this.value;
       // Let the last dot fill in before checking, so the user sees it land.

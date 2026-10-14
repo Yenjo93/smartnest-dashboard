@@ -40,6 +40,11 @@ export interface Ctx {
   showSheet(spec: SheetSpec): void;
   closeSheet(): void;
   toast(message: string): void;
+  /**
+   * Runs something that changes several devices at once ("all lights off", a scene) after taking a snapshot of
+   * them, and offers to put them back for a few seconds.
+   */
+  undoable(ids: string[], label: string, act: () => Promise<unknown>): void;
   /** Full-screen moment after a house mode is triggered. */
   cinematic(mode: string): void;
 }

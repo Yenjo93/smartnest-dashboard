@@ -1,3 +1,4 @@
+import { haptic } from "./haptic";
 /**
  * Tap vs long-press on one element. Long-press fires after 450ms (Apple Home timing feels close to this)
  * and swallows the click that follows. Moving more than 10px cancels both, so scrolling stays scrolling.
@@ -18,7 +19,7 @@ export function bindPress(el: HTMLElement, onTap: () => void, onLong: () => void
     clear();
     timer = window.setTimeout(() => {
       longFired = true;
-      navigator.vibrate?.(8);
+      haptic("press");
       onLong();
     }, 450);
   };

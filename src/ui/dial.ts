@@ -1,5 +1,6 @@
 import { LitElement, css, html, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { haptic } from "./haptic";
 
 const START = 135; // degrees, the arc opens at the bottom
 const SWEEP = 270;
@@ -117,7 +118,7 @@ export class SnDial extends LitElement {
 
   private set(v: number) {
     if (v === this.drag) return; // stepped: most moves don't change the value, so nothing to redraw
-    if (this.drag !== undefined) navigator.vibrate?.(4);
+    if (this.drag !== undefined) haptic("tick");
     this.drag = v;
   }
 

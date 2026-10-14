@@ -15,8 +15,9 @@ import { autoPlace, isAreaName } from "../autofill";
 import { fxRow } from "../lightfx";
 import "../ai-features";
 import "../ui/entity-picker";
+import { haptic } from "../ui/haptic";
 
-type MapMode = "off" | "temp" | "humidity" | "co2";
+type MapMode = "off" | "temp" | "humidity" | "co2" | "power";
 
 
 interface Drag {
@@ -680,6 +681,12 @@ export class SnFloorplan extends LitElement {
       .hit polygon:active {
         fill: color-mix(in srgb, var(--accent) 14%, transparent);
       }
+      .sunlight {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        transition: background 2s;
+      }
       .heat {
         position: absolute;
         inset: 0;
@@ -876,7 +883,7 @@ export class SnFloorplan extends LitElement {
     super.connectedCallback();
     try {
       const saved = localStorage.getItem(this.heatKey);
-      this.heat = saved === "1" ? "temp" : saved === "temp" || saved === "humidity" || saved === "co2" ? saved : "off";
+      this.heat = saved === "1" ? "temp" : saved === "temp" || saved === "humidity" || saved === "co2" || saved === "power" ? saved : "off";
       this.tilt = localStorage.getItem(`${this.heatKey}-3d`) === "1";
     } catch {
       /* per-device preference only */
@@ -1125,7 +1132,7 @@ export class SnFloorplan extends LitElement {
       y: e.clientY,
       timer: window.setTimeout(() => {
         this.press = undefined;
-        navigator.vibrate?.(8);
+        haptic("press");
         this.ctx.openEntity(m.entity, this.markerEl(m));
       }, 450),
     };
@@ -1178,7 +1185,7 @@ export class SnFloorplan extends LitElement {
   private tap(m: Marker) {
     const e = this.ctx.hass.states[m.entity];
     if (!e || e.state === "unavailable" || tapKind(m.entity) === "sheet") return this.ctx.openEntity(m.entity, this.markerEl(m));
-    navigator.vibrate?.(5);
+    haptic("tap");
     runTap(this.ctx.hass, e).catch(() => (this.ctx.toast(this.ctx.t("error")), this.requestUpdate()));
     this.requestUpdate();
     window.setTimeout(() => this.requestUpdate(), GUESS_MS + 50);
@@ -1369,10 +1376,12 @@ export class SnFloorplan extends LitElement {
           const cls = e.attributes.device_class;
           if (mode === "temp") return domainOf(m.entity) === "climate" ? Number(e.attributes.current_temperature) : cls === "temperature" ? Number(e.state) : NaN;
           if (mode === "humidity") return domainOf(m.entity) === "climate" ? Number(e.attributes.current_humidity) : cls === "humidity" ? Number(e.state) : NaN;
+          if (mode === "power") return cls === "power" ? Number(e.state) * (e.attributes.unit_of_measurement === "kW" ? 1000 : 1) : NaN;
           return cls === "carbon_dioxide" ? Number(e.state) : NaN;
         })
         .filter((v) => !Number.isNaN(v));
-      if (vals.length) out.set(r.id, vals.reduce((x, y) => x + y, 0) / vals.length);
+      // Power adds up across a room's devices; the others are an average of its sensors.
+      if (vals.length) out.set(r.id, vals.reduce((x, y) => x + y, 0) / (mode === "power" ? 1 : vals.length));
     }
     return out;
   }
@@ -1382,6 +1391,7 @@ export class SnFloorplan extends LitElement {
     if (!this.ctx.allows("heat_map")) return [];
     const modes: Exclude<MapMode, "off">[] = ["temp"];
     if (this.ctx.allows("air_maps")) modes.push("humidity", "co2");
+    modes.push("power");
     return modes.filter((m) => this.roomValues(floor, m).size > 0);
   }
 
@@ -1392,6 +1402,8 @@ export class SnFloorplan extends LitElement {
     humidity: [[25, [233, 151, 29]], [45, [47, 181, 122]], [70, [24, 188, 242]]],
     // Fresh green → stuffy gold → open-a-window coral.
     co2: [[450, [47, 181, 122]], [1000, [233, 151, 29]], [1500, [242, 107, 104]]],
+    // Quiet green → busy gold → heavy coral (an oven, a heater).
+    power: [[20, [47, 181, 122]], [600, [233, 151, 29]], [2000, [242, 107, 104]]],
   };
 
   private mapColor(mode: Exclude<MapMode, "off">, t: number): string {
@@ -1410,7 +1422,7 @@ export class SnFloorplan extends LitElement {
 
   private renderHeat(floor: Floor, mode: Exclude<MapMode, "off">) {
     const vals = this.roomValues(floor, mode);
-    const unit = mode === "temp" ? "°" : mode === "humidity" ? "%" : " ppm";
+    const unit = mode === "temp" ? "°" : mode === "humidity" ? "%" : mode === "power" ? " W" : " ppm";
     return (floor.rooms ?? []).map((r) => {
       const v = vals.get(r.id);
       if (v === undefined) return nothing;
@@ -1418,6 +1430,31 @@ export class SnFloorplan extends LitElement {
       return html`<div class="heat" style="clip-path:${clipPath(r.points)};background-color:${this.mapColor(mode, v)};opacity:${this.ctx.dark ? 0.42 : 0.34}"></div>
         <span class="heat-label" style="left:${cx}%;top:${cy}%">${formatNumber(v, this.ctx.lang, mode === "temp" ? 1 : 0)}${unit}</span>`;
     });
+  }
+
+  // ---- sunlight ----
+
+  /**
+   * Daylight falls across the plan from where the sun really is (sun.sun azimuth and elevation): warm and low in the
+   * morning and evening, white and soft at noon, nothing at night. "north" in the widget settings turns it to match how
+   * the plan is drawn (0 = north is up).
+   */
+  private renderSun() {
+    const { ctx } = this;
+    if (!ctx.allows("sun_on_plan") || ctx.config.settings.motion === "off") return nothing;
+    const sun = ctx.hass.states["sun.sun"];
+    const az = Number(sun?.attributes.azimuth);
+    const el = Number(sun?.attributes.elevation);
+    if (!sun || Number.isNaN(az) || Number.isNaN(el) || el <= 0) return nothing;
+    // Light comes FROM the sun: the gradient starts on the sun's side of the plan.
+    const toward = (az + 180 - Number(this.widget.config.north ?? 0) + 360) % 360;
+    const low = Math.max(0, 1 - el / 35); // 1 near the horizon, 0 high up
+    const warm = `rgba(255, ${Math.round(190 + 40 * (1 - low))}, ${Math.round(120 + 100 * (1 - low))}, ${((ctx.dark ? 0.22 : 0.16) + 0.14 * low).toFixed(2)})`;
+    return html`<div
+      class="sunlight"
+      aria-hidden="true"
+      style="background:linear-gradient(${toward}deg, ${warm} 0%, transparent ${Math.round(55 + 25 * (1 - low))}%);mix-blend-mode:${ctx.dark ? "screen" : "soft-light"}"
+    ></div>`;
   }
 
   // ---- family on the plan ----
@@ -2150,7 +2187,7 @@ export class SnFloorplan extends LitElement {
                     save();
                   }}
                 >
-                  <sn-icon icon=${mode === "humidity" ? "humidity" : mode === "co2" ? "co2" : "thermometer"}></sn-icon>
+                  <sn-icon icon=${mode === "humidity" ? "humidity" : mode === "co2" ? "co2" : mode === "power" ? "lightning-bolt" : "thermometer"}></sn-icon>
                 </button>`
               : nothing}
             ${ctx.allows("plan_model") && floor.rooms?.length
@@ -2223,6 +2260,7 @@ export class SnFloorplan extends LitElement {
                   this.measure();
                 }}
               />
+              ${!ctx.editing && !mode ? this.renderSun() : nothing}
               ${mode && !ctx.editing ? this.renderHeat(floor, mode) : ctx.allows("room_glow") ? this.renderGlow(floor, stage.w) : nothing}
               ${!ctx.editing && floor.rooms?.length
                 ? html`<svg class="hit" viewBox="0 0 100 100" preserveAspectRatio="none">

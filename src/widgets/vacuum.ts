@@ -8,6 +8,7 @@ import { entityName, formatNumber, ltr, stateLabel } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
 import { watchVisible } from "../ui/visible";
+import { haptic } from "../ui/haptic";
 
 // Roborock part lifetimes in hours (the integration reports time left, not a percentage).
 export const PARTS: { key: string; label: I18nKey; life: number }[] = [
@@ -438,12 +439,12 @@ export class SnVacuum extends LitElement {
   }
 
   private toggleRoom(id: string) {
-    navigator.vibrate?.(5);
+    haptic("tap");
     this.picked = this.picked.includes(id) ? this.picked.filter((x) => x !== id) : [...this.picked, id];
   }
 
   private call(domain: string, service: string, data: Record<string, any> = {}) {
-    navigator.vibrate?.(8);
+    haptic("press");
     return this.ctx.hass.callService(domain, service, { entity_id: this.entity, ...data }).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 

@@ -7,6 +7,7 @@ import { domainOf, entityName } from "../entities";
 import { dashboardEntities } from "../chips";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 interface Check {
   key: I18nKey;
@@ -141,7 +142,7 @@ export class SnCheck extends LitElement {
   }
 
   private fixAll(checks: Check[]) {
-    navigator.vibrate?.(10);
+    haptic("press");
     Promise.all(checks.filter((c) => c.bad.length && c.fix).map((c) => c.fix!())).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 

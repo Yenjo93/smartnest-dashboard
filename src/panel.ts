@@ -27,6 +27,7 @@ import "./ui/skeleton";
 import { setSounds } from "./sounds";
 import { setStill } from "./motion";
 import "./flair";
+import "./rainglass";
 import { monogram, seasonNow } from "./flair";
 import { snapshotUrl } from "./widgets/camera";
 import "./ui/empty";
@@ -48,6 +49,7 @@ import { buildChips, chipSheet, dashboardEntities } from "./chips";
 import { rolling } from "./ui/num";
 import { spring } from "./ui/spring";
 import { allows, type Plan } from "./plans";
+import { haptic } from "./ui/haptic";
 
 /** Settings, page and widget editors: loaded the first time they're opened. */
 const editors = () => import("./editors");
@@ -332,6 +334,43 @@ export class SmartNestPanel extends LitElement {
   private peopleSeen?: Record<string, string>;
   /** Light ripples from lamps switched on. */
   @state() private waves: { id: number; x: number; y: number; color: string }[] = [];
+  // ---- tilt (2.0, full motion, on tablets and phones that report it) ----
+  private tiltOn = false;
+  private tiltBase?: { b: number; g: number };
+  private tiltFrame = 0;
+
+  private onTilt = (e: DeviceOrientationEvent) => {
+    if (e.beta == null || e.gamma == null) return;
+    // Relative to how the tablet was held when the dashboard opened (a wall tablet is upright, a phone in the hand isn't).
+    this.tiltBase ??= { b: e.beta, g: e.gamma };
+    const clamp = (v: number) => Math.max(-12, Math.min(12, v));
+    const x = clamp((e.gamma - this.tiltBase.g) * 0.6);
+    const y = clamp((e.beta - this.tiltBase.b) * 0.6);
+    if (this.tiltFrame) return;
+    this.tiltFrame = requestAnimationFrame(() => {
+      this.tiltFrame = 0;
+      const app = this.renderRoot.querySelector<HTMLElement>(".app");
+      app?.style.setProperty("--tilt-x", `${(-x).toFixed(1)}px`);
+      app?.style.setProperty("--tilt-y", `${(-y).toFixed(1)}px`);
+    });
+  };
+
+  private syncTilt(want: boolean) {
+    // iOS asks for permission first; there it stays off rather than popping a prompt.
+    const free = "DeviceOrientationEvent" in window && typeof (DeviceOrientationEvent as any).requestPermission !== "function";
+    const on = want && free && matchMedia("(pointer: coarse)").matches;
+    if (on === this.tiltOn) return;
+    this.tiltOn = on;
+    if (on) window.addEventListener("deviceorientation", this.onTilt);
+    else {
+      window.removeEventListener("deviceorientation", this.onTilt);
+      this.tiltBase = undefined;
+      const app = this.renderRoot.querySelector<HTMLElement>(".app");
+      app?.style.removeProperty("--tilt-x");
+      app?.style.removeProperty("--tilt-y");
+    }
+  }
+
   private onWave = (e: Event) => {
     if (!this.pro || this.lite || this.current?.settings.motion === "off") return;
     const d = (e as CustomEvent).detail as { x: number; y: number; color: string };
@@ -502,6 +541,14 @@ export class SmartNestPanel extends LitElement {
         background-size: cover;
         background-position: center;
         filter: blur(18px) saturate(1.15);
+        /* Tilt the tablet and the background shifts a little behind the cards: depth. */
+        translate: var(--tilt-x, 0px) var(--tilt-y, 0px);
+        transition: translate 400ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      sn-weather-bg,
+      .leaks {
+        translate: calc(var(--tilt-x, 0px) * 0.6) calc(var(--tilt-y, 0px) * 0.6);
+        transition: translate 400ms cubic-bezier(0.22, 1, 0.36, 1);
       }
       .wall::after {
         content: "";
@@ -886,6 +933,48 @@ export class SmartNestPanel extends LitElement {
           transform: rotate(360deg);
         }
       }
+      .undo {
+        position: fixed;
+        bottom: 96px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 91;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 8px 8px 18px;
+        border-radius: 999px;
+        background: var(--text);
+        color: var(--bg);
+        font-weight: 500;
+        box-shadow: var(--shadow-lift);
+        animation: dock-in 420ms var(--spring);
+        overflow: hidden;
+        max-width: calc(100vw - 32px);
+      }
+      .undo button {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 14px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font: 700 14px var(--font);
+        cursor: pointer;
+      }
+      /* How long the chance lasts, as a line running out along the bottom. */
+      .undo i {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 3px;
+        background: var(--accent);
+        transform-origin: left;
+        animation: undo-left linear forwards;
+      }
+      @keyframes undo-left {
+        to {
+          transform: scaleX(0);
+        }
+      }
       .toast {
         position: fixed;
         bottom: 96px;
@@ -995,6 +1084,46 @@ export class SmartNestPanel extends LitElement {
   }
 
   private scrollRest?: number;
+  @state() private undo?: { label: string; until: number };
+  private undoTimer?: number;
+
+  private async undoable(ids: string[], label: string, act: () => Promise<unknown>) {
+    // Home Assistant's own snapshot scene: it brings back each light's brightness and colour, each blind's position.
+    const snap = ids.length
+      ? await this.hass.callService("scene", "create", { scene_id: "smartnest_undo", snapshot_entities: ids }).then(
+          () => true,
+          () => false
+        )
+      : false;
+    try {
+      await act();
+    } catch {
+      this.toast(translator(this.uiLang)("error"));
+      return;
+    }
+    if (!snap) return;
+    window.clearTimeout(this.undoTimer);
+    this.undo = { label, until: Date.now() + 6000 };
+    this.undoTimer = window.setTimeout(() => (this.undo = undefined), 6000);
+  }
+
+  private renderUndo() {
+    if (!this.undo) return nothing;
+    const t = translator(this.uiLang);
+    return html`<div class="undo" role="status">
+      <span>${this.undo.label}</span>
+      <button
+        @click=${() => {
+          this.hass.callService("scene", "turn_on", { entity_id: "scene.smartnest_undo" }).catch(() => this.toast(t("error")));
+          window.clearTimeout(this.undoTimer);
+          this.undo = undefined;
+        }}
+      >
+        ${t("undo")}
+      </button>
+      <i style="animation-duration:${Math.max(0, this.undo.until - Date.now())}ms"></i>
+    </div>`;
+  }
   /** The link to Home Assistant: up, lost (reconnecting), or just back. */
   @state() private link: "up" | "lost" | "back" = "up";
   private linkConn?: Hass["connection"];
@@ -1045,6 +1174,7 @@ export class SmartNestPanel extends LitElement {
     window.clearInterval(this.renewTimer);
     window.clearInterval(this.licTimer);
     window.removeEventListener("scroll", this.onScroll, { capture: true });
+    this.syncTilt(false);
     window.clearTimeout(this.scrollRest);
     document.removeEventListener("visibilitychange", this.recheckLicense);
     this.stopLight?.();
@@ -1423,6 +1553,7 @@ export class SmartNestPanel extends LitElement {
       showSheet: (spec) => this.pushSheet(spec),
       closeSheet: () => (this.sheets = this.sheets.slice(0, -1)),
       toast: (m) => this.toast(m),
+      undoable: (ids, label, act) => this.undoable(ids, label, act),
       cinematic: (mode) => {
         this.sleeping = false;
         if (allows(this.lic.plan, "cinematic")) this.scene = mode;
@@ -1499,7 +1630,7 @@ export class SmartNestPanel extends LitElement {
       main.style.opacity = "";
     };
     if (target && (Math.abs(s.dx) > 90 || Math.abs(velocity) > 0.45)) {
-      navigator.vibrate?.(6);
+      haptic("tap");
       // A fast flick leaves faster.
       const out = Math.max(110, Math.min(200, 160 / Math.max(1, Math.abs(velocity) * 1.5)));
       main
@@ -1617,6 +1748,7 @@ export class SmartNestPanel extends LitElement {
       this.stopLight = undefined;
     }
     vars["--breathe"] = pro && motion === "full" && allows(this.lic.plan, "breathing") ? "block" : "none";
+    this.syncTilt(pro && motion === "full" && !this.lite && allows(this.lic.plan, "tilt"));
     if (this.lite) {
       // Fast mode: solid cards instead of live blur (the biggest cost on tablets), and nothing moving on its own.
       Object.assign(vars, {
@@ -2170,6 +2302,15 @@ export class SmartNestPanel extends LitElement {
     </div>`;
   }
 
+  /** 2.0: drops on the glass while it rains outside. */
+  private renderRainGlass(ctx: Ctx) {
+    if (!this.pro || this.lite || ctx.editing || ctx.config.settings.motion !== "full" || !ctx.allows("rain_glass")) return nothing;
+    const id = ctx.config.settings.weather.entity;
+    const s = id ? this.hass.states[id]?.state : undefined;
+    if (!s || !["rainy", "pouring", "lightning-rainy", "snowy-rainy"].includes(s)) return nothing;
+    return html`<sn-rainglass ?heavy=${s === "pouring" || s === "lightning-rainy"}></sn-rainglass>`;
+  }
+
   private renderWeather(ctx: Ctx) {
     if (this.lite) return nothing;
     const w = ctx.config.settings.weather;
@@ -2229,6 +2370,7 @@ export class SmartNestPanel extends LitElement {
         : nothing}
       ${this.pro && !this.lite ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
+      ${this.renderRainGlass(ctx)}
       ${this.renderBar(ctx)}
       ${page
         ? repeat(
@@ -2304,6 +2446,7 @@ export class SmartNestPanel extends LitElement {
               this.checkMorning();
             }}></sn-screensaver>` : nothing}
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
+      ${this.renderUndo()}
       ${this.link !== "up"
         ? html`<div class="link ${this.link}" role="status">
             ${this.link === "back" ? html`<sn-icon icon="check" style="--icon-size:16px"></sn-icon>${ctx.t("link_back")}` : html`<i></i>${ctx.t("link_lost")}`}

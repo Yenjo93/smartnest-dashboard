@@ -6,6 +6,7 @@ import type { I18nKey } from "./i18n";
 import { MODES, MODE_SELECT, modeScript } from "./widgets/modes";
 import "./ui/icon";
 import { tariffNow } from "./tou";
+import { haptic } from "./ui/haptic";
 
 export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel" | "appliance" | "arrival" | "outage" | "tou";
 export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
@@ -147,7 +148,7 @@ export function chipSheet(ctx: Ctx, type: ChipType) {
           ? html`<button
               class="btn primary pressable"
               @click=${() => {
-                navigator.vibrate?.(10);
+                haptic("press");
                 const ids = chip.entities;
                 const call = chip.bulk === "lock" ? c.hass.callService("lock", "lock", { entity_id: ids }) : c.hass.callService("homeassistant", "turn_off", { entity_id: ids });
                 call.catch(() => c.toast(c.t("error")));

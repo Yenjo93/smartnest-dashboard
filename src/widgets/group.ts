@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { areaOf, entityIcon, entityName, formatNumber, isActive, ltr } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 
 function members(ctx: Ctx, domain: "light" | "cover", w: Widget): string[] {
@@ -165,8 +166,11 @@ export class SnGroup extends LitElement {
 
   private call(service: string, ids: string[]) {
     if (!ids.length) return;
-    navigator.vibrate?.(6);
-    this.ctx.hass.callService(this.domain, service, { entity_id: ids }).catch(() => this.ctx.toast(this.ctx.t("error")));
+    haptic("tap");
+    const run = () => this.ctx.hass.callService(this.domain, service, { entity_id: ids });
+    // Several at once can be put back for a few seconds; a single one is a tap away anyway.
+    if (ids.length > 1 && service !== "stop_cover") this.ctx.undoable(ids, this.ctx.t("undo_n", { n: ids.length }), run);
+    else run().catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 
   render() {

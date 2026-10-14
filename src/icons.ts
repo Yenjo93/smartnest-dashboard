@@ -1,5 +1,9 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiDotsHorizontal,
+  mdiBrightness7,
+  mdiBrightness6,
+  mdiBrightness5,
   mdiEyeOff,
   mdiArrowDown,
   mdiArrowUp,
@@ -389,6 +393,11 @@ export const ICONS: Record<string, string> = {
   "arrow-up": mdiArrowUp,
   "arrow-down": mdiArrowDown,
   "eye-off": mdiEyeOff,
+  "brightness-5": mdiBrightness5,
+  "brightness-6": mdiBrightness6,
+  "brightness-7": mdiBrightness7,
+  "timer-outline": mdiTimerOutline,
+  "dots-horizontal": mdiDotsHorizontal,
 };
 
 /** Icons offered when naming a page. */

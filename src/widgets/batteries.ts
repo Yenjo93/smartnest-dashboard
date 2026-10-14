@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { entityName, formatNumber, ltr } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import "../ui/num";
 
 /** Every battery in the house, emptiest first: no more guessing which sensor died. */
 export function batteries(ctx: Ctx) {
@@ -116,7 +117,7 @@ export class SnBatteries extends LitElement {
             (b) => html`<div class="row ${b.level <= low ? "low" : b.level <= low * 2 ? "mid" : ""}" @click=${() => ctx.openEntity(b.id, this)}>
               <b>${entityName(hass, config, b.id)}</b>
               <span class="bar"><i style="width:${Math.max(3, Math.min(100, b.level))}%"></i></span>
-              <span class="pct ltr">${ltr(`${formatNumber(b.level, lang, 0)}%`)}</span>
+              <span class="pct ltr"><sn-num .value=${`${formatNumber(b.level, lang, 0)}%`}></sn-num></span>
             </div>`
           )
         : html`<sn-empty text=${t("no_entities")}></sn-empty>`}

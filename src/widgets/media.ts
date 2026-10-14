@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 // MediaPlayerEntityFeature bits
 const PAUSE = 1;
@@ -122,7 +123,7 @@ export class SnMedia extends LitElement {
   }
 
   private call(service: string, data: Record<string, unknown> = {}) {
-    navigator.vibrate?.(5);
+    haptic("tap");
     this.ctx.hass.callService("media_player", service, { entity_id: this.entity, ...data }).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 

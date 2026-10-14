@@ -6,6 +6,7 @@ import { entityIcon, entityName, formatNumber, isNumericSensor, ltr } from "../e
 import { shared } from "../theme";
 import "../ui/icon";
 import "../ui/chart";
+import "../ui/num";
 
 interface Pt {
   t: number;
@@ -117,7 +118,7 @@ export class SnSensor extends LitElement {
     const num = isNumericSensor(e);
     return html`<div class="card glass" @click=${() => ctx.openEntity(id, this)}>
       <span class="name"><sn-icon .icon=${entityIcon(e, id)} style="--icon-size:18px"></sn-icon>${entityName(hass, config, id)}</span>
-      <span class="v ltr">${num ? formatNumber(Number(e.state), lang) : e.state} <small>${unit}</small></span>
+      <span class="v ltr"><sn-num .value=${num ? formatNumber(Number(e.state), lang) : e.state}></sn-num> <small>${unit}</small></span>
       <div class="ch">${num && this.pts.length > 1 ? html`<sn-chart .points=${this.pts} unit=${unit} .lang=${lang} .color=${this.widget.config.color ?? "var(--accent)"}></sn-chart>` : nothing}</div>
     </div>`;
   }

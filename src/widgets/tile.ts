@@ -1,5 +1,5 @@
 import { LitElement, css, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
 import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKind, domainOf, seen, GUESS_MS } from "../entities";
@@ -9,14 +9,21 @@ import { playUi } from "../sounds";
 import "../ui/icon";
 import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
+import { openRadial } from "../ui/radial";
+import { haptic } from "../ui/haptic";
 
-/** One device, Apple Home style: tap toggles, long-press opens the detail sheet. */
+const QUICK = ["light", "cover", "switch", "fan", "input_boolean", "climate", "media_player"];
+
+/** One device, Apple Home style: tap toggles, long-press opens its quick actions; press and slide dims a light. */
 @customElement("sn-w-tile")
 export class SnTile extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
   private unbind?: () => void;
   private prevState?: string;
+  /** Brightness while sliding a finger along a light (0–100), shown as a fill across the tile. */
+  @state() private dim?: number;
+  private slide?: { id: number; x: number; y: number; from: number; armed: boolean; on: boolean; timer?: number; w: number };
 
   static styles = [
     shared,
@@ -123,12 +130,115 @@ export class SnTile extends LitElement {
       .tile.off-line {
         opacity: 0.55;
       }
+      /* Press and slide on a light: the tile fills with its brightness. */
+      .dim {
+        position: absolute;
+        inset: 0;
+        transform-origin: var(--from, left);
+        background: color-mix(in srgb, var(--tone, var(--accent)) 35%, transparent);
+        pointer-events: none;
+      }
+      .dimv {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+        inset-inline-end: 14px;
+        top: 10px;
+        font-size: 15px;
+      }
+      .tile.armed {
+        transform: scale(0.97);
+        transition: transform 160ms var(--ease-out);
+      }
     `,
   ];
 
   private bind() {
     const el = this.renderRoot.querySelector<HTMLElement>(".tile");
-    if (el && !this.unbind) this.unbind = bindPress(el, () => this.tap(), () => this.ctx.openEntity(this.widget.config.entity, el));
+    if (el && !this.unbind) {
+      const off = bindPress(el, () => this.tap(), () => this.long(el));
+      el.addEventListener("pointerdown", this.slideDown);
+      el.addEventListener("pointermove", this.slideMove);
+      el.addEventListener("pointerup", this.slideUp);
+      el.addEventListener("pointercancel", this.slideUp);
+      this.unbind = () => {
+        off();
+        el.removeEventListener("pointerdown", this.slideDown);
+        el.removeEventListener("pointermove", this.slideMove);
+        el.removeEventListener("pointerup", this.slideUp);
+        el.removeEventListener("pointercancel", this.slideUp);
+      };
+    }
+  }
+
+  private long(el: HTMLElement) {
+    if (this.ctx.editing || this.slide?.on) return;
+    const id = this.widget.config.entity as string;
+    const e = this.ctx.hass.states[id];
+    if (e && e.state !== "unavailable" && QUICK.includes(domainOf(id))) openRadial(this.ctx, id, el);
+    else this.ctx.openEntity(id, el);
+  }
+
+  private dimmable() {
+    const id = this.widget.config.entity as string;
+    const modes: string[] = this.ctx.hass.states[id]?.attributes.supported_color_modes ?? [];
+    return domainOf(id) === "light" && modes.some((m) => m !== "onoff");
+  }
+
+  // ---- press and slide to dim ----
+  // Hold a moment (so a swipe between pages or a scroll still works), then slide sideways: brightness follows.
+  private slideDown = (e: PointerEvent) => {
+    if (e.button !== 0 || this.ctx.editing || !this.dimmable()) return;
+    const ent = this.ctx.hass.states[this.widget.config.entity];
+    const from = ent?.state === "on" ? Math.round(((ent.attributes.brightness ?? 255) / 255) * 100) : 0;
+    const s = { id: e.pointerId, x: e.clientX, y: e.clientY, from, armed: false, on: false, w: (e.currentTarget as HTMLElement).offsetWidth } as NonNullable<SnTile["slide"]>;
+    s.timer = window.setTimeout(() => {
+      s.armed = true;
+      (e.target as HTMLElement).closest(".tile")?.classList.add("armed");
+    }, 260);
+    this.slide = s;
+  };
+
+  private slideMove = (e: PointerEvent) => {
+    const s = this.slide;
+    if (!s || e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x;
+    if (!s.armed) {
+      if (Math.hypot(dx, e.clientY - s.y) > 10) this.endSlide(e.currentTarget as HTMLElement);
+      return;
+    }
+    if (!s.on) {
+      if (Math.abs(dx) < 6) return;
+      s.on = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      // The page under the finger mustn't take this as a swipe.
+      this.dispatchEvent(new CustomEvent("sn-cancel-swipe", { bubbles: true, composed: true }));
+      haptic("tick");
+    }
+    const dir = this.ctx.rtl ? -1 : 1;
+    const v = Math.round(Math.min(100, Math.max(0, s.from + ((dx * dir) / Math.max(120, s.w)) * 100)));
+    if (this.dim !== undefined && Math.floor(v / 10) !== Math.floor(this.dim / 10)) haptic("tick");
+    this.dim = v;
+  };
+
+  private slideUp = (e: PointerEvent) => {
+    const s = this.slide;
+    if (!s || e.pointerId !== s.id) return;
+    const v = this.dim;
+    this.endSlide(e.currentTarget as HTMLElement);
+    if (s.on && v !== undefined) {
+      const id = this.widget.config.entity as string;
+      const call = v === 0 ? this.ctx.hass.callService("light", "turn_off", { entity_id: id }) : this.ctx.hass.callService("light", "turn_on", { entity_id: id, brightness_pct: v });
+      call.catch(() => this.ctx.toast(this.ctx.t("error")));
+    }
+  };
+
+  private endSlide(el: HTMLElement) {
+    window.clearTimeout(this.slide?.timer);
+    el.classList.remove("armed");
+    this.slide = undefined;
+    // Keep the fill for a beat so the change doesn't flicker before Home Assistant reports it.
+    if (this.dim !== undefined) window.setTimeout(() => (this.dim = undefined), 600);
   }
 
   protected firstUpdated() {
@@ -157,7 +267,7 @@ export class SnTile extends LitElement {
     const id = this.widget.config.entity as string;
     const e = this.ctx.hass.states[id];
     if (!e || e.state === "unavailable" || tapKind(id) === "sheet") return this.ctx.openEntity(id, this.renderRoot.querySelector(".tile") ?? undefined);
-    navigator.vibrate?.(5);
+    haptic("tap");
     // A light coming on sends a ripple of its colour across the screen (2.0).
     if (domainOf(id) === "light" && !isActive(e) && this.ctx.allows("light_wave")) {
       const r = this.getBoundingClientRect();
@@ -185,6 +295,9 @@ export class SnTile extends LitElement {
         tabindex="0"
         aria-pressed=${on}
       >
+        ${this.dim !== undefined
+          ? html`<div class="dim" style="transform:scaleX(${this.dim / 100});--from:${this.ctx.rtl ? "right" : "left"}"></div><b class="dimv ltr">${this.dim}%</b>`
+          : ""}
         <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, id)}></sn-icon></span>
         <span class="text">
           <span class="name">${entityName(ctx.hass, ctx.config, id)}</span>

@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 type Key = "up" | "down" | "left" | "right" | "ok" | "back" | "home" | "vol_up" | "vol_down" | "mute";
 
@@ -110,7 +111,7 @@ export class SnRemote extends LitElement {
     const id = this.widget.config.entity as string;
     const platform = hass.entities?.[id]?.platform ?? "androidtv_remote";
     const map = KEYMAPS[platform] ?? KEYMAPS.androidtv_remote;
-    navigator.vibrate?.(4);
+    haptic("tick");
     const call =
       platform === "webostv"
         ? hass.callService("webostv", "button", { entity_id: id, button: map[key] })

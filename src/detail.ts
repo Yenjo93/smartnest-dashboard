@@ -21,6 +21,7 @@ import "./ui/color-wheel";
 import "./widgets/vacuum";
 import "./ui/pinpad";
 import { countdown } from "./daily";
+import { haptic } from "./ui/haptic";
 
 type LightTab = "brightness" | "color" | "temp";
 const COLOR_MODES = ["hs", "xy", "rgb", "rgbw", "rgbww"];
@@ -292,7 +293,7 @@ export class SnEntityDetail extends LitElement {
   }
 
   private call(domain: string, service: string, data: Record<string, any> = {}) {
-    navigator.vibrate?.(5);
+    haptic("tap");
     this.ctx.hass.callService(domain, service, { entity_id: this.entityId, ...data }).catch(() => this.ctx.toast(this.ctx.t("error")));
   }
 
@@ -654,7 +655,7 @@ export class SnEntityDetail extends LitElement {
               this.ctx.hass
                 .callWS<{ due: string }>({ type: "smartnest/timer/set", entity_id: e.entity_id, minutes: m })
                 .then((r) => {
-                  navigator.vibrate?.(6);
+                  haptic("tap");
                   this.timerDue = r.due;
                 })
                 .catch(() => this.ctx.toast(t("error")))}

@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { domainOf, entityIcon, entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 /** Scenes and scripts as big buttons: "movie night", "guests", "all off". */
 export function sceneList(ctx: Ctx, chosen?: string[]): string[] {
@@ -84,8 +85,11 @@ export class SnScenes extends LitElement {
   }
 
   private run(id: string) {
-    navigator.vibrate?.(8);
-    this.ctx.hass.callService(domainOf(id), "turn_on", { entity_id: id }).catch(() => this.ctx.toast(this.ctx.t("error")));
+    haptic("press");
+    const ids: string[] = id.startsWith("scene.") ? this.ctx.hass.states[id]?.attributes.entity_id ?? [] : [];
+    const run = () => this.ctx.hass.callService(domainOf(id), "turn_on", { entity_id: id });
+    if (ids.length) this.ctx.undoable(ids, entityName(this.ctx.hass, this.ctx.config, id), run);
+    else run().catch(() => this.ctx.toast(this.ctx.t("error")));
     this.done = id;
     window.clearTimeout(this.timer);
     this.timer = window.setTimeout(() => (this.done = ""), 1600);

@@ -4,6 +4,7 @@ import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 export const PANIC_SCRIPT = "script.smartnest_panic";
 
@@ -104,7 +105,7 @@ export class SnPanic extends LitElement {
     if (this.ctx.editing) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     this.holding = true;
-    navigator.vibrate?.(10);
+    haptic("press");
     this.timer = window.setTimeout(() => this.fire(), 2000);
   }
 

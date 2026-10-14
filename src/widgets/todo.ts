@@ -6,6 +6,7 @@ import type { Widget } from "../types";
 import { entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 interface Item {
   uid: string;
@@ -127,7 +128,7 @@ export class SnTodo extends LitElement {
   }
 
   private toggle(it: Item) {
-    navigator.vibrate?.(5);
+    haptic("tap");
     this.ctx.hass
       .callService("todo", "update_item", { entity_id: this.entity, item: it.uid, status: it.status === "completed" ? "needs_action" : "completed" })
       .catch(() => this.ctx.toast(this.ctx.t("error")));

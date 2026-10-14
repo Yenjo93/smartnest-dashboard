@@ -54,6 +54,7 @@ import "./widgets/chores";
 import "./widgets/wake";
 import "./widgets/water";
 import "./widgets/consumers";
+import { haptic } from "./ui/haptic";
 
 interface Gesture {
   id: string;
@@ -267,6 +268,26 @@ export class SnPageGrid extends LitElement {
     `,
   ];
 
+  /** Opening a page: its cards arrive one after another, top to bottom, instead of all at once. */
+  protected firstUpdated() {
+    const { ctx } = this;
+    if (ctx.editing || ctx.config.settings.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cells = [...this.renderRoot.querySelectorAll<HTMLElement>(".cell")];
+    const order = cells
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter((c) => c.r.top < window.innerHeight) // only what's on screen; the rest is simply there when scrolled to
+      .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left);
+    order.slice(0, 16).forEach(({ el }, i) =>
+      el.animate(
+        [
+          { opacity: 0, transform: "translateY(18px) scale(0.97)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { duration: 460, delay: i * 38, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }
+      )
+    );
+  }
+
   protected willUpdate() {
     this.toggleAttribute("rtl", this.ctx.rtl);
     // FLIP, step 1: remember where every widget was before this render.
@@ -314,7 +335,7 @@ export class SnPageGrid extends LitElement {
     const { col, row } = this.pointerCell(e);
     this.gesture = { id: w.id, mode, pointerId: e.pointerId, offCol: col - w.x, offRow: row - w.y };
     this.preview = this.page.widgets.map((x) => ({ ...x }));
-    navigator.vibrate?.(6);
+    haptic("tap");
   }
 
   private move(e: PointerEvent) {

@@ -429,6 +429,13 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
                 )}
               </div>
             </div>`,
+            c.allows("sun_on_plan")
+              ? html`<label class="field"
+                  >${t("plan_north")}
+                  <input type="number" min="0" max="359" step="5" .value=${String(w.config.north ?? 0)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.north = (Number(e.target.value) || 0) % 360))} />
+                  <span class="hint">${t("plan_north_hint")}</span>
+                </label>`
+              : nothing,
             html`<p class="muted" style="margin:0;font-size:14px">${t("drag_hint")}</p>`
           );
         default:

@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import type { I18nKey } from "../i18n";
 import { shared } from "../theme";
 import "../ui/icon";
+import { haptic } from "../ui/haptic";
 
 export const MODES: { id: string; icon: string; label: I18nKey }[] = [
   { id: "away", icon: "leave", label: "mode_away" },
@@ -77,7 +78,7 @@ export class SnModes extends LitElement {
 
   private run(id: string) {
     if (this.ctx.editing) return;
-    navigator.vibrate?.(10);
+    haptic("press");
     this.ctx.hass.callService("script", "turn_on", { entity_id: modeScript(id) }).catch(() => this.ctx.toast(this.ctx.t("error")));
     this.ctx.cinematic(id);
   }

@@ -938,6 +938,15 @@ const en = {
   hidden_done: "Hidden. Bring it back in Settings → Hidden devices",
   link_lost: "Reconnecting to the house…",
   link_back: "Connected",
+  radial_warm: "Warm",
+  radial_cool: "Cool",
+  radial_off_in: "{n} min",
+  radial_more: "More",
+  radial_timer_set: "Turns off in {n} min",
+  undo: "Undo",
+  undo_n: "{n} devices changed",
+  plan_north: "Which way is north (degrees)",
+  plan_north_hint: "0 when north is at the top of the plan, 90 when it's on the right. The sunlight on the plan follows it.",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1880,6 +1889,15 @@ const ar: Record<I18nKey, string> = {
   hidden_done: "انحجب. بترجّعه من الإعدادات ← أجهزة مخفية",
   link_lost: "عم يرجع يتصل بالبيت…",
   link_back: "رجع الاتصال",
+  radial_warm: "دافي",
+  radial_cool: "بارد",
+  radial_off_in: "{n} دقيقة",
+  radial_more: "المزيد",
+  radial_timer_set: "بيطفي بعد {n} دقيقة",
+  undo: "رجوع",
+  undo_n: "تغيّروا {n} أجهزة",
+  plan_north: "وين الشمال (بالدرجات)",
+  plan_north_hint: "0 إذا الشمال فوق بالمخطط، 90 إذا على اليمين. ضو الشمس على المخطط بيمشي حسبه.",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2820,6 +2838,15 @@ const he: Record<I18nKey, string> = {
   hidden_done: "הוסתר. אפשר להחזיר בהגדרות ← מכשירים מוסתרים",
   link_lost: "מתחבר מחדש לבית…",
   link_back: "מחובר",
+  radial_warm: "חם",
+  radial_cool: "קר",
+  radial_off_in: "{n} דק'",
+  radial_more: "עוד",
+  radial_timer_set: "ייכבה בעוד {n} דק'",
+  undo: "בטל",
+  undo_n: "{n} מכשירים השתנו",
+  plan_north: "לאן הצפון (מעלות)",
+  plan_north_hint: "0 כשהצפון למעלה בתוכנית, 90 כשהוא מימין. אור השמש בתוכנית לפי זה.",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };
