@@ -101,14 +101,37 @@ export class SnVSlider extends LitElement {
     }
   `;
 
+  /** How far past either end the finger went (0..1), for the rubber-band stretch. */
+  @state() private over = 0;
+
   private from(e: PointerEvent) {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    return Math.round(Math.min(1, Math.max(0, (r.bottom - e.clientY) / r.height)) * 100);
+    const raw = (r.bottom - e.clientY) / r.height;
+    this.over = raw > 1 ? Math.min(1, (raw - 1) * 2) : raw < 0 ? -Math.min(1, -raw * 2) : 0;
+    return Math.round(Math.min(1, Math.max(0, raw)) * 100);
   }
 
   private set(v: number | undefined) {
+    // A light tick every 10%, like a physical detent.
+    if (v !== undefined && this.drag !== undefined && Math.floor(v / 10) !== Math.floor(this.drag / 10)) navigator.vibrate?.(3);
     this.drag = v;
     this.onPreview?.(v);
+  }
+
+  /** On release the pill settles with a little spring. */
+  private settle(track: HTMLElement) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const o = this.over;
+    this.over = 0;
+    track.animate(
+      [
+        { transform: `scale(1.04, ${1 + Math.abs(o) * 0.05})` },
+        { transform: "scale(0.985, 0.99)", offset: 0.45 },
+        { transform: "scale(1.006, 1.004)", offset: 0.75 },
+        { transform: "none" },
+      ],
+      { duration: 520, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+    );
   }
 
   render() {
@@ -118,7 +141,9 @@ export class SnVSlider extends LitElement {
     const iconOnFill = !thumbMode && v > 12;
     return html`<div
       class="track ${this.drag !== undefined ? "dragging" : ""}"
-      style=${thumbMode ? `background:${this.track}` : ""}
+      style="${thumbMode ? `background:${this.track};` : ""}${this.drag !== undefined && this.over
+        ? `transform:scale(1.04, ${1 + Math.abs(this.over) * 0.05});transform-origin:${this.over > 0 ? "bottom" : "top"}`
+        : ""}"
       role="slider"
       tabindex="0"
       aria-label=${this.label}
@@ -130,8 +155,9 @@ export class SnVSlider extends LitElement {
         this.set(this.from(e));
       }}
       @pointermove=${(e: PointerEvent) => this.drag !== undefined && this.set(this.from(e))}
-      @pointerup=${() => {
+      @pointerup=${(e: PointerEvent) => {
         const val = this.drag;
+        this.settle(e.currentTarget as HTMLElement);
         this.set(undefined);
         if (val !== undefined) this.onCommit?.(val);
       }}

@@ -848,6 +848,10 @@ const en = {
   nav_style: "Pages",
   nav_tabs: "Tabs in the bar",
   nav_dock: "Floating dock",
+  search_placeholder: "Search devices, pages, modes…",
+  search_page: "Page",
+  search_open: "Open",
+  search_none: "Nothing found",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1700,6 +1704,10 @@ const ar: Record<I18nKey, string> = {
   nav_style: "الصفحات",
   nav_tabs: "تبويبات بالبار",
   nav_dock: "Dock عائم",
+  search_placeholder: "دوّر على جهاز، صفحة، أو وضع…",
+  search_page: "صفحة",
+  search_open: "افتح",
+  search_none: "ما لقيت إشي",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2550,6 +2558,10 @@ const he: Record<I18nKey, string> = {
   nav_style: "דפים",
   nav_tabs: "לשוניות בסרגל",
   nav_dock: "Dock צף",
+  search_placeholder: "חפש מכשירים, דפים, מצבים…",
+  search_page: "דף",
+  search_open: "פתח",
+  search_none: "לא נמצא",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

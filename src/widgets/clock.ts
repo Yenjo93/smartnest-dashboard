@@ -3,8 +3,9 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
 import { LOCALE } from "../i18n";
-import { formatNumber, ltr, shortValue } from "../entities";
-import { countdown, greetingKey, greetingName, nextPrayer, todayForecast, weatherIcon, type DayForecast } from "../daily";
+import { domainOf, formatNumber, ltr, shortValue } from "../entities";
+import { dashboardEntities } from "../chips";
+import { countdown, greetingKey, greetingName, nextPrayer, prayerTimes, todayForecast, weatherIcon, type DayForecast } from "../daily";
 import { shared } from "../theme";
 import { currentSeason } from "../season";
 import "../season";
@@ -105,6 +106,38 @@ export class SnClock extends LitElement {
       .pill .muted {
         font-weight: 400;
       }
+      .comps {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      .comp {
+        position: relative;
+        display: grid;
+        justify-items: center;
+        gap: 2px;
+        width: 54px;
+      }
+      .comp svg {
+        width: 48px;
+        height: 48px;
+      }
+      .comp svg circle:last-child {
+        transition: stroke-dasharray 900ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .comp b {
+        position: absolute;
+        top: 14px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .comp span {
+        font-size: 10px;
+        color: var(--text-2);
+        white-space: nowrap;
+      }
     `,
   ];
 
@@ -151,6 +184,46 @@ export class SnClock extends LitElement {
     </span>`;
   }
 
+  /** Watch-face complications: small rings for inside temperature, humidity, power and the next prayer. */
+  private renderComplications() {
+    const { ctx } = this;
+    if (!ctx.allows("complications") || this.widget.w < 4) return nothing;
+    const { hass, config, lang, t } = ctx;
+    const ids = dashboardEntities(config);
+    const find = (cls: string) =>
+      (config.settings.screensaver.temp_entity && cls === "temperature" ? hass.states[config.settings.screensaver.temp_entity] : undefined) ??
+      ids.map((id) => hass.states[id]).find((e) => e && domainOf(e.entity_id) === "sensor" && e.attributes.device_class === cls && !/out|خارج/.test(e.entity_id));
+    const temp = find("temperature");
+    const hum = find("humidity");
+    const power = config.settings.power_entity ? hass.states[config.settings.power_entity] : undefined;
+    const next = config.settings.prayer ? prayerTimes(hass).find((p) => p.at > this.now) : undefined;
+    const items: { v: string; frac: number; color: string; label: string }[] = [];
+    if (temp) items.push({ v: `${formatNumber(Number(temp.state), lang, 0)}°`, frac: (Number(temp.state) - 10) / 25, color: "#ff8a3d", label: t("hero_inside") });
+    if (hum) items.push({ v: `${formatNumber(Number(hum.state), lang, 0)}%`, frac: Number(hum.state) / 100, color: "#3a9bff", label: t("air_humidity") });
+    if (power) {
+      const w = Number(power.state) * (power.attributes.unit_of_measurement === "kW" ? 1000 : 1);
+      items.push({ v: w >= 1000 ? `${formatNumber(w / 1000, lang, 1)}k` : formatNumber(w, lang, 0), frac: w / Math.max(1, config.settings.power_limit ?? 6000), color: "#e9971d", label: "W" });
+    }
+    if (next) {
+      const mins = Math.max(0, Math.round((next.at.getTime() - this.now.getTime()) / 60_000));
+      items.push({ v: mins >= 60 ? `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, "0")}` : `${mins}′`, frac: 1 - Math.min(1, mins / 360), color: "#2bb673", label: t(`p_${next.id}` as any) });
+    }
+    if (!items.length) return nothing;
+    const C = 2 * Math.PI * 20;
+    return html`<div class="comps">
+      ${items.slice(0, 4).map(
+        (x) => html`<div class="comp">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="20" fill="none" stroke="var(--surface-2)" stroke-width="4"></circle>
+            <circle cx="24" cy="24" r="20" fill="none" stroke=${x.color} stroke-width="4" stroke-linecap="round" stroke-dasharray="${C * Math.min(1, Math.max(0.02, x.frac))} ${C}" transform="rotate(-90 24 24)"></circle>
+          </svg>
+          <b class="ltr">${x.v}</b>
+          <span>${x.label}</span>
+        </div>`
+      )}
+    </div>`;
+  }
+
   render() {
     const { ctx } = this;
     const loc = LOCALE[ctx.lang];
@@ -160,7 +233,7 @@ export class SnClock extends LitElement {
       const tempId = ctx.config.settings.screensaver.temp_entity;
       const temp = tempId ? ctx.hass.states[tempId] : undefined;
       return html`<div class="card glass">
-        ${time} ${date} ${temp ? html`<div class="temp"><sn-icon icon="thermometer"></sn-icon>${shortValue(ctx.t, temp, ctx.lang)}</div>` : nothing}
+        ${time} ${date} ${ctx.allows("complications") && this.widget.w >= 4 ? this.renderComplications() : temp ? html`<div class="temp"><sn-icon icon="thermometer"></sn-icon>${shortValue(ctx.t, temp, ctx.lang)}</div>` : nothing}
       </div>`;
     }
     const name = greetingName(ctx.hass, ctx.config.settings.greeting_name);
@@ -172,6 +245,7 @@ export class SnClock extends LitElement {
       </div>
       <div>${time} ${date}</div>
       <div class="pills">${this.renderWeather()} ${this.renderPrayer()}</div>
+      ${this.renderComplications()}
     </div>`;
   }
 }

@@ -11,6 +11,8 @@ import type { I18nKey } from "./i18n";
 import "./ui/icon";
 import { fxRow } from "./lightfx";
 import { guestCodesSheet } from "./codes";
+import "./ui/dial";
+import "./ui/chart";
 import { laterButton } from "./tou";
 import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
@@ -409,7 +411,22 @@ export class SnEntityDetail extends LitElement {
     };
     const modes: string[] = e.attributes.hvac_modes ?? [];
     return html`
-      ${typeof target === "number" && e.state !== "off"
+      ${typeof target === "number" && e.state !== "off" && this.ctx.allows("dial")
+        ? html`<sn-dial
+            .value=${target}
+            .min=${min}
+            .max=${max}
+            .step=${step}
+            .current=${typeof e.attributes.current_temperature === "number" ? e.attributes.current_temperature : undefined}
+            .mode=${e.state === "heat" || e.attributes.hvac_action === "heating" ? "heat" : e.state === "auto" || e.state === "heat_cool" ? "auto" : "cool"}
+            label=${hasKey(e.state) ? t(e.state as any) : e.state}
+            .onCommit=${(v: number) => {
+              this.pendingTemp = v;
+              this.call("climate", "set_temperature", { temperature: v });
+              window.setTimeout(() => (this.pendingTemp = undefined), 1500);
+            }}
+          ></sn-dial>`
+        : typeof target === "number" && e.state !== "off"
         ? html`<div class="temp">
             <button class="icon-btn pressable" aria-label="-" @click=${() => bump(-step)}><sn-icon icon="minus"></sn-icon></button>
             <span class="value ltr">${formatNumber(target, lang)}°</span>
@@ -588,6 +605,11 @@ export class SnEntityDetail extends LitElement {
     for (let i = 1; i < pts.length; i++) d += ` H${X(pts[i].t)} V${Y(pts[i].v)}`;
     d += ` H300`;
     const unit = e.attributes.unit_of_measurement ?? "";
+    if (this.ctx.allows("charts"))
+      return html`<div class="chart">
+        <div class="sub">${t("history_24h")}</div>
+        <sn-chart .points=${pts} unit=${unit} .lang=${lang}></sn-chart>
+      </div>`;
     return html`<div class="chart">
       <div class="sub">${t("history_24h")}</div>
       <svg viewBox="0 0 300 100" preserveAspectRatio="none" class="ltr">

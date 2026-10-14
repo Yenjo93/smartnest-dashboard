@@ -24,6 +24,7 @@ import { tourDone, type TourStep } from "./tour";
 import { ambientColor, followLight, midnightVars, proVars, registerAnimatedVars, type Material } from "./pro";
 import "./tour";
 import "./island";
+import "./search";
 import { photoDropSheet } from "./business";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
@@ -235,6 +236,14 @@ export class SmartNestPanel extends LitElement {
     }
   })();
   @state() private touring = false;
+  @state() private searching = false;
+  /** Cmd/Ctrl+K opens search, like Spotlight. */
+  private onSearchKey = (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && this.current && allows(this.lic.plan, "search")) {
+      e.preventDefault();
+      this.searching = !this.searching;
+    }
+  };
   /** Hands-free voice on this screen. */
   @state() private voice = voiceOn();
   private overSnooze = 0;
@@ -696,12 +705,14 @@ export class SmartNestPanel extends LitElement {
     this.mql.addEventListener("change", this.onScheme);
     this.ticker = window.setInterval(() => this.tick(), 10_000);
     registerAnimatedVars();
+    window.addEventListener("keydown", this.onSearchKey);
     this.stopLight = followLight(this);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this.stopLight?.();
+    window.removeEventListener("keydown", this.onSearchKey);
     window.removeEventListener("pointerdown", this.onActivity, { capture: true });
     window.removeEventListener("keydown", this.onActivity, { capture: true });
     window.removeEventListener("resize", this.onResize);
@@ -1294,6 +1305,11 @@ export class SmartNestPanel extends LitElement {
               <sn-icon icon="airplane" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
+        ${!this.kids && ctx.allows("search") && !ctx.editing
+          ? html`<button class="icon-btn pressable" aria-label=${t("search")} title="${t("search")} (⌘K)" @click=${() => (this.searching = true)}>
+              <sn-icon icon="magnify" style="--icon-size:20px"></sn-icon>
+            </button>`
+          : nothing}
         ${!this.kids && ctx.allows("assistant") && !ctx.editing
           ? html`<button
               class="icon-btn pressable"
@@ -1702,6 +1718,9 @@ export class SmartNestPanel extends LitElement {
               this.overSnooze = Date.now() + 10 * 60_000;
             }}
           ></sn-overload>`
+        : nothing}
+      ${this.searching
+        ? html`<sn-search .ctx=${ctx} .onClose=${() => (this.searching = false)} .onPage=${(id: string) => this.tabClick(ctx, id)}></sn-search>`
         : nothing}
       ${this.touring ? html`<sn-tour .ctx=${ctx} .steps=${this.tourSteps()} .onDone=${() => (this.touring = false)}></sn-tour>` : nothing}
       ${this.useDock(ctx) && !this.kids ? this.renderPageDock(ctx) : nothing}
