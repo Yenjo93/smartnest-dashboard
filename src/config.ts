@@ -33,6 +33,8 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   schedule: { w: 12, h: 6, minW: 6, minH: 4 },
   media: { w: 6, h: 5, minW: 4, minH: 4 },
   remote: { w: 4, h: 8, minW: 3, minH: 6 },
+  irrigation: { w: 6, h: 6, minW: 4, minH: 5 },
+  boiler: { w: 6, h: 5, minW: 4, minH: 4 },
   air: { w: 6, h: 4, minW: 4, minH: 3 },
   chores: { w: 6, h: 7, minW: 4, minH: 5 },
   wake: { w: 6, h: 4, minW: 4, minH: 3 },
@@ -68,6 +70,10 @@ export function defaultSettings(lang: Lang): Settings {
     travel: { off: [], lights: [], arm: true, simulate: true },
     emergency: { police: "100", contacts: [] },
     installer: {},
+    appliances: [],
+    night_path: { motion: [], lights: [], brightness: 10, minutes: 3, from: "23:00", to: "06:00" },
+    arrival: { climate: [], lights: [], km: 5 },
+    outage: { shed: [] },
   };
 }
 
@@ -262,6 +268,10 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.travel = { ...base.travel, ...(raw?.settings?.travel ?? {}) };
   settings.emergency = { ...base.emergency, ...(raw?.settings?.emergency ?? {}) };
   settings.installer = { ...(raw?.settings?.installer ?? {}) };
+  settings.appliances = Array.isArray(raw?.settings?.appliances) ? raw.settings.appliances : [];
+  settings.night_path = { ...base.night_path, ...(raw?.settings?.night_path ?? {}) };
+  settings.arrival = { ...base.arrival, ...(raw?.settings?.arrival ?? {}) };
+  settings.outage = { ...base.outage, ...(raw?.settings?.outage ?? {}) };
   return { version: 1, settings, names: { ...(raw?.names ?? {}) }, pages: Array.isArray(raw?.pages) ? raw.pages : [] };
 }
 

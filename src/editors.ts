@@ -299,6 +299,8 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "wake", icon: "weather-sunset-up" },
   { type: "chores", icon: "star" },
   { type: "air", icon: "leaf" },
+  { type: "boiler", icon: "water-boiler" },
+  { type: "irrigation", icon: "sprinkler" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -703,6 +705,7 @@ export function settingsSheet(
             )
           : nothing,
         c.allows("travel") ? travelSettings(c, set) : nothing,
+        c.allows("home_helpers") ? helpersSettings(c, set) : nothing,
         c.allows("support")
           ? section(
               t("installer"),
@@ -950,5 +953,87 @@ function travelSettings(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void)
         ${notify.map((n) => html`<option value=${n} ?selected=${s.notify === n}>${n}</option>`)}
       </select>
     </label>`
+  );
+}
+
+/** Pick several devices: a grid of toggles. */
+function pickMany(c: Ctx, list: string[], chosen: string[], onToggle: (id: string, on: boolean) => void) {
+  if (!list.length) return html`<span class="muted" style="font-size:13px">${c.t("no_entities")}</span>`;
+  return html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+    ${list.map((id) => {
+      const on = chosen.includes(id);
+      return html`<button class="btn pressable ${on ? "primary" : ""}" style="justify-content:flex-start;font-weight:500" aria-pressed=${on} @click=${() => onToggle(id, !on)}>
+        <sn-icon icon=${on ? "check" : "close"} style="--icon-size:18px"></sn-icon>${entityName(c.hass, c.config, id)}
+      </button>`;
+    })}
+  </div>`;
+}
+
+const toggled = (list: string[], id: string, on: boolean) => (on ? [...new Set([...list, id])] : list.filter((x) => x !== id));
+
+/** The ready-made helpers that run on the hub: appliance finished, night path, arrival, power cut. */
+function helpersSettings(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void) {
+  const { t, hass, config } = c;
+  const s = config.settings;
+  const all = Object.values(hass.states);
+  const ids = (domain: string, cls?: string[]) =>
+    all.filter((e) => e.entity_id.startsWith(`${domain}.`) && (!cls || cls.includes(e.attributes.device_class))).map((e) => e.entity_id);
+  const power = ids("sensor", ["power"]).sort((a, b) => Number(/wash|dry|dish|غسال|نشاف|جلاي/i.test(entityName(hass, config, b) + b)) - Number(/wash|dry|dish|غسال|نشاف|جلاي/i.test(entityName(hass, config, a) + a)));
+  const proximity = all.filter((e) => e.entity_id.endsWith("_direction_of_travel")).length;
+  const sub = (title: string, hint: I18nKey, ...items: unknown[]) => html`<div style="display:grid;gap:8px;padding:12px;border-radius:var(--r-md);background:var(--surface-2)">
+    <b>${title}</b><span class="muted" style="font-size:13px">${t(hint)}</span>${items}
+  </div>`;
+  return section(
+    t("helpers"),
+    sub(
+      t("h_appliances"),
+      "h_appliances_hint",
+      pickMany(
+        c,
+        power.slice(0, 24),
+        s.appliances.map((a) => a.power),
+        (id, on) =>
+          set((d) => {
+            d.settings.appliances = on
+              ? [...d.settings.appliances, { power: id, name: entityName(hass, config, id).replace(/\s*(power|استهلاك|consumption)\s*/gi, " ").trim() }]
+              : d.settings.appliances.filter((a) => a.power !== id);
+          })
+      )
+    ),
+    sub(
+      t("h_night_path"),
+      "h_night_path_hint",
+      pickMany(c, ids("binary_sensor", ["motion", "occupancy", "presence"]), s.night_path.motion, (id, on) => set((d) => (d.settings.night_path.motion = toggled(d.settings.night_path.motion, id, on)))),
+      pickMany(c, ids("light"), s.night_path.lights, (id, on) => set((d) => (d.settings.night_path.lights = toggled(d.settings.night_path.lights, id, on)))),
+      row(
+        html`<span>${t("from")}</span>`,
+        html`<input type="time" style="width:auto" .value=${s.night_path.from} @change=${(e: any) => set((d) => (d.settings.night_path.from = e.target.value))} />`,
+        html`<span>${t("to")}</span>`,
+        html`<input type="time" style="width:auto" .value=${s.night_path.to} @change=${(e: any) => set((d) => (d.settings.night_path.to = e.target.value))} />`,
+        html`<span>${t("brightness")}</span>`,
+        html`<input type="number" min="1" max="100" style="width:80px" .value=${String(s.night_path.brightness)} @change=${(e: any) => set((d) => (d.settings.night_path.brightness = Number(e.target.value) || 10))} />`
+      )
+    ),
+    sub(
+      t("h_arrival"),
+      proximity ? "h_arrival_hint" : "h_arrival_missing",
+      pickMany(c, ids("climate"), s.arrival.climate, (id, on) => set((d) => (d.settings.arrival.climate = toggled(d.settings.arrival.climate, id, on)))),
+      pickMany(c, ids("light"), s.arrival.lights, (id, on) => set((d) => (d.settings.arrival.lights = toggled(d.settings.arrival.lights, id, on)))),
+      row(
+        html`<span>${t("h_arrival_km")}</span>`,
+        html`<input type="number" min="1" max="50" style="width:80px" .value=${String(s.arrival.km)} @change=${(e: any) => set((d) => (d.settings.arrival.km = Number(e.target.value) || 5))} />`
+      )
+    ),
+    sub(
+      t("h_outage"),
+      "h_outage_hint",
+      entityField(c, t("h_outage_sensor"), s.outage.sensor, { domains: ["binary_sensor", "sensor"] }, (id) => set((d) => (d.settings.outage.sensor = id)), true),
+      pickMany(
+        c,
+        [...ids("switch"), ...ids("climate"), ...ids("water_heater")].filter((id) => !hass.entities?.[id]?.entity_category),
+        s.outage.shed,
+        (id, on) => set((d) => (d.settings.outage.shed = toggled(d.settings.outage.shed, id, on)))
+      )
+    )
   );
 }

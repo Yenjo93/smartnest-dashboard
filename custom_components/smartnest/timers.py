@@ -51,7 +51,10 @@ class Timers:
         self._unsub.pop(entity_id, None)
         await self._save()
         try:
-            await self.hass.services.async_call("homeassistant", "turn_off", {"entity_id": entity_id}, blocking=False)
+            if entity_id.startswith("valve."):
+                await self.hass.services.async_call("valve", "close_valve", {"entity_id": entity_id}, blocking=False)
+            else:
+                await self.hass.services.async_call("homeassistant", "turn_off", {"entity_id": entity_id}, blocking=False)
         except Exception as err:  # noqa: BLE001 - a failed timer must not crash the integration
             _LOGGER.warning("SmartNest timer for %s failed: %s", entity_id, err)
 

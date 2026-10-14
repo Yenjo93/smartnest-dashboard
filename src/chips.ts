@@ -6,7 +6,7 @@ import type { I18nKey } from "./i18n";
 import { MODES, MODE_SELECT, modeScript } from "./widgets/modes";
 import "./ui/icon";
 
-export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel";
+export type ChipType = "mode" | "alert" | "unlocked" | "open" | "lights" | "climate" | "motion" | "power" | "package" | "travel" | "appliance" | "arrival" | "outage";
 export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "mode", label: "widget_modes" },
   { id: "alert", label: "chip_t_alert" },
@@ -18,6 +18,9 @@ export const CHIP_TYPES: { id: ChipType; label: I18nKey }[] = [
   { id: "power", label: "chip_t_power" },
   { id: "package", label: "chip_t_package" },
   { id: "travel", label: "travel" },
+  { id: "appliance", label: "h_appliances" },
+  { id: "arrival", label: "h_arrival" },
+  { id: "outage", label: "h_outage" },
 ];
 
 export interface Chip {
@@ -62,6 +65,33 @@ export function buildChips(ctx: Ctx): Chip[] {
     return (id.startsWith("binary_sensor.") && e.state === "on") || (id.startsWith("sensor.") && Number(e.state) > 0);
   });
   if (parcels.length && ctx.allows("package")) chips.push({ type: "package", icon: "package", label: t("chip_package"), tone: "accent", entities: parcels.map((e) => e.entity_id) });
+
+  // The power is out (battery or generator running the house).
+  const out = config.settings.outage?.sensor ? hass.states[config.settings.outage.sensor] : undefined;
+  if (out && ctx.allows("home_helpers")) {
+    const v = Number(out.state);
+    const down = domainOf(out.entity_id) === "binary_sensor" ? out.state === "off" : !Number.isNaN(v) && v < (config.settings.outage.below ?? 50);
+    if (down) chips.push({ type: "outage", icon: "power-plug-off", label: t("chip_outage"), tone: "alert", entities: [out.entity_id] });
+  }
+
+  // A washer or dishwasher in the middle of a cycle.
+  for (const a of config.settings.appliances ?? []) {
+    const w = Number(hass.states[a.power]?.state);
+    if (!Number.isNaN(w) && w >= (a.start_w ?? 15) && ctx.allows("home_helpers"))
+      chips.push({ type: "appliance", icon: "washing-machine", label: t("chip_running", { name: a.name }), tone: "neutral", entities: [a.power] });
+  }
+
+  // Someone on the way home (the Proximity integration): "back in ~12 min".
+  if (ctx.allows("home_helpers"))
+    for (const dir of Object.values(hass.states).filter((e) => e.entity_id.endsWith("_direction_of_travel") && e.state === "towards")) {
+      const base = dir.entity_id.replace(/_direction_of_travel$/, "");
+      const dist = hass.states[`${base}_distance`];
+      const km = Number(dist?.state) / (dist?.attributes.unit_of_measurement === "m" ? 1000 : 1);
+      if (!dist || Number.isNaN(km) || km > 40 || km < 0.3) continue;
+      const person = Object.values(hass.states).find((p) => p.entity_id.startsWith("person.") && base.endsWith(p.entity_id.split(".")[1]));
+      const who = person?.attributes.friendly_name ?? String(dist.attributes.friendly_name ?? "").replace(/distance|home|المسافة/gi, "").trim();
+      chips.push({ type: "arrival", icon: "car", label: t("chip_arriving", { name: who, n: Math.max(1, Math.round(km / 0.6)) }), tone: "cool", entities: [dist.entity_id] });
+    }
 
   const mode = hass.states[MODE_SELECT]?.state;
   const m = MODES.find((x) => x.id === mode);

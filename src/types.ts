@@ -109,6 +109,14 @@ export interface Settings {
   travel: { off: string[]; lights: string[]; notify?: string; arm: boolean; simulate: boolean };
   /** Who installed this house: the client's "something's wrong" button messages them. */
   installer: { name?: string; phone?: string };
+  /** Washer, dryer, dishwasher: announced when their power meter says the cycle ended. */
+  appliances: { power: string; name: string; start_w?: number; quiet_min?: number }[];
+  /** At night, motion lights a dim path. */
+  night_path: { motion: string[]; lights: string[]; brightness: number; minutes: number; from: string; to: string };
+  /** Someone heading home: cool the house, and light it after dark. */
+  arrival: { climate: string[]; lights: string[]; km: number };
+  /** Grid lost (battery or generator takes over): turn off the heavy loads. */
+  outage: { sensor?: string; shed: string[]; below?: number };
   /** Numbers on the alarm screen. */
   emergency: { police: string; contacts: { name: string; phone: string }[] };
 }
@@ -121,7 +129,9 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "water"
   | "wake"
   | "chores"
-  | "air";
+  | "air"
+  | "boiler"
+  | "irrigation";
 
 export interface Widget {
   id: string;

@@ -73,6 +73,9 @@ add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", un
 add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.washing_machine_power", "455", { friendly_name: "الغسالة استهلاك", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.home_abu_mohammad_distance", "7.4", { friendly_name: "Home Abu Mohammad Distance", unit_of_measurement: "km", device_class: "distance" }));
+add(ent("sensor.home_abu_mohammad_direction_of_travel", "towards", { friendly_name: "Home Abu Mohammad Direction of travel" }));
 add(ent("sensor.tesla_battery", "78", { friendly_name: "بطارية السيارة", unit_of_measurement: "%", device_class: "battery" }));
 add(ent("lock.tesla_doors", "locked", { friendly_name: "أبواب السيارة" }));
 add(ent("switch.tesla_charger", "off", { friendly_name: "شاحن السيارة" }));

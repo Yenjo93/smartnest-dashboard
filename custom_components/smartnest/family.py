@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake")
+KEYS = ("chores", "wake", "boiler", "irrigation")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
@@ -55,6 +55,87 @@ class Family:
 
     @callback
     def _minute(self, now: datetime) -> None:
+        self._boiler(now)
+        self._irrigation(now)
+        self._wake(now)
+
+    # ---- water heater ----
+
+    def _switch(self, entity_id: str, on: bool) -> None:
+        domain = entity_id.split(".")[0]
+        if domain == "valve":
+            self.hass.async_create_task(self.hass.services.async_call("valve", "open_valve" if on else "close_valve", {"entity_id": entity_id}))
+        else:
+            self.hass.async_create_task(self.hass.services.async_call("homeassistant", "turn_on" if on else "turn_off", {"entity_id": entity_id}))
+
+    def _boiler(self, now: datetime) -> None:
+        b = self.data.get("boiler") or {}
+        entity = b.get("entity")
+        if not entity:
+            return
+        heat = int(b.get("heat_minutes") or 40)
+        keep = int(b.get("keep_minutes") or 20)
+        hm = now.strftime("%H:%M")
+        weekday = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][now.weekday()]
+        for plan in b.get("plans", []):
+            if not plan.get("on") or not plan.get("at") or (plan.get("days") and weekday not in plan["days"]):
+                continue
+            h, m = (int(x) for x in plan["at"].split(":"))
+            ready = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            if hm == (ready - timedelta(minutes=heat)).strftime("%H:%M"):
+                self._switch(entity, True)
+                self.hass.async_create_task(self.async_set("boiler", {**b, "ready_at": ready.timestamp(), "until": (ready + timedelta(minutes=keep)).timestamp()}))
+                return
+        until = b.get("until")
+        if until and now.timestamp() >= until:
+            self._switch(entity, False)
+            self.hass.async_create_task(self.async_set("boiler", {**b, "until": None, "ready_at": None}))
+
+    # ---- irrigation that skips rainy days ----
+
+    def _irrigation(self, now: datetime) -> None:
+        ir = self.data.get("irrigation") or {}
+        if not ir.get("on") or not ir.get("entity") or ir.get("at") != now.strftime("%H:%M"):
+            return
+        weekday = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][now.weekday()]
+        if ir.get("days") and weekday not in ir["days"]:
+            return
+        self.hass.async_create_task(self._water(ir, now))
+
+    async def _water(self, ir: dict[str, Any], now: datetime) -> None:
+        if ir.get("skip_rain", True) and (reason := await self._rain_coming()):
+            await self.async_set("irrigation", {**ir, "last": {"date": now.date().isoformat(), "skipped": True, "reason": reason}})
+            self.hass.bus.async_fire("smartnest_irrigation_skipped", {"reason": reason})
+            if self.hass.services.has_service(DOMAIN, "show_message"):
+                await self.hass.services.async_call(DOMAIN, "show_message", {"message": f"🌧️ {reason}", "icon": "weather-pouring"})
+            return
+        minutes = int(ir.get("minutes") or 15)
+        self._switch(ir["entity"], True)
+        await self.async_set("irrigation", {**ir, "last": {"date": now.date().isoformat(), "skipped": False, "until": now.timestamp() + minutes * 60}})
+        await asyncio.sleep(minutes * 60)
+        self._switch(ir["entity"], False)
+
+    async def _rain_coming(self) -> str | None:
+        """Rain today or tomorrow, from the weather entity the dashboard uses."""
+        cfg = (self.hass.data.get(DOMAIN) or {}).get("config") or {}
+        weather = ((cfg.get("settings") or {}).get("weather") or {}).get("entity")
+        if not weather:
+            return None
+        try:
+            res = await self.hass.services.async_call("weather", "get_forecasts", {"entity_id": weather, "type": "daily"}, blocking=True, return_response=True)
+        except Exception:  # noqa: BLE001
+            return None
+        days = ((res or {}).get(weather) or {}).get("forecast") or []
+        for day in days[:2]:
+            mm = day.get("precipitation") or 0
+            pct = day.get("precipitation_probability") or 0
+            if mm >= 2 or pct >= 60:
+                return f"rain: {mm} mm, {pct}%"
+        return None
+
+    # ---- wake-up light ----
+
+    def _wake(self, now: datetime) -> None:
         for alarm in (self.data.get("wake") or {}).get("alarms", []):
             if not alarm.get("on") or not alarm.get("light") or not alarm.get("time"):
                 continue

@@ -1,6 +1,6 @@
 import type { Hass } from "./types";
 
-export type KvKey = "chores" | "wake";
+export type KvKey = "chores" | "wake" | "boiler" | "irrigation";
 
 /** Family data on the hub (chores, wake-up lights): anyone can change it from the wall, every screen sees it live. */
 export async function loadKv<T>(hass: Hass, key: KvKey): Promise<T | undefined> {
