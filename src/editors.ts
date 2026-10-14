@@ -13,6 +13,8 @@ import { guessBill } from "./widgets/energy-stats";
 import { healthSheet } from "./health";
 import { planFor, widgetFeature } from "./plans";
 import { automationsSheet } from "./automations";
+import { exportConfig, importConfig, rateSheet } from "./installer";
+import { uid } from "./config";
 import "./ui/entity-picker";
 import "./ui/icon";
 
@@ -90,6 +92,8 @@ const ENTITY_FILTERS: Partial<Record<WidgetType, EntityFilter>> = {
   todo: { domains: ["todo"] },
   gauge: { domains: ["sensor"] },
   gate: { domains: ["cover"] },
+  media: { domains: ["media_player"] },
+  remote: { domains: ["remote", "media_player"] },
 };
 
 function editWidget(ctx: Ctx, widgetId: string, fn: (w: Widget, d: DashboardConfig) => void) {
@@ -110,6 +114,8 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
         case "tile":
         case "camera":
         case "vacuum":
+        case "media":
+        case "remote":
           return col(
             entityField(c, t("entity"), w.config.entity, ENTITY_FILTERS[w.type] ?? {}, (id) =>
               editWidget(c, widgetId, (x) => (x.config.entity = id))
@@ -269,6 +275,8 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "gate", icon: "gate" },
   { type: "frigate", icon: "cctv" },
   { type: "schedule", icon: "schedule" },
+  { type: "media", icon: "speaker" },
+  { type: "remote", icon: "television" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -293,7 +301,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
           class="glass pressable"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${() => {
-            if (["tile", "camera", "vacuum", "gauge", "gate"].includes(choice.type)) {
+            if (["tile", "camera", "vacuum", "gauge", "gate", "media", "remote"].includes(choice.type)) {
               c.showSheet({
                 title: c.t("choose_entity"),
                 render: (c2) => html`<sn-entity-picker
@@ -698,6 +706,77 @@ export function settingsSheet(
               </button>`
             : nothing
         ),
+        c.allows("broadcast")
+          ? section(
+              t("speakers"),
+              html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+                ${Object.keys(c.hass.states)
+                  .filter((id) => id.startsWith("media_player."))
+                  .map((id) => {
+                    const on = s.speakers.includes(id);
+                    return html`<button
+                      class="btn pressable ${on ? "primary" : ""}"
+                      style="justify-content:flex-start;font-weight:500"
+                      @click=${() => set((d) => (d.settings.speakers = on ? d.settings.speakers.filter((x) => x !== id) : [...d.settings.speakers, id]))}
+                    >
+                      <sn-icon icon=${on ? "check" : "speaker"} style="--icon-size:18px"></sn-icon>${entityName(c.hass, c.config, id)}
+                    </button>`;
+                  })}
+              </div>`
+            )
+          : nothing,
+        c.allows("maintenance")
+          ? section(
+              t("maintenance"),
+              ...s.maintenance.map(
+                (m, i) => html`<div style="display:flex;gap:8px;align-items:center">
+                  <span style="flex:1">${m.title}</span>
+                  <span class="muted ltr" style="font-size:13px">${m.every_days}d</span>
+                  <button class="btn pressable" style="min-height:34px;font-size:13px" @click=${() => set((d) => (d.settings.maintenance[i].last = new Date().toISOString()))}>
+                    ${t("m_done")}
+                  </button>
+                  <button class="icon-btn small pressable" aria-label=${t("delete")} @click=${() => set((d) => d.settings.maintenance.splice(i, 1))}>
+                    <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+                  </button>
+                </div>`
+              ),
+              html`<form
+                style="display:flex;gap:8px;flex-wrap:wrap"
+                @submit=${(e: SubmitEvent) => {
+                  e.preventDefault();
+                  const f = e.currentTarget as HTMLFormElement;
+                  const title = (f.elements.namedItem("title") as HTMLInputElement).value.trim();
+                  const every = Number((f.elements.namedItem("every") as HTMLInputElement).value) || 90;
+                  if (!title) return;
+                  set((d) => d.settings.maintenance.push({ id: uid(), title, every_days: every, last: new Date().toISOString() }));
+                  f.reset();
+                }}
+              >
+                <input name="title" type="text" placeholder=${t("m_title")} style="flex:2;min-width:160px" />
+                <input name="every" type="number" min="1" placeholder=${t("m_every")} style="flex:1;min-width:90px" />
+                <button class="btn primary pressable" type="submit">${t("add")}</button>
+              </form>`
+            )
+          : nothing,
+        section(
+          t("transfer"),
+          html`<div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn pressable" @click=${() => exportConfig(c.config)}><sn-icon icon="export" style="--icon-size:18px"></sn-icon>${t("export_config")}</button>
+            <label class="btn pressable" style="cursor:pointer">
+              <sn-icon icon="import" style="--icon-size:18px"></sn-icon>${t("import_config")}
+              <input
+                type="file"
+                accept="application/json,.json"
+                style="display:none"
+                @change=${(e: any) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) importConfig(c, file);
+                }}
+              />
+            </label>
+          </div>`
+        ),
         section(
           t("about"),
           html`<div style="display:flex;align-items:center;gap:14px">
@@ -707,6 +786,9 @@ export function settingsSheet(
               <span class="muted" style="font-size:13px">${t("tagline")}</span>
               <span class="muted ltr" style="font-size:12px;font-family:'JetBrains Mono',monospace">${t("version")} ${opts.version}</span>
               ${opts.license?.licensee ? html`<span class="muted" style="font-size:12px">${t("licensed_to")} ${opts.license.licensee}</span>` : nothing}
+              <button class="btn pressable" style="justify-self:start;min-height:34px;font-size:13px;margin-top:6px" @click=${() => rateSheet(c)}>
+                <sn-icon icon="star" style="--icon-size:16px;color:var(--accent)"></sn-icon>${t("rate_service")}
+              </button>
               ${opts.license
                 ? html`<span class="muted" style="font-size:12px">
                     ${t("plan_label")}: <strong style="color:var(--accent-text)">${t(`plan_${opts.license.plan}` as I18nKey)}</strong>${opts.license.trial ? ` (${t("trial_label")})` : ""}

@@ -30,6 +30,8 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   gate: { w: 6, h: 6, minW: 4, minH: 4 },
   frigate: { w: 12, h: 5, minW: 4, minH: 4 },
   schedule: { w: 12, h: 6, minW: 6, minH: 4 },
+  media: { w: 6, h: 5, minW: 4, minH: 4 },
+  remote: { w: 4, h: 8, minW: 3, minH: 6 },
 };
 
 export function defaultSettings(lang: Lang): Settings {
@@ -53,6 +55,9 @@ export function defaultSettings(lang: Lang): Settings {
     morning: true,
     night_plan: true,
     season: "auto",
+    speakers: [],
+    maintenance: [],
+    setup_done: true,
     chips_hidden: [],
   };
 }
@@ -195,6 +200,8 @@ export function normalizeConfig(raw: any, fallbackLang: Lang): DashboardConfig {
   settings.screensaver = { ...base.screensaver, ...(raw?.settings?.screensaver ?? {}) };
   settings.doorbell = { ...base.doorbell, ...(raw?.settings?.doorbell ?? {}) };
   settings.chips_hidden = Array.isArray(raw?.settings?.chips_hidden) ? raw.settings.chips_hidden : [];
+  settings.speakers = Array.isArray(raw?.settings?.speakers) ? raw.settings.speakers : [];
+  settings.maintenance = Array.isArray(raw?.settings?.maintenance) ? raw.settings.maintenance : [];
   settings.kiosk = { ...(raw?.settings?.kiosk ?? {}) };
   settings.weather = { ...base.weather, ...(raw?.settings?.weather ?? {}) };
   settings.guests = { ...(raw?.settings?.guests ?? {}) };

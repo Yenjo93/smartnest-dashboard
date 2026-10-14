@@ -5,6 +5,31 @@ import { domainOf, entityName, formatNumber, ltr, relativeTime } from "./entitie
 import { dashboardEntities } from "./chips";
 import { findTablets } from "./fully";
 import { PARTS, hoursLeft, robotParts } from "./widgets/vacuum";
+import { maintenanceDue, weeklyFaults } from "./installer";
+import { LitElement } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+
+/** Devices that dropped off the network this week, from the logbook (loads on its own). */
+@customElement("sn-faults")
+export class SnFaults extends LitElement {
+  @property({ attribute: false }) ctx!: Ctx;
+  @state() private rows?: { id: string; name: string; n: number }[];
+
+  connectedCallback() {
+    super.connectedCallback();
+    weeklyFaults(this.ctx).then((r) => (this.rows = r));
+  }
+
+  createRenderRoot() {
+    return this; // inherit the sheet's styles
+  }
+
+  render() {
+    const { t } = this.ctx;
+    if (!this.rows) return html`<span class="muted" style="font-size:14px">${t("loading")}</span>`;
+    return box(t("faults_week"), !this.rows.length, list(this.rows.map((r) => row(r.name, t("times", { n: r.n })))), t("h_all_good"));
+  }
+}
 import "./ui/icon";
 
 const box = (title: string, ok: boolean, body: unknown, okText: string, always = false): TemplateResult => html`<section
@@ -109,6 +134,19 @@ export function healthSheet(ctx: Ctx) {
               )}
             </section>`
           : nothing}
+        ${c.config.settings.maintenance.length
+          ? (() => {
+              const due = maintenanceDue(c.config);
+              const late = due.filter((m) => m.days <= 7);
+              return box(
+                t("maintenance"),
+                !late.length,
+                list(due.sort((a, b) => a.days - b.days).map((m) => row(m.title, m.days < 0 ? t("m_overdue", { n: -m.days }) : t("m_in", { n: m.days })))),
+                good
+              );
+            })()
+          : nothing}
+        <sn-faults .ctx=${c}></sn-faults>
         <p class="muted" style="margin:4px 0 0;font-size:13px">${t("h_telegram")}</p>
       </div>`;
     },

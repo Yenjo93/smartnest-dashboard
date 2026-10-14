@@ -18,6 +18,8 @@ import "./cinematic";
 import "./morning";
 import "./message";
 import { readGuests, writeGuests } from "./guests";
+import { rateSheet } from "./installer";
+import "./installer";
 import type { ScreenMessage } from "./message";
 import { wallCameras } from "./camwall";
 import { markMorningShown, morningDue } from "./morning";
@@ -95,6 +97,13 @@ export class SmartNestPanel extends LitElement {
   @state() private morning = false;
   @state() private camwall = false;
   @state() private guests = readGuests();
+  @state() private tvMode = (() => {
+    try {
+      return localStorage.getItem("smartnest-tv") === "1";
+    } catch {
+      return false;
+    }
+  })();
   @state() private message?: ScreenMessage;
   private unsubMsg?: Promise<() => void>;
   // Page changes slide in from the side they came from (+1 = the next page).
@@ -255,6 +264,10 @@ export class SmartNestPanel extends LitElement {
       .compact main {
         padding: 14px;
         padding-bottom: 120px;
+      }
+      /* TV mode: read from the sofa. */
+      .tv {
+        zoom: 1.35;
       }
       /* Kids mode: bigger targets everywhere on the one page they get. */
       .kids main {
@@ -474,9 +487,18 @@ export class SmartNestPanel extends LitElement {
       if (raw) this.config = normalizeConfig(raw, lang);
       else {
         this.config = defaultConfig(this.hass, translator(lang), lang);
+        this.config.settings.setup_done = false; // first run: the wizard asks a few questions
         if (this.hass.user?.is_admin) saveConfig(this.hass, this.config).catch(() => undefined);
       }
-      this.pageId = this.config.settings.default_page || this.config.pages[0]?.id || "";
+      // A room tablet can open on its own page (set on that screen, in About).
+      let here = "";
+      try {
+        here = localStorage.getItem("smartnest-home-page") ?? "";
+      } catch {
+        /* per-device */
+      }
+      this.pageId = (here && this.config.pages.some((p) => p.id === here) ? here : "") || this.config.settings.default_page || this.config.pages[0]?.id || "";
+      if (!this.config.settings.setup_done && this.hass.user?.is_admin) window.setTimeout(() => this.openWizard(), 300);
       this.unsubMsg = this.hass.connection.subscribeMessage<{ message: ScreenMessage | null }>(
         (m) => {
           this.message = m.message ?? undefined;
@@ -708,6 +730,12 @@ export class SmartNestPanel extends LitElement {
       cinematic: (mode) => {
         this.sleeping = false;
         if (allows(this.lic.plan, "cinematic")) this.scene = mode;
+        if (mode === "cinema") {
+          // The wall tablet dims too, so it doesn't glow during the film.
+          const tab = allows(this.lic.plan, "fully") ? thisTablet(this.hass) : undefined;
+          if (tab) setBrightness(this.hass, tab, 8).catch(() => undefined);
+          this.nightApplied = undefined;
+        }
       },
     };
   }
@@ -862,7 +890,14 @@ export class SmartNestPanel extends LitElement {
           </button>`
         : nothing}
       <div class="home">
-        <img src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg" alt="" />
+        <img
+          src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg"
+          alt="SmartNest"
+          role="button"
+          tabindex="0"
+          style="cursor:pointer"
+          @click=${() => this.aboutSheet()}
+        />
         <span>${name}</span>
       </div>
       ${ctx.narrow || this.kids
@@ -942,6 +977,89 @@ export class SmartNestPanel extends LitElement {
     return html`<div style="order:6;flex-basis:100%;font-size:13px;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)">
       ${ctx.t("expires_soon", { n: days })}
     </div>`;
+  }
+
+  private openWizard() {
+    const t = translator(this.uiLang);
+    this.pushSheet({
+      title: t("wizard_title"),
+      render: (c) => html`<sn-wizard
+        .ctx=${c}
+        .onDone=${(cfg: DashboardConfig) => {
+          this.config = cfg;
+          this.pageId = cfg.settings.default_page;
+          saveConfig(this.hass, cfg).catch(() => this.toast(t("save_failed")));
+          c.closeSheet();
+        }}
+      ></sn-wizard>`,
+    });
+  }
+
+  /** For everyone: who installed it, the version, rate the installer, and this screen's own preferences. */
+  private aboutSheet() {
+    const t = translator(this.uiLang);
+    this.pushSheet({
+      title: t("about"),
+      render: (c) => {
+        let here = "";
+        try {
+          here = localStorage.getItem("smartnest-home-page") ?? "";
+        } catch {
+          /* fine */
+        }
+        return html`<div style="display:grid;gap:18px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <img src="${c.assetBase}logo/smartnest-symbol-${c.dark ? "white" : "color"}.svg" alt="SmartNest" style="width:52px;height:52px" />
+            <div style="display:grid;gap:2px">
+              <strong>SmartNest</strong>
+              <span class="muted" style="font-size:13px">${c.t("tagline")}</span>
+              <span class="muted ltr" style="font-size:12px">${c.t("version")} ${VERSION}${this.lic.licensee ? ` · ${this.lic.licensee}` : ""}</span>
+            </div>
+          </div>
+          ${c.allows("rating")
+            ? html`<button class="btn primary pressable" @click=${() => rateSheet(c)}><sn-icon icon="star" style="--icon-size:20px"></sn-icon>${c.t("rate_service")}</button>`
+            : nothing}
+          <section style="display:grid;gap:12px">
+            <h3 style="margin:0;font-size:13px;font-weight:700;color:var(--text-2)">${c.t("this_screen")}</h3>
+            <label class="field"
+              >${c.t("opens_on")}
+              <select
+                @change=${(e: any) => {
+                  try {
+                    e.target.value ? localStorage.setItem("smartnest-home-page", e.target.value) : localStorage.removeItem("smartnest-home-page");
+                  } catch {
+                    /* fine */
+                  }
+                }}
+              >
+                <option value="" ?selected=${!here}>${c.t("default_page")}</option>
+                ${c.config.pages.map((p) => html`<option value=${p.id} ?selected=${here === p.id}>${p.title}</option>`)}
+              </select>
+            </label>
+            <div class="field">
+              ${c.t("tv_mode")}
+              <div class="seg">
+                ${[true, false].map(
+                  (v) => html`<button
+                    aria-pressed=${this.tvMode === v}
+                    @click=${() => {
+                      this.tvMode = v;
+                      try {
+                        v ? localStorage.setItem("smartnest-tv", "1") : localStorage.removeItem("smartnest-tv");
+                      } catch {
+                        /* fine */
+                      }
+                    }}
+                  >
+                    ${c.t(v ? "on" : "off")}
+                  </button>`
+                )}
+              </div>
+            </div>
+          </section>
+        </div>`;
+      },
+    });
   }
 
   private tabClick(ctx: Ctx, id: string) {
@@ -1077,7 +1195,7 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""}">
+    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""}">
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page

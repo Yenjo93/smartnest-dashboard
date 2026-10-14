@@ -132,9 +132,20 @@ export function composeMessage(ctx: Ctx) {
       style="display:grid;gap:12px"
       @submit=${(e: SubmitEvent) => {
         e.preventDefault();
-        const input = (e.currentTarget as HTMLFormElement).querySelector("input")!;
+        const form = e.currentTarget as HTMLFormElement;
+        const input = form.querySelector<HTMLInputElement>("input[type=text]")!;
+        const speak = form.querySelector<HTMLInputElement>("input[name=speak]")?.checked;
         const message = input.value.trim();
         if (!message) return;
+        if (speak) {
+          // Spoken too, through HA's text-to-speech on the chosen speakers (Google Translate TTS speaks Arabic).
+          const tts = Object.keys(c.hass.states).filter((id) => id.startsWith("tts."));
+          const engine = tts.find((id) => id.includes("google")) ?? tts[0];
+          if (engine)
+            c.hass
+              .callService("tts", "speak", { entity_id: engine, media_player_entity_id: c.config.settings.speakers, message, language: c.lang })
+              .catch(() => c.toast(c.t("error")));
+        }
         c.hass
           .callWS({ type: "smartnest/message/send", message })
           .then(() => c.closeSheet())
@@ -142,6 +153,11 @@ export function composeMessage(ctx: Ctx) {
       }}
     >
       <input type="text" maxlength="500" placeholder=${c.t("message_placeholder")} autofocus />
+      ${c.allows("broadcast") && c.config.settings.speakers.length
+        ? html`<label style="display:flex;gap:8px;align-items:center;font-size:15px">
+            <input name="speak" type="checkbox" style="width:auto;min-height:auto" /><sn-icon icon="bullhorn" style="--icon-size:20px"></sn-icon>${c.t("announce")}
+          </label>`
+        : nothing}
       <button class="btn primary pressable" type="submit"><sn-icon icon="send" style="--icon-size:20px"></sn-icon>${c.t("send")}</button>
     </form>`,
   });

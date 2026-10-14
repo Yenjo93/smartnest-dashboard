@@ -9,7 +9,8 @@ export type Feature =
   | "camera_wall" | "seasons" | "alarm"
   | "w_family" | "w_todo" | "w_calendar" | "w_forecast" | "w_countdown" | "messages" | "kids"
   | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history"
-  | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests";
+  | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests"
+  | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -22,6 +23,9 @@ const NEEDS: Record<Feature, Plan> = {
   w_gauge: "basic", lock_history: "pro", w_gate: "pro",
   sky: "pro", clock_styles: "pro", air_maps: "pro",
   plan_3d: "premium", people_on_plan: "premium", liquid_glass: "premium", guests: "premium",
+  w_media: "basic", wizard: "basic", transfer: "basic", rating: "basic",
+  w_remote: "pro", maintenance: "pro",
+  broadcast: "premium", cinema: "premium",
   w_frigate: "premium", w_schedule: "premium", automations: "premium",
   w_energy_stats: "premium", w_panic: "premium", camera_wall: "premium", seasons: "premium",
 };

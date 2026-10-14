@@ -1,0 +1,83 @@
+# SmartNest: phone notifications, NFC and reports (إشعارات الجوال)
+#
+# Copy to /config/packages/ (configuration.yaml needs `homeassistant: packages: !include_dir_named packages`),
+# fill the ✏️ lines, restart. Phones need the Home Assistant Companion app.
+
+automation:
+  # 🔔 Doorbell on every phone, with the camera picture and an "Open the door" button.
+  - id: smartnest_doorbell_phone
+    alias: "SmartNest · doorbell on phones"
+    trigger:
+      - trigger: state
+        entity_id: event.doorbell # ✏️ the doorbell button
+    action:
+      - action: notify.mobile_app_abu_mohammad_phone # ✏️ one line per phone (or a notify group)
+        data:
+          title: "🔔 في حدا عالباب"
+          message: "{{ now().strftime('%H:%M') }}"
+          data:
+            image: /api/camera_proxy/camera.front_door # ✏️ the door camera
+            actions:
+              - action: SMARTNEST_OPEN_DOOR
+                title: "افتح الباب"
+                authenticationRequired: true # iPhone asks for Face ID first
+              - action: SMARTNEST_IGNORE
+                title: "تجاهل"
+
+  - id: smartnest_doorbell_phone_open
+    alias: "SmartNest · open door from notification"
+    trigger:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: SMARTNEST_OPEN_DOOR
+    action:
+      - action: lock.unlock
+        target:
+          entity_id: lock.front_door # ✏️
+
+  # 📱 NFC sticker by the door: tap your phone on the way in or out.
+  - id: smartnest_nfc_door
+    alias: "SmartNest · NFC by the door"
+    trigger:
+      - trigger: tag
+        tag_id: smartnest-front-door # ✏️ write this ID to the sticker from the HA app (Settings → Tags)
+    action:
+      - action: script.turn_on
+        target:
+          entity_id: >-
+            {{ 'script.smartnest_mode_home' if is_state('input_select.house_mode', 'away') else 'script.smartnest_mode_away' }}
+
+  # 📊 Monthly report by email on the 1st: offline devices, updates, last backup.
+  # Needs an email notifier (SMTP integration), e.g. notify.smartnest_email.
+  - id: smartnest_monthly_report
+    alias: "SmartNest · monthly report"
+    trigger:
+      - trigger: time
+        at: "09:00:00"
+    condition:
+      - condition: template
+        value_template: "{{ now().day == 1 }}"
+    action:
+      - action: notify.smartnest_email # ✏️
+        data:
+          title: "SmartNest · {{ states.zone.home.name }} · {{ now().strftime('%B %Y') }}"
+          message: >-
+            Offline right now: {{ states | selectattr('state', 'eq', 'unavailable') | list | count }}
+            Updates waiting: {{ states.update | selectattr('state', 'eq', 'on') | list | count }}
+            Last backup: {{ states('sensor.backup_last_successful_automatic_backup') }}
+
+  # ⭐ The family rated you in the dashboard: it reaches your Telegram.
+  - id: smartnest_feedback_forward
+    alias: "SmartNest · forward rating to installer"
+    trigger:
+      - trigger: event
+        event_type: smartnest_feedback
+    action:
+      - action: notify.send_message
+        target:
+          entity_id: notify.smartnest_installer # ✏️ same as smartnest_health.yaml
+        data:
+          message: >-
+            ⭐ {{ states.zone.home.name }}: {{ '★' * trigger.event.data.stars }}{{ '☆' * (5 - trigger.event.data.stars) }}
+            {{ trigger.event.data.comment }} ({{ trigger.event.data.user }})

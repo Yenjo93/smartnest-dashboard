@@ -89,6 +89,12 @@ export interface Settings {
   season: "auto" | "off" | "ramadan" | "eid";
   /** Page shown in kids mode (big buttons, everything else hidden until the PIN). */
   kids_page?: string;
+  /** Speakers for spoken announcements. */
+  speakers: string[];
+  /** Service reminders: filters, AC service, smoke detector test… */
+  maintenance: { id: string; title: string; every_days: number; last: string }[];
+  /** False until the installer finishes the first-run wizard. */
+  setup_done: boolean;
   /** Whole-home power sensor for the status chip. */
   power_entity?: string;
   kiosk: { pin_hash?: string; pin_salt?: string; pin_length?: number };
@@ -96,7 +102,8 @@ export interface Settings {
 
 export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check"
   | "family" | "todo" | "calendar" | "forecast" | "countdown"
-  | "gauge" | "gate" | "frigate" | "schedule";
+  | "gauge" | "gate" | "frigate" | "schedule"
+  | "media" | "remote";
 
 export interface Widget {
   id: string;

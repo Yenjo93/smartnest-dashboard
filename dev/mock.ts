@@ -103,6 +103,13 @@ add(ent("person.mohammad", "School", { friendly_name: "محمد" }));
 add(ent("sensor.water_tank", "18", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
 add(ent("sensor.gas_level", "64", { friendly_name: "جرة الغاز", unit_of_measurement: "%" }));
 add(ent("cover.main_gate", "closed", { friendly_name: "البوابة الرئيسية", device_class: "gate" }));
+add(ent("media_player.living_speaker", "playing", {
+  friendly_name: "سماعة الصالة", media_title: "فيروز · صباح ومسا", media_artist: "فيروز", volume_level: 0.35, is_volume_muted: false,
+  supported_features: 1 | 4 | 8 | 16 | 32 | 16384 | 524288, entity_picture: "/dev/photo-1.svg",
+}));
+add(ent("media_player.kitchen_speaker", "idle", { friendly_name: "سماعة المطبخ", supported_features: 524288 | 4 }));
+add(ent("remote.living_tv", "on", { friendly_name: "تلفزيون الصالة" }));
+add(ent("tts.google_translate_ar", "unknown", { friendly_name: "Google Translate" }));
 add(ent("todo.shopping", "2", { friendly_name: "قائمة المشتريات" }));
 add(ent("calendar.family", "off", { friendly_name: "تقويم العيلة" }));
 add(ent("calendar.school", "off", { friendly_name: "المدرسة" }));
@@ -121,6 +128,7 @@ const entityRegistry: Record<string, any> = Object.fromEntries(
     (entity_id) => [entity_id, { entity_id, device_id: FULLY_DEVICE, platform: "fully_kiosk" }]
   )
 );
+entityRegistry["remote.living_tv"] = { entity_id: "remote.living_tv", platform: "androidtv_remote" };
 for (const id of ["vacuum.robot", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
   entityRegistry[id] = { entity_id: id, device_id: "dev-robot", platform: "roborock" };
 const deviceRegistry: Record<string, HassDevice> = { [FULLY_DEVICE]: { id: FULLY_DEVICE, name: "تابلت الحيط", identifiers: [["fully_kiosk", "dev-tablet-1"]] } };
@@ -322,6 +330,16 @@ async function callService(domain: string, service: string, data: Record<string,
     case "todo.update_item":
       todoItems = todoItems.map((i) => (i.uid === data.item ? { ...i, status: data.status } : i));
       return pushTodo();
+    case "media_player.media_play_pause":
+      return set(id, e.state === "playing" ? "paused" : "playing");
+    case "media_player.volume_set":
+      return set(id, e.state, { volume_level: data.volume_level });
+    case "media_player.join":
+      return console.info("[mock] join", data.group_members);
+    case "remote.send_command":
+      return console.info("[mock] remote", data.command);
+    case "tts.speak":
+      return console.info("[mock] speak", data.message, data.media_player_entity_id);
     case "switch.turn_on":
       return set(id, "on");
     case "switch.turn_off":
@@ -378,6 +396,9 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/feedback":
+      console.info("[mock] feedback", msg.stars, msg.comment);
+      return null;
     case "smartnest/automations/get":
       return { items: autoSummaries };
     case "smartnest/automations/set":

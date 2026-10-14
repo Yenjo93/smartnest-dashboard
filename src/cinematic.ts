@@ -6,8 +6,8 @@ import { domainOf, entityName } from "./entities";
 import { shared } from "./theme";
 import "./ui/icon";
 
-const TEXT: Record<string, I18nKey> = { away: "scene_away", home: "scene_home", sleep: "scene_sleep", evening: "scene_evening" };
-const LENGTH: Record<string, number> = { away: 4200, home: 3000, sleep: 3800, evening: 3000 };
+const TEXT: Record<string, I18nKey> = { away: "scene_away", home: "scene_home", sleep: "scene_sleep", evening: "scene_evening", cinema: "scene_cinema" };
+const LENGTH: Record<string, number> = { away: 4200, home: 3000, sleep: 3800, evening: 3000, cinema: 3200 };
 
 /** Locks shown in the "away" scene: the ones placed on the dashboard, else every lock in the house. */
 function dashboardLocks(ctx: Ctx): string[] {
@@ -213,6 +213,27 @@ export class SnCinematic extends LitElement {
       .evening::before {
         background: radial-gradient(circle at 50% 70%, rgba(255, 160, 70, 0.6) 0%, rgba(150, 90, 0, 0.35) 30%, rgba(18, 13, 8, 0) 65%);
       }
+      /* Cinema: lights go down, a projector beam opens from above */
+      .cinema {
+        background: #050608;
+      }
+      .cinema::before {
+        content: "";
+        position: absolute;
+        top: -10%;
+        left: 50%;
+        width: 140vmax;
+        height: 120vh;
+        transform: translateX(-50%);
+        background: conic-gradient(from 165deg at 50% 0%, transparent 0deg, rgba(255, 236, 200, 0.22) 15deg, rgba(255, 236, 200, 0.05) 30deg, transparent 30deg);
+        animation: beam 2.4s cubic-bezier(0.77, 0, 0.175, 1) both;
+      }
+      @keyframes beam {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) scaleX(0.2);
+        }
+      }
       @media (prefers-reduced-motion: reduce) {
         .moon,
         .lock,
@@ -266,7 +287,7 @@ export class SnCinematic extends LitElement {
     >
       ${this.mode === "sleep" ? this.renderSleep() : nothing}
       <div class="content">
-        <div class="title">${t(TEXT[this.mode] ?? "done")}</div>
+        <div class="title">${this.mode === "cinema" ? "🍿 " : ""}${t(TEXT[this.mode] ?? "done")}</div>
         ${this.mode === "away" ? html`${this.locks.length ? html`<div class="sub">${t("scene_locking")}</div>` : nothing}${this.renderAway()}` : nothing}
       </div>
     </div>`;

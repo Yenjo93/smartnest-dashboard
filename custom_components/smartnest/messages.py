@@ -77,3 +77,19 @@ def ws_message_ack(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         hass.bus.async_fire(EVENT_ACK, {"id": msg["id"], "message": current.get("message"), "user": connection.user.name if connection.user else ""})
         async_dispatcher_send(hass, SIGNAL, None)
     connection.send_result(msg["id"])
+
+
+EVENT_FEEDBACK = "smartnest_feedback"
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "smartnest/feedback", vol.Required("stars"): vol.All(int, vol.Range(min=1, max=5)), vol.Optional("comment", default=""): str}
+)
+@callback
+def ws_feedback(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """The family rates the installer; an automation (smartnest_health.yaml) forwards it to the installer's Telegram."""
+    hass.bus.async_fire(
+        EVENT_FEEDBACK,
+        {"stars": msg["stars"], "comment": msg["comment"][:500], "user": connection.user.name if connection.user else ""},
+    )
+    connection.send_result(msg["id"])
