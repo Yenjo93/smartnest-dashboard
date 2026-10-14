@@ -873,6 +873,19 @@ const en = {
   season_skin: "Seasonal skies (snow, leaves, petals)",
   monogram: "Family monogram",
   monogram_hint: "A gold seal with the family's initials replaces the logo in the bar.",
+  ab_title: "Set up the dashboard for me",
+  ab_hint: "I looked at this home's devices. These are the pages I can build, each already filled. Untick what you don't want.",
+  ab_per_area: "Rooms",
+  ab_one_rooms: "One rooms page",
+  ab_area_pages: "A page per room",
+  ab_devices: "{n} devices",
+  ab_home: "Plan and modes",
+  ab_mode: "Existing pages",
+  ab_replace: "Replace them (keep the plan)",
+  ab_add: "Keep and add",
+  ab_go: "Build {n} pages",
+  ab_done: "{n} pages ready. Press Save to keep them.",
+  template_media: "Music & TV",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1750,6 +1763,19 @@ const ar: Record<I18nKey, string> = {
   season_skin: "أجواء الفصول (ثلج، ورق شجر، ورد)",
   monogram: "شعار العيلة",
   monogram_hint: "ختم ذهبي بحروف العيلة بدل اللوجو بالبار.",
+  ab_title: "جهّز الداشبورد لحاله",
+  ab_hint: "شفت أجهزة البيت. هاي الصفحات اللي بقدر أعملها، وكل وحدة معبّاة جاهزة. شيل الإشارة عن اللي ما بدك إياه.",
+  ab_per_area: "الغرف",
+  ab_one_rooms: "صفحة وحدة لكل الغرف",
+  ab_area_pages: "صفحة لكل غرفة",
+  ab_devices: "{n} جهاز",
+  ab_home: "المخطط والأوضاع",
+  ab_mode: "الصفحات الموجودة",
+  ab_replace: "بدّلها (المخطط بيضل)",
+  ab_add: "خلّيها وزيد",
+  ab_go: "جهّز {n} صفحات",
+  ab_done: "جهزت {n} صفحات. اضغط حفظ عشان يضلّوا.",
+  template_media: "الموسيقى والتلفزيون",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2625,6 +2651,19 @@ const he: Record<I18nKey, string> = {
   season_skin: "שמי עונות (שלג, עלים, פרחים)",
   monogram: "סמל המשפחה",
   monogram_hint: "חותם זהב עם ראשי התיבות במקום הלוגו.",
+  ab_title: "הגדר את הדשבורד בשבילי",
+  ab_hint: "בדקתי את מכשירי הבית. אלה הדפים שאני יכול לבנות, כל אחד כבר מלא. בטל את מה שלא צריך.",
+  ab_per_area: "חדרים",
+  ab_one_rooms: "דף חדרים אחד",
+  ab_area_pages: "דף לכל חדר",
+  ab_devices: "{n} מכשירים",
+  ab_home: "תוכנית ומצבים",
+  ab_mode: "דפים קיימים",
+  ab_replace: "החלף (התוכנית נשמרת)",
+  ab_add: "השאר והוסף",
+  ab_go: "בנה {n} דפים",
+  ab_done: "{n} דפים מוכנים. לחץ שמור.",
+  template_media: "מוזיקה וטלוויזיה",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

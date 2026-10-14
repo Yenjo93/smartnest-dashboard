@@ -21,6 +21,7 @@ import "./ui/entity-picker";
 import "./ui/icon";
 import { guessWater } from "./widgets/water";
 import { historySheet, licensesSheet, presetPicker, printReport } from "./business";
+import { autobuildSheet } from "./autobuild";
 
 const col = (...items: unknown[]) => html`<div style="display:grid;gap:18px">${items}</div>`;
 const row = (...items: unknown[]) => html`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${items}</div>`;
@@ -569,6 +570,11 @@ export function settingsSheet(
       const t = c.t;
       const set = (fn: (d: DashboardConfig) => void) => c.update(fn);
       return col(
+        c.allows("autobuild")
+          ? html`<button class="btn primary pressable" style="min-height:56px;font-size:16px" @click=${() => autobuildSheet(c)}>
+              <sn-icon icon="auto-fix" style="--icon-size:22px"></sn-icon>${t("ab_title")}
+            </button>`
+          : nothing,
         html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button class="btn pressable" @click=${() => healthSheet(c)}><sn-icon icon="gauge" style="--icon-size:20px"></sn-icon>${t("health")}</button>
           ${c.allows("automations")
