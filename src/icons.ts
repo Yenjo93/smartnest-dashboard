@@ -1,5 +1,6 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiLayersTriple,
   mdiValve,
   mdiWater,
   mdiLightbulbAutoOutline,
@@ -324,6 +325,7 @@ export const ICONS: Record<string, string> = {
   water: mdiWater,
   "water-alert": mdiWaterAlert,
   valve: mdiValve,
+  floors: mdiLayersTriple,
 };
 
 /** Icons offered when naming a page. */

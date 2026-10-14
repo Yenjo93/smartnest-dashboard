@@ -73,6 +73,7 @@ add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", un
 add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("sensor.robot_current_room", "الصالة", { friendly_name: "الروبوت · الغرفة" }));
 add(ent("sensor.water_today", "312", { friendly_name: "المي اليوم", unit_of_measurement: "L", device_class: "water", state_class: "total_increasing" }));
 add(ent("sensor.water_tank_level", "64", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
 add(ent("valve.main_water", "open", { friendly_name: "محبس المي" }));
@@ -137,7 +138,7 @@ const entityRegistry: Record<string, any> = Object.fromEntries(
   )
 );
 entityRegistry["remote.living_tv"] = { entity_id: "remote.living_tv", platform: "androidtv_remote" };
-for (const id of ["vacuum.robot", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
+for (const id of ["vacuum.robot", "sensor.robot_current_room", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
   entityRegistry[id] = { entity_id: id, device_id: "dev-robot", platform: "roborock" };
 // Plug meters on the same device as what they power, so "turn off" and "standby" find the switch.
 for (const [sensor, control, dev] of [["sensor.water_heater_power", "switch.water_heater", "dev-heater"], ["sensor.coffee_machine_power", "switch.coffee_machine", "dev-coffee"], ["sensor.tv_power", "media_player.living_tv", "dev-tv"]])
@@ -294,8 +295,12 @@ async function callService(domain: string, service: string, data: Record<string,
       return set(id, e.state, { temperature: data.temperature });
     case "climate.set_hvac_mode":
       return set(id, data.hvac_mode, { hvac_action: data.hvac_mode === "cool" ? "cooling" : data.hvac_mode });
-    case "vacuum.start":
+    case "vacuum.start": {
+      // The robot works through the rooms, one every few seconds.
+      const route = ["الصالة", "المطبخ", "الممر", "غرفة النوم"];
+      route.forEach((room, i) => later(i * 5000, () => set("sensor.robot_current_room", room)));
       return set(id, "cleaning");
+    }
     case "vacuum.pause":
       return set(id, "paused");
     case "vacuum.return_to_base":

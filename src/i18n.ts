@@ -579,6 +579,9 @@ const en = {
   overload_hint: "Turn something off before the breaker trips:",
   power_limit: "Power limit (W)",
   power_limit_hint: "An alert shows when the house goes over this for 20 seconds",
+  replay: "Replay the day",
+  play: "Play",
+  all_floors: "All floors",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1162,6 +1165,9 @@ const ar: Record<I18nKey, string> = {
   overload_hint: "طفّي إشي قبل ما يفصل القاطع:",
   power_limit: "حد الاستهلاك (واط)",
   power_limit_hint: "بيطلع تنبيه إذا البيت تعدّاه 20 ثانية",
+  replay: "شو صار اليوم",
+  play: "شغّل",
+  all_floors: "كل الطوابق",
 };
 
 const he: Record<I18nKey, string> = {
@@ -1743,6 +1749,9 @@ const he: Record<I18nKey, string> = {
   overload_hint: "כבה משהו לפני שהמפסק יקפוץ:",
   power_limit: "מגבלת הספק (וואט)",
   power_limit_hint: "התראה תוצג אם הבית חורג מזה 20 שניות",
+  replay: "שחזור היום",
+  play: "נגן",
+  all_floors: "כל הקומות",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

@@ -1,11 +1,12 @@
 import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
-import type { DashboardConfig, Floor, Marker, Room, Widget } from "../types";
+import type { DashboardConfig, Floor, HassEntity, Marker, Room, Widget } from "../types";
 import { centroid, clipPath, inside, snap, type Pt } from "../geometry";
 import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, tapKind } from "../entities";
 import { findWidget, newFloor, uid, uploadImage } from "../config";
 import { shared } from "../theme";
+import { LOCALE } from "../i18n";
 import "../ui/icon";
 import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
@@ -62,6 +63,13 @@ export class SnFloorplan extends LitElement {
   @state() private tilt = false;
   @state() private robotRooms?: RoomChoice[];
   @state() private detecting = false;
+  /** Replaying the last 24 hours on the plan. */
+  @state() private replay?: { start: number; at: number; playing: boolean; data: Record<string, { s: string; lu: number }[]> };
+  private replayTimer?: number;
+  /** All floors stacked in 3D. */
+  @state() private stack = false;
+  /** Rooms the robot has been in today, per floor. */
+  private cleaned = new Set<string>();
   /** Rooms still to name, one at a time, during the automatic setup. */
   @state() private asking?: string[];
   private askTotal = 0;
@@ -134,6 +142,157 @@ export class SnFloorplan extends LitElement {
         cursor: pointer;
         transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
         z-index: 1;
+      }
+      .fx {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+      }
+      .fx-door svg {
+        position: absolute;
+        width: 46px;
+        height: 46px;
+        inset-inline-start: 50%;
+        bottom: 50%;
+        overflow: visible;
+      }
+      .fx-door path {
+        fill: color-mix(in srgb, var(--accent) 16%, transparent);
+        stroke: var(--accent);
+        stroke-width: 2;
+        stroke-dasharray: 4 3;
+        transform-origin: 4px 36px;
+        animation: fx-swing 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+      }
+      .fx-ripple i {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        border: 2px solid #3a86ff;
+        animation: fx-ripple 2.1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+      }
+      .fx-ripple i:nth-child(2) {
+        animation-delay: 0.7s;
+      }
+      .fx-ripple i:nth-child(3) {
+        animation-delay: 1.4s;
+      }
+      .fx-shade {
+        inset: 3px;
+        border-radius: 999px;
+        overflow: hidden;
+        z-index: 2;
+      }
+      .fx-shade::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(180deg, color-mix(in srgb, var(--text) 38%, transparent) 0 3px, transparent 3px 6px);
+        transform: scaleY(var(--shut));
+        transform-origin: top;
+        transition: transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .fx-air {
+        top: 100%;
+        height: 34px;
+      }
+      .fx-air i {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 18px;
+        height: 10px;
+        margin-left: -9px;
+        border-bottom: 2px solid #5ec8f2;
+        border-radius: 0 0 50% 50%;
+        opacity: 0;
+        animation: fx-blow 1.8s linear infinite;
+      }
+      .fx-air.hot i {
+        border-color: #ff8a3d;
+      }
+      .fx-air i:nth-child(2) {
+        animation-delay: 0.6s;
+      }
+      .fx-air i:nth-child(3) {
+        animation-delay: 1.2s;
+      }
+      .fx-notes i {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        font-style: normal;
+        font-size: 14px;
+        color: var(--accent);
+        opacity: 0;
+        animation: fx-note 2.4s ease-out infinite;
+      }
+      .fx-notes i:nth-child(2) {
+        animation-delay: 0.8s;
+        --dx: 14px;
+      }
+      .fx-notes i:nth-child(3) {
+        animation-delay: 1.6s;
+        --dx: -12px;
+      }
+      @keyframes fx-swing {
+        from {
+          transform: rotate(-6deg);
+        }
+        to {
+          transform: rotate(4deg);
+        }
+      }
+      @keyframes fx-ripple {
+        from {
+          transform: scale(1);
+          opacity: 0.9;
+        }
+        to {
+          transform: scale(2.6);
+          opacity: 0;
+        }
+      }
+      @keyframes fx-blow {
+        0% {
+          transform: translateY(0) scaleX(0.6);
+          opacity: 0;
+        }
+        25% {
+          opacity: 0.9;
+        }
+        100% {
+          transform: translateY(26px) scaleX(1.5);
+          opacity: 0;
+        }
+      }
+      @keyframes fx-note {
+        0% {
+          transform: translate(0, 0);
+          opacity: 0;
+        }
+        20% {
+          opacity: 1;
+        }
+        100% {
+          transform: translate(var(--dx, 6px), -34px);
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .fx-door path,
+        .fx-ripple i:not(:first-child),
+        .fx-air i:not(:first-child),
+        .fx-notes i:not(:first-child) {
+          animation: none;
+        }
+        .fx-ripple i:first-child,
+        .fx-air i:first-child,
+        .fx-notes i:first-child {
+          animation: none;
+          opacity: 0.8;
+        }
       }
       .marker:active {
         transform: translate(-50%, -50%) scale(calc(var(--inv, 1) * 0.92));
@@ -508,6 +667,139 @@ export class SnFloorplan extends LitElement {
       input[type="file"] {
         display: none;
       }
+      .marker.roving {
+        transition: left 2.4s cubic-bezier(0.65, 0, 0.35, 1), top 2.4s cubic-bezier(0.65, 0, 0.35, 1), transform var(--dur-fast) var(--ease-out);
+      }
+      .clean {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.5) 45%, transparent 60%) 0 0 / 300% 100%,
+          color-mix(in srgb, #2bb673 12%, transparent);
+        animation: shine 4s linear infinite;
+      }
+      .clean-tag {
+        position: absolute;
+        transform: translate(-50%, -150%);
+        font-size: 18px;
+        pointer-events: none;
+      }
+      @keyframes shine {
+        from {
+          background-position: 150% 0, 0 0;
+        }
+        to {
+          background-position: -150% 0, 0 0;
+        }
+      }
+      .stack {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        perspective: 1600px;
+        overflow: hidden;
+      }
+      .slab {
+        position: absolute;
+        width: min(62%, 560px);
+        border: 0;
+        padding: 0;
+        background: none;
+        cursor: pointer;
+        transform-style: preserve-3d;
+        transform: translateY(calc(((var(--n) - 1) / 2 - var(--i)) * 34%)) rotateX(58deg) rotateZ(-28deg);
+        animation: slab-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-delay: calc(var(--i) * 90ms);
+        transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .slab:hover {
+        transform: translateY(calc(((var(--n) - 1) / 2 - var(--i)) * 34% - 12px)) rotateX(58deg) rotateZ(-28deg);
+      }
+      .plate {
+        position: relative;
+        display: block;
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--surface-solid);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border);
+      }
+      .plate img {
+        display: block;
+        width: 100%;
+        opacity: 0.92;
+      }
+      .plate .lit {
+        position: absolute;
+        width: 18%;
+        aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 196, 120, 0.85), rgba(255, 196, 120, 0) 70%);
+      }
+      .slab-tag {
+        position: absolute;
+        top: 50%;
+        inset-inline-start: 12px;
+        transform: translateY(calc(-50% + ((var(--n) - 1) / 2 - var(--i)) * min(17vw, 150px)));
+        pointer-events: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--surface-solid);
+        font: 600 14px var(--font);
+        color: var(--text);
+        white-space: nowrap;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      }
+      @keyframes slab-in {
+        from {
+          opacity: 0;
+          transform: translateY(0) rotateX(58deg) rotateZ(-28deg) scale(0.9);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .slab,
+        .clean {
+          animation: none;
+        }
+      }
+      .tools.replay {
+        width: min(620px, calc(100% - 24px));
+        border-radius: var(--r-lg);
+        padding: 8px 10px;
+        gap: 10px;
+      }
+      .rp {
+        flex: 1;
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .rp-top {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        font-size: 14px;
+        min-width: 0;
+      }
+      .rp-top b {
+        font-size: 18px;
+        font-variant-numeric: tabular-nums;
+      }
+      .rp-top .cap {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: end;
+        color: var(--accent-text);
+        font-weight: 600;
+      }
+      .rp input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
     `,
   ];
 
@@ -530,6 +822,163 @@ export class SnFloorplan extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.ro?.disconnect();
+    window.clearInterval(this.replayTimer);
+  }
+
+  /** Remembers which rooms the robot has been in today. */
+  private trackRobot() {
+    const floor = this.floor;
+    if (!floor || !this.ctx?.allows("robot_on_plan")) return;
+    let changed = false;
+    if (!this.cleaned.size)
+      try {
+        for (const id of JSON.parse(localStorage.getItem(this.cleanedKey) ?? "[]")) this.cleaned.add(id);
+      } catch {
+        /* fine */
+      }
+    for (const m of floor.markers) {
+      if (domainOf(m.entity) !== "vacuum") continue;
+      const r = this.robotRoom(floor, m.entity);
+      if (r && !this.cleaned.has(r.id)) {
+        this.cleaned.add(r.id);
+        changed = true;
+      }
+    }
+    if (changed)
+      try {
+        localStorage.setItem(this.cleanedKey, JSON.stringify([...this.cleaned]));
+      } catch {
+        /* per-tablet memory */
+      }
+  }
+
+  /** Rooms the robot did today sparkle softly. */
+  private renderCleaned(floor: Floor) {
+    if (!this.cleaned.size) return nothing;
+    return (floor.rooms ?? [])
+      .filter((r) => this.cleaned.has(r.id))
+      .map((r) => {
+        const [cx, cy] = centroid(r.points);
+        return html`<div class="clean" style="clip-path:${clipPath(r.points)}"></div><span class="clean-tag" style="left:${cx}%;top:${cy}%">✨</span>`;
+      });
+  }
+
+  // ---- replay the day ----
+
+  /** A device as it was at the replay time; live otherwise. */
+  private st(id: string): HassEntity | undefined {
+    const cur = this.ctx.hass.states[id];
+    const r = this.replay;
+    const rows = r?.data[id];
+    if (!r || !cur || !rows?.length) return cur;
+    let hit = rows[0];
+    for (const x of rows) {
+      if (x.lu * 1000 > r.at) break;
+      hit = x;
+    }
+    // Colour and brightness weren't fetched; a light that was on shows in its usual warm white.
+    const attributes = hit.s === cur.state ? cur.attributes : { ...cur.attributes, brightness: undefined, rgb_color: undefined, current_position: undefined };
+    return { ...cur, state: hit.s, attributes, last_changed: new Date(hit.lu * 1000).toISOString() };
+  }
+
+  private async startReplay() {
+    const floor = this.floor;
+    if (!floor) return;
+    const end = Date.now();
+    const start = end - 24 * 3_600_000;
+    let data: Record<string, { s: string; lu: number }[]> = {};
+    try {
+      data = await this.ctx.hass.callWS({
+        type: "history/history_during_period",
+        start_time: new Date(start).toISOString(),
+        end_time: new Date(end).toISOString(),
+        entity_ids: [...new Set(floor.markers.map((m) => m.entity))],
+        minimal_response: true,
+        no_attributes: true,
+        significant_changes_only: false,
+      });
+    } catch {
+      return this.ctx.toast(this.ctx.t("error"));
+    }
+    this.zoom = { s: 1, x: 0, y: 0 };
+    this.replay = { start, at: start, playing: true, data };
+    this.playReplay();
+  }
+
+  private playReplay() {
+    window.clearInterval(this.replayTimer);
+    // A whole day in about 24 seconds: six minutes every tenth of a second.
+    this.replayTimer = window.setInterval(() => {
+      const r = this.replay;
+      if (!r?.playing) return window.clearInterval(this.replayTimer);
+      const at = Math.min(Date.now(), r.at + 6 * 60_000);
+      this.replay = { ...r, at, playing: at < Date.now() };
+    }, 100);
+  }
+
+  private stopReplay() {
+    window.clearInterval(this.replayTimer);
+    this.replay = undefined;
+  }
+
+  /** The latest thing that happened before the replay time, as a caption. */
+  private replayCaption(): string {
+    const r = this.replay!;
+    const { ctx } = this;
+    let best: { id: string; lu: number; s: string } | undefined;
+    for (const [id, rows] of Object.entries(r.data)) {
+      const d = domainOf(id);
+      if (!["light", "lock", "binary_sensor", "cover", "climate", "switch", "media_player", "vacuum"].includes(d)) continue;
+      for (let i = 1; i < rows.length; i++) {
+        const t = rows[i].lu * 1000;
+        if (t > r.at) break;
+        if (r.at - t < 25 * 60_000 && rows[i].s !== rows[i - 1].s && (!best || t > best.lu)) best = { id, lu: t, s: rows[i].s };
+      }
+    }
+    if (!best) return "";
+    const e = this.st(best.id);
+    const when = new Date(best.lu).toLocaleTimeString(LOCALE[ctx.lang], { hour: "2-digit", minute: "2-digit" });
+    return `${when} · ${entityName(ctx.hass, ctx.config, best.id)}: ${e ? shortValue(ctx.t, { ...e, state: best.s }, ctx.lang) : best.s}`;
+  }
+
+  private renderReplay() {
+    const r = this.replay!;
+    const { t, lang } = this.ctx;
+    const now = Date.now();
+    const at = new Date(r.at);
+    return html`<div class="tools glass replay" @pointerdown=${(e: Event) => e.stopPropagation()}>
+      <button
+        class="icon-btn primary pressable"
+        aria-label=${t(r.playing ? "pause" : "play")}
+        @click=${() => {
+          const restart = r.at >= now - 60_000;
+          this.replay = { ...r, playing: !r.playing, at: restart && !r.playing ? r.start : r.at };
+          if (this.replay.playing) this.playReplay();
+        }}
+      >
+        <sn-icon icon=${r.playing ? "pause" : "play"} style="--icon-size:22px"></sn-icon>
+      </button>
+      <div class="rp">
+        <div class="rp-top">
+          <b class="ltr">${at.toLocaleTimeString(LOCALE[lang], { hour: "2-digit", minute: "2-digit" })}</b>
+          <span class="muted">${at.toDateString() === new Date().toDateString() ? t("today") : t("yesterday")}</span>
+          <span class="cap">${this.replayCaption()}</span>
+        </div>
+        <input
+          type="range"
+          min=${r.start}
+          max=${now}
+          step="60000"
+          .value=${String(r.at)}
+          style="direction:ltr"
+          aria-label=${t("replay")}
+          @input=${(e: any) => (this.replay = { ...r, at: Number(e.target.value), playing: false })}
+        />
+      </div>
+      <button class="icon-btn pressable" aria-label=${t("close")} @click=${() => this.stopReplay()}>
+        <sn-icon icon="close" style="--icon-size:20px"></sn-icon>
+      </button>
+    </div>`;
   }
 
   private measure() {
@@ -571,6 +1020,7 @@ export class SnFloorplan extends LitElement {
   }
 
   protected willUpdate(changed: Map<string, unknown>) {
+    this.trackRobot();
     if (changed.has("ctx") && this.ctx.editing && this.zoom.s !== 1) this.zoom = { s: 1, x: 0, y: 0 };
     if (changed.has("floorIdx")) this.zoom = { s: 1, x: 0, y: 0 };
     if (changed.has("ctx") && !this.ctx.editing) {
@@ -787,8 +1237,14 @@ export class SnFloorplan extends LitElement {
     if (!floor) return;
     const ids = floor.markers.filter((m) => inside([m.x, m.y], room.points)).map((m) => m.entity);
     if (!ids.length) return;
+    const flew = this.flyTo(room);
     this.ctx.showSheet({
       title: room.name,
+      onClose: () => {
+        if (!flew) return;
+        this.settling = true;
+        this.zoom = { s: 1, x: 0, y: 0 };
+      },
       render: (c) => {
         const lights = ids.filter((id) => domainOf(id) === "light");
         const anyOn = lights.some((id) => c.hass.states[id]?.state === "on");
@@ -917,6 +1373,19 @@ export class SnFloorplan extends LitElement {
           >${pic ? "" : (p.attributes.friendly_name ?? "?").slice(0, 1)}</span
         >`;
       });
+  }
+
+  /** Zooms the plan into a room, like the camera flying in, while its devices open. */
+  private flyTo(room: Room): boolean {
+    if (!this.ctx.allows("fly_to_room") || this.zoom.s > 1 || this.tilt || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    const { w, h } = this.stageSize();
+    const xs = room.points.map((p) => (p[0] / 100) * w);
+    const ys = room.points.map((p) => (p[1] / 100) * h);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const s = Math.min(3, Math.max(1.2, Math.min(w / ((x1 - x0) * 1.4), h / ((y1 - y0) * 1.4))));
+    this.settling = true;
+    this.zoom = this.clampZoom({ s, x: w / 2 - ((x0 + x1) / 2) * s, y: h / 2 - ((y0 + y1) / 2) * s });
+    return true;
   }
 
   // ---- pinch zoom ----
@@ -1183,13 +1652,12 @@ export class SnFloorplan extends LitElement {
   }
 
   private renderGlow(floor: Floor, stageW: number) {
-    const { hass } = this.ctx;
     const radius = Math.max(120, stageW * 0.3);
     return (floor.rooms ?? []).map((room) => {
       const lights = floor.markers.filter((m) => domainOf(m.entity) === "light" && inside([m.x, m.y], room.points));
-      const lit = lights.filter((m) => hass.states[m.entity]?.state === "on");
+      const lit = lights.filter((m) => this.st(m.entity)?.state === "on");
       const layers = lit.map((m) => {
-        const a = hass.states[m.entity]!.attributes;
+        const a = this.st(m.entity)!.attributes;
         const [r, g, b] = Array.isArray(a.rgb_color) ? a.rgb_color : [255, 196, 120];
         const level = typeof a.brightness === "number" ? a.brightness / 255 : 1;
         const alpha = (this.ctx.dark ? 0.35 : 0.22) + (this.ctx.dark ? 0.45 : 0.25) * level;
@@ -1364,11 +1832,14 @@ export class SnFloorplan extends LitElement {
 
   private renderMarker(m: Marker) {
     const { ctx } = this;
-    const e = ctx.hass.states[m.entity];
+    const e = this.st(m.entity);
     const on = isActive(e);
     const dragging = this.drag?.id === m.id;
-    const x = dragging ? this.drag!.x : m.x;
-    const y = dragging ? this.drag!.y : m.y;
+    // A cleaning robot drives to the room it's in.
+    const roving = !ctx.editing && domainOf(m.entity) === "vacuum" && this.floor && ctx.allows("robot_on_plan") ? this.robotRoom(this.floor, m.entity) : undefined;
+    const [rx, ry] = roving ? centroid(roving.points) : [m.x, m.y];
+    const x = dragging ? this.drag!.x : rx;
+    const y = dragging ? this.drag!.y : ry;
     const motion = on && domainOf(m.entity) === "binary_sensor" && ["motion", "occupancy", "presence"].includes(e?.attributes.device_class);
     const cls = [
       "marker",
@@ -1378,6 +1849,7 @@ export class SnFloorplan extends LitElement {
       !on && !ctx.editing && ctx.dark && ctx.config.settings.night_plan && !this.selected ? "sleepy" : "",
       ctx.editing ? "editable" : "",
       dragging ? "dragging" : "",
+      roving ? "roving" : "",
       this.selected === m.id && ctx.editing ? "selected" : "",
     ].join(" ");
     return html`<div
@@ -1394,12 +1866,77 @@ export class SnFloorplan extends LitElement {
       @contextmenu=${(ev: Event) => ev.preventDefault()}
       @keydown=${(ev: KeyboardEvent) => ev.key === "Enter" && !ctx.editing && this.tap(m)}
     >
+      ${ctx.allows("plan_fx") && !ctx.editing ? this.fx(e) : nothing}
       <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, m.entity)}></sn-icon></span>
       ${m.display === "value" ? html`<span class="val">${rolling(shortValue(ctx.t, e, ctx.lang))}</span>` : nothing}
       ${ctx.editing && this.selected === m.id && !dragging
         ? html`<span class="tag">${entityName(ctx.hass, ctx.config, m.entity)}</span>`
         : nothing}
     </div>`;
+  }
+
+  /** Every floor as a slab, one above the other; lit lights glow through. Tap one to go there. */
+  private renderStack() {
+    const floors = this.floors.filter((f) => f.image);
+    const n = floors.length;
+    return html`<div class="stack" @pointerdown=${(e: Event) => e.stopPropagation()}>
+      ${floors.map(
+        (f, i) => html`<button
+          class="slab pressable"
+          style="--i:${i};--n:${n};z-index:${n - i}"
+          aria-label=${f.name}
+          @click=${() => {
+            this.floorIdx = this.floors.indexOf(f);
+            this.natural = undefined;
+            this.stack = false;
+          }}
+        >
+          <span class="plate">
+            <img src=${f.image} alt="" />
+            ${f.markers
+              .filter((m) => domainOf(m.entity) === "light" && this.ctx.hass.states[m.entity]?.state === "on")
+              .map((m) => html`<i class="lit" style="left:${m.x}%;top:${m.y}%"></i>`)}
+          </span>
+        </button>`
+      )}
+      ${floors.map((f, i) => html`<span class="slab-tag" style="--i:${i};--n:${n}">${f.name}</span>`)}
+    </div>`;
+  }
+
+  /** Where a cleaning robot is: its "current room" sensor matched to a drawn room. */
+  private robotRoom(floor: Floor, vacuum: string): Room | undefined {
+    const { hass } = this.ctx;
+    if (hass.states[vacuum]?.state !== "cleaning" || !floor.rooms?.length) return undefined;
+    const dev = hass.entities?.[vacuum]?.device_id;
+    const sensor = Object.values(hass.entities ?? {}).find((r) => r.device_id && r.device_id === dev && r.entity_id.startsWith("sensor.") && /current_room|_room$/.test(r.entity_id));
+    const v = sensor ? hass.states[sensor.entity_id]?.state : undefined;
+    if (!v) return undefined;
+    const norm = (x: string) => x.trim().toLowerCase();
+    const area = hass.areas?.[v]?.name;
+    return floor.rooms.find((r) => norm(r.name) === norm(v) || (area && norm(r.name) === norm(area)) || r.robot_room === v);
+  }
+
+  private get cleanedKey() {
+    return `smartnest-cleaned-${this.widget.id}-${new Date().toDateString()}`;
+  }
+
+  /** The plan comes alive: an open door swings, blinds sit where they are, the AC blows, a leak ripples, music plays. */
+  private fx(e: HassEntity | undefined) {
+    if (!e) return nothing;
+    const d = domainOf(e.entity_id);
+    const cls = e.attributes.device_class;
+    if (d === "binary_sensor" && ["door", "window", "opening", "garage_door"].includes(cls) && e.state === "on")
+      return html`<span class="fx fx-door" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 36 L4 4 A32 32 0 0 1 36 36" /></svg></span>`;
+    if (d === "binary_sensor" && cls === "moisture" && e.state === "on")
+      return html`<span class="fx fx-ripple" aria-hidden="true"><i></i><i></i><i></i></span>`;
+    if (d === "cover" && typeof e.attributes.current_position === "number")
+      return html`<span class="fx fx-shade" aria-hidden="true" style="--shut:${(100 - e.attributes.current_position) / 100}"></span>`;
+    if (d === "climate" && e.state !== "off" && e.state !== "unavailable") {
+      const hot = e.state === "heat" || e.attributes.hvac_action === "heating";
+      return html`<span class="fx fx-air ${hot ? "hot" : ""}" aria-hidden="true"><i></i><i></i><i></i></span>`;
+    }
+    if (d === "media_player" && e.state === "playing") return html`<span class="fx fx-notes" aria-hidden="true"><i>♪</i><i>♫</i><i>♪</i></span>`;
+    return nothing;
   }
 
   private renderTools() {
@@ -1507,7 +2044,7 @@ export class SnFloorplan extends LitElement {
             </div>
           </div>`
         : nothing}
-      ${floor?.image && !ctx.editing && (modes.length || ctx.allows("plan_3d"))
+      ${floor?.image && !ctx.editing && (modes.length || ctx.allows("plan_3d") || ctx.allows("plan_replay"))
         ? html`<div class="corner-btns" @pointerdown=${(e: Event) => e.stopPropagation()}>
             ${modes.length
               ? html`<button
@@ -1523,6 +2060,16 @@ export class SnFloorplan extends LitElement {
                   }}
                 >
                   <sn-icon icon=${mode === "humidity" ? "humidity" : mode === "co2" ? "co2" : "thermometer"}></sn-icon>
+                </button>`
+              : nothing}
+            ${ctx.allows("floor_stack") && floors.filter((f) => f.image).length > 1
+              ? html`<button class="pressable" aria-pressed=${this.stack} aria-label=${t("all_floors")} title=${t("all_floors")} @click=${() => (this.stack = !this.stack)}>
+                  <sn-icon icon="floors"></sn-icon>
+                </button>`
+              : nothing}
+            ${ctx.allows("plan_replay") && floor.markers.length
+              ? html`<button class="pressable" aria-pressed=${!!this.replay} aria-label=${t("replay")} title=${t("replay")} @click=${() => (this.replay ? this.stopReplay() : this.startReplay())}>
+                  <sn-icon icon="history"></sn-icon>
                 </button>`
               : nothing}
             ${ctx.allows("plan_3d")
@@ -1551,7 +2098,9 @@ export class SnFloorplan extends LitElement {
         @pointercancel=${(e: PointerEvent) => this.onAreaUp(e)}
         @wheel=${(e: WheelEvent) => this.onWheel(e)}
       >
-        ${floor?.image
+        ${this.stack && !ctx.editing
+          ? this.renderStack()
+          : floor?.image
           ? html`<div
               class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""} ${tilt ? "tilt" : ""}"
               style="width:${stage.w}px;height:${stage.h}px;transform:${tilt
@@ -1575,6 +2124,7 @@ export class SnFloorplan extends LitElement {
                     ${floor.rooms.map((r) => svg`<polygon points=${r.points.map((p) => p.join(",")).join(" ")} @click=${() => this.roomSheet(r)}></polygon>`)}
                   </svg>`
                 : nothing}
+              ${!ctx.editing && ctx.allows("robot_on_plan") ? this.renderCleaned(floor) : nothing}
               ${floor.markers.map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
             </div>`
@@ -1585,6 +2135,7 @@ export class SnFloorplan extends LitElement {
             </div>`}
       </div>
       ${ctx.editing && floor ? this.renderTools() : nothing}
+      ${this.replay && !ctx.editing ? this.renderReplay() : nothing}
     </div>`;
   }
 }
