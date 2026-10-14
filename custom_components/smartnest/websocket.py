@@ -19,7 +19,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_config)
     websocket_api.async_register_command(hass, ws_save_config)
     websocket_api.async_register_command(hass, ws_subscribe_config)
-    from .license import ws_license_activate, ws_license_status
+    from .license import ws_license_activate, ws_license_check, ws_license_status
     from .automations import ws_automations_get, ws_automations_set
     from .messages import ws_feedback, ws_message_ack, ws_message_send, ws_message_subscribe
     from .timers import ws_timer_cancel, ws_timer_list, ws_timer_set
@@ -35,6 +35,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_list_visitors)
     websocket_api.async_register_command(hass, ws_license_status)
     websocket_api.async_register_command(hass, ws_license_activate)
+    websocket_api.async_register_command(hass, ws_license_check)
     for cmd in (
         ws_timer_list, ws_timer_set, ws_timer_cancel,
         ws_message_subscribe, ws_message_send, ws_message_ack,
@@ -42,7 +43,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_kv_get, ws_kv_set, ws_kv_subscribe, ws_fx_start, ws_fx_stop, ws_parcels,
         ws_history_list, ws_history_restore,
         issuer.ws_status, issuer.ws_setup, issuer.ws_forget, issuer.ws_issue, issuer.ws_renew,
-        issuer.ws_update, issuer.ws_remove, issuer.ws_import, issuer.ws_test_url,
+        issuer.ws_update, issuer.ws_remove, issuer.ws_import, issuer.ws_test_url, issuer.ws_block,
         ws_codes_list, ws_codes_add, ws_codes_remove, ws_photo_link,
     ):
         websocket_api.async_register_command(hass, cmd)

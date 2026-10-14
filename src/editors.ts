@@ -561,7 +561,7 @@ const THEMES: { id: ThemeMode; label: I18nKey }[] = [
 
 export function settingsSheet(
   ctx: Ctx,
-  opts: { version: string; license?: { licensee: string; plan: string; expires?: number; trial: boolean; reseller: string }; testDoorbell: () => void }
+  opts: { version: string; license?: { licensee: string; plan: string; expires?: number; trial: boolean; reseller: string }; testDoorbell: () => void; checkLicense?: () => Promise<string> }
 ) {
   ctx.showSheet({
     title: ctx.t("settings"),
@@ -1074,7 +1074,23 @@ export function settingsSheet(
                     ${t("plan_label")}: <strong style="color:var(--accent-text)">${t(`plan_${opts.license.plan}` as I18nKey)}</strong>${opts.license.trial ? ` (${t("trial_label")})` : ""}
                     ${opts.license.expires ? html` · ${t("expires_on")} ${new Date(opts.license.expires * 1000).toLocaleDateString()}` : nothing}
                     ${opts.license.reseller ? html` · ${t("via")} ${opts.license.reseller}` : nothing}
-                  </span>`
+                  </span>
+                  ${opts.checkLicense
+                    ? html`<button
+                        class="btn pressable"
+                        style="justify-self:start;min-height:34px;font-size:13px"
+                        @click=${async (e: Event) => {
+                          const btn = e.currentTarget as HTMLButtonElement;
+                          btn.disabled = true;
+                          const note = await opts.checkLicense!().catch(() => t("error"));
+                          btn.disabled = false;
+                          c.toast(note);
+                          c.closeSheet();
+                        }}
+                      >
+                        <sn-icon icon="refresh" style="--icon-size:16px"></sn-icon>${t("lic_check")}
+                      </button>`
+                    : nothing}`
                 : nothing}
             </div>
           </div>`

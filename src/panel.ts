@@ -101,6 +101,8 @@ const SHOWROOM = (() => {
   }
 })();
 
+type LicStatus = { licensed: boolean; instance_id: string; expired?: boolean; revoked?: boolean; licensee?: string; plan?: Plan; expires?: number | null; trial?: boolean; reseller?: string };
+
 @customElement("smartnest-panel")
 export class SmartNestPanel extends LitElement {
   private _hass!: Hass;
@@ -172,7 +174,7 @@ export class SmartNestPanel extends LitElement {
   @state() private saving = false;
   @state() private loadError = "";
   /** Set when the integration refuses to work without an activation key. */
-  @state() private license?: { instance_id: string; error?: string; busy?: boolean; expired?: boolean };
+  @state() private license?: { instance_id: string; error?: string; busy?: boolean; expired?: boolean; revoked?: boolean; checking?: boolean; note?: string };
   @state() private lic: { licensee: string; plan: Plan; expires?: number; trial: boolean; reseller: string } = {
     licensee: "",
     plan: "premium",
@@ -920,6 +922,8 @@ export class SmartNestPanel extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.clearInterval(this.renewTimer);
+    window.clearInterval(this.licTimer);
+    document.removeEventListener("visibilitychange", this.recheckLicense);
     this.stopLight?.();
     window.removeEventListener("keydown", this.onSearchKey);
     window.removeEventListener("pointerdown", this.onActivity, { capture: true });
@@ -1058,16 +1062,15 @@ export class SmartNestPanel extends LitElement {
         // Another screen saved. Take it, unless we're mid-edit here.
         if (!this.draft && cfg) this.config = normalizeConfig(cfg, lang);
       });
-      this.hass
-        .callWS<{ licensee: string; plan?: Plan; expires?: number; trial?: boolean; reseller?: string }>({ type: "smartnest/license/status" })
-        .then(
-          (r) => (this.lic = { licensee: r.licensee, plan: r.plan ?? "premium", expires: r.expires ?? undefined, trial: !!r.trial, reseller: r.reseller ?? "" }),
-          () => undefined
-        );
+      this.hass.callWS<LicStatus>({ type: "smartnest/license/status" }).then(
+        (r) => this.applyLicense(r),
+        () => undefined
+      );
+      this.watchLicense();
     } catch (err) {
       if ((err as any)?.code === "not_licensed") {
-        const st = await this.hass.callWS<{ instance_id: string; expired?: boolean }>({ type: "smartnest/license/status" });
-        this.license = { instance_id: st.instance_id, expired: st.expired };
+        const st = await this.hass.callWS<{ instance_id: string; expired?: boolean; revoked?: boolean }>({ type: "smartnest/license/status" });
+        this.license = { instance_id: st.instance_id, expired: st.expired, revoked: st.revoked };
         this.waitForRenewal();
         return;
       }
@@ -1867,6 +1870,43 @@ export class SmartNestPanel extends LitElement {
   }
 
   private renewTimer?: number;
+  private licTimer?: number;
+
+  /** The license can change from afar (renewed, or stopped by the installer): keep what's shown in step with it. */
+  private applyLicense(r: LicStatus) {
+    if (!r.licensed) {
+      if (!this.license && r.instance_id) {
+        this.license = { instance_id: r.instance_id, expired: r.expired, revoked: r.revoked };
+        this.waitForRenewal();
+      }
+      return;
+    }
+    this.lic = { licensee: r.licensee ?? "", plan: r.plan ?? "premium", expires: r.expires ?? undefined, trial: !!r.trial, reseller: r.reseller ?? "" };
+  }
+
+  private watchLicense() {
+    window.clearInterval(this.licTimer);
+    this.licTimer = window.setInterval(() => !document.hidden && this.recheckLicense(), 5 * 60_000);
+    document.removeEventListener("visibilitychange", this.recheckLicense);
+    document.addEventListener("visibilitychange", this.recheckLicense);
+  }
+
+  private recheckLicense = () => {
+    if (this.license || !this.hass) return;
+    this.hass.callWS<LicStatus>({ type: "smartnest/license/status" }).then((r) => this.applyLicense(r), () => undefined);
+  };
+
+  /** "Check now": calls the installer right away instead of waiting for the next heartbeat. */
+  private async checkLicense(): Promise<string> {
+    const t = translator(this.uiLang);
+    const r = await this.hass.callWS<LicStatus & { reached: boolean }>({ type: "smartnest/license/check" });
+    if (r.licensed && this.license) {
+      this.license = undefined;
+      this.initStarted = false;
+      this.init();
+    } else this.applyLicense(r);
+    return r.reached ? t("lic_check_ok") : t("lic_check_none");
+  }
 
   /** The installer can renew from afar (the new key rides on the heartbeat): open by itself once it lands. */
   private waitForRenewal() {
@@ -1905,9 +1945,25 @@ export class SmartNestPanel extends LitElement {
       <div class="glass" style="width:min(520px,calc(100vw - 32px));padding:32px;border-radius:var(--r-xl);display:grid;gap:18px;text-align:start;color:var(--text)">
         <img src="${this.assetBase}logo/smartnest-symbol-${this.dark ? "white" : "color"}.svg" alt="SmartNest" style="width:56px;height:56px;animation:none" />
         <div style="display:grid;gap:6px">
-          <strong style="font-size:24px">${lic.expired ? t("expired_title") : t("activate_title")}</strong>
-          <span class="muted">${lic.expired ? t("expired_text") : t("activate_text")}</span>
+          <strong style="font-size:24px">${lic.revoked ? t("revoked_title") : lic.expired ? t("expired_title") : t("activate_title")}</strong>
+          <span class="muted">${lic.revoked ? t("revoked_text") : lic.expired ? t("expired_text") : t("activate_text")}</span>
         </div>
+        ${lic.expired || lic.revoked
+          ? html`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button
+                class="btn pressable"
+                ?disabled=${lic.checking}
+                @click=${async () => {
+                  this.license = { ...lic, checking: true, note: undefined };
+                  const note = await this.checkLicense().catch(() => t("error"));
+                  if (this.license) this.license = { ...this.license, checking: false, note };
+                }}
+              >
+                <sn-icon icon="refresh" style="--icon-size:18px"></sn-icon>${t("lic_check")}
+              </button>
+              ${lic.note ? html`<span class="muted" style="font-size:14px">${lic.note}</span>` : nothing}
+            </div>`
+          : nothing}
         <div class="field">
           ${admin ? t("activate_id") : t("activate_send")}
           <div style="display:flex;gap:8px">
@@ -1967,7 +2023,7 @@ export class SmartNestPanel extends LitElement {
       <button class="btn pressable" @click=${() => addPageSheet(ctx, (id) => (this.pageId = id))}>
         <sn-icon icon="dashboard" style="--icon-size:20px"></sn-icon>${t("add_page")}
       </button>
-      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, license: this.lic, testDoorbell: () => this.ring() })}>
+      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, license: this.lic, testDoorbell: () => this.ring(), checkLicense: () => this.checkLicense() })}>
         <sn-icon icon="cog" style="--icon-size:20px"></sn-icon>
       </button>
     </div>`;

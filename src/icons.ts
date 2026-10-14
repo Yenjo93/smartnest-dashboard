@@ -1,5 +1,6 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiRefresh,
   mdiHomeCityOutline,
   mdiTimerOutline,
   mdiBookOpenVariant,
@@ -370,6 +371,7 @@ export const ICONS: Record<string, string> = {
   "weather-night": mdiWeatherNight,
   timer: mdiTimerOutline,
   "home-city": mdiHomeCityOutline,
+  refresh: mdiRefresh,
 };
 
 /** Icons offered when naming a page. */

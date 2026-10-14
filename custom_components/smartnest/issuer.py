@@ -132,14 +132,18 @@ class Issuer:
             "offline_names": [str(x)[:40] for x in (data.get("offline_names") or [])[:8]],
             "low_battery": int(data.get("low_battery") or 0),
             "backup": str(data.get("backup") or "")[:40],
+            "revoked": bool(data.get("revoked")),
             # Which key the house runs, so the page can say whether a renewal has reached it.
             "key_t": int(sent.get("t") or 0),
         }
         await self.db.async_save({**db, "beats": beats})
+        if install in db.get("blocked", []):
+            return web.json_response({"revoke": True})
+        answer: dict[str, Any] = {"revoke": False}
         newest = max((h for h in db.get("houses", []) if h.get("install") == install), key=lambda h: h.get("issued", 0), default=None)
         if newest and newest.get("issued", 0) > int(sent.get("t") or 0) and newest.get("key") != key:
-            return web.json_response({"key": newest["key"]})
-        return None
+            answer["key"] = newest["key"]
+        return web.json_response(answer)
 
     async def async_setup_key(self, pem: str) -> bool:
         key = _load_key(pem)
@@ -182,6 +186,14 @@ class Issuer:
     async def beats(self) -> dict[str, Any]:
         return (await self.db.async_load() or {}).get("beats", {})
 
+    async def blocked(self) -> list[str]:
+        return (await self.db.async_load() or {}).get("blocked", [])
+
+    async def set_blocked(self, install: str, on: bool) -> None:
+        db = await self.db.async_load() or {}
+        rest = [i for i in db.get("blocked", []) if i != install]
+        await self.db.async_save({**db, "blocked": [*rest, install] if on else rest})
+
 
 def _record(key: str, payload: dict[str, Any], phone: str = "", note: str = "") -> dict[str, Any]:
     return {
@@ -219,6 +231,7 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
             "ready": True,
             "houses": await iss.houses(),
             "beats": await iss.beats(),
+            "blocked": await iss.blocked(),
             "heartbeat_url": iss.webhook_url(),
             # The page builds the full link from the address it's opened on (a Cloudflare domain, DuckDNS…).
             "heartbeat_path": webhook.async_generate_path(iss.webhook_id),
@@ -322,7 +335,20 @@ async def ws_renew(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     key, payload = iss.sign(old["install"], old["name"], msg.get("plan", old["plan"]), msg.get("days"), False, old.get("reseller") or None)
     rec = _record(key, payload, old.get("phone", ""), old.get("note", ""))
     await iss.save_houses([rec, *houses])
+    # Renewing a stopped house lets it back in.
+    await iss.set_blocked(old["install"], False)
     connection.send_result(msg["id"], rec)
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/issuer/block", vol.Required("install"): str, vol.Required("blocked"): bool})
+@websocket_api.async_response
+async def ws_block(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Stops a house from afar: its next heartbeat locks it. Letting it back opens it on the beat after."""
+    if not (iss := _ready(hass, connection, msg)):
+        return
+    await iss.set_blocked(msg["install"], msg["blocked"])
+    connection.send_result(msg["id"])
 
 
 @websocket_api.require_admin

@@ -44,19 +44,37 @@ class License:
         self.store: Store[dict] = Store(hass, 1, LICENSE_STORAGE_KEY)
         self.iid = ""
         self.info: dict[str, Any] | None = None
+        # Set when the installer stopped this house from afar (over the heartbeat). Only a newer key undoes it.
+        self.revoked_at: float | None = None
 
     async def async_load(self) -> None:
         self.iid = await instance_id.async_get(self.hass)
         saved = await self.store.async_load() or {}
         self.info = verify(saved.get("key", ""), self.iid) if saved.get("key") else None
+        self.revoked_at = saved.get("revoked_at")
+
+    async def _save(self) -> None:
+        saved = await self.store.async_load() or {}
+        await self.store.async_save({"key": saved.get("key", ""), "revoked_at": self.revoked_at})
+
+    def is_revoked_key(self, info: dict[str, Any]) -> bool:
+        """A key made before the stop: re-entering it doesn't undo the stop."""
+        return self.revoked_at is not None and int(info.get("t") or 0) <= self.revoked_at
 
     async def async_activate(self, key: str) -> bool:
         info = verify(key, self.iid)
-        if info is None:
+        if info is None or self.is_revoked_key(info):
             return False
-        await self.store.async_save({"key": key.strip()})
+        self.revoked_at = None
+        await self.store.async_save({"key": key.strip(), "revoked_at": None})
         self.info = info
         return True
+
+    async def async_set_revoked(self, revoked: bool) -> None:
+        if revoked == (self.revoked_at is not None):
+            return
+        self.revoked_at = time.time() if revoked else None
+        await self._save()
 
     @property
     def expired(self) -> bool:
@@ -65,13 +83,14 @@ class License:
 
     @property
     def valid(self) -> bool:
-        return self.info is not None and not self.expired
+        return self.info is not None and not self.expired and self.revoked_at is None
 
     def status(self) -> dict[str, Any]:
         info = self.info or {}
         return {
             "licensed": self.valid,
             "expired": self.expired,
+            "revoked": self.revoked_at is not None,
             "instance_id": self.iid,
             "licensee": info.get("n", ""),
             # Keys issued before plans existed unlock everything.
@@ -104,8 +123,19 @@ async def ws_license_activate(hass: HomeAssistant, connection: websocket_api.Act
         return
     info = verify(msg["key"], lic.iid)
     exp = (info or {}).get("x")
-    if info is None or (exp and time.time() > float(exp)):
+    if info is None or (exp and time.time() > float(exp)) or lic.is_revoked_key(info):
         connection.send_error(msg["id"], "invalid_key", "This key isn't valid (or has expired) for this installation")
         return
     await lic.async_activate(msg["key"])
     connection.send_result(msg["id"], lic.status())
+
+
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/license/check"})
+@websocket_api.async_response
+async def ws_license_check(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Calls the installer now instead of waiting for the next heartbeat: picks up a renewal (or a stop) right away."""
+    data = hass.data.get(DOMAIN) or {}
+    lic: License | None = data.get("license")
+    beat = data.get("heartbeat")
+    reached = await beat.async_send() if beat else False
+    connection.send_result(msg["id"], {**(lic.status() if lic else {"licensed": False, "instance_id": ""}), "reached": reached})

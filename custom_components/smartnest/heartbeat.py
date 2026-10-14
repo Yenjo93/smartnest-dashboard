@@ -52,6 +52,7 @@ class Heartbeat:
         from homeassistant.helpers.storage import Store
 
         key = ((await Store(self.hass, 1, LICENSE_STORAGE_KEY).async_load()) or {}).get("key")
+        lic = data.get("license")
         if not key:
             return False
         states = self.hass.states.async_all()
@@ -72,6 +73,7 @@ class Heartbeat:
             "low_battery": len(low),
             "backup": backup.state if backup else None,
             "at": time.time(),
+            "revoked": bool(lic and lic.revoked_at is not None),
         }
         try:
             async with async_get_clientsession(self.hass).post(url, json=payload, timeout=20) as resp:
@@ -85,8 +87,15 @@ class Heartbeat:
             answer = json.loads(text) if text.strip() else None
         except ValueError:
             answer = None
-        if isinstance(answer, dict) and isinstance(answer.get("key"), str):
+        if not isinstance(answer, dict):
+            return True
+        if isinstance(answer.get("key"), str):
             await self._take_key(answer["key"])
+        # The installer stopped (or let back) this house.
+        if isinstance(answer.get("revoke"), bool) and lic is not None:
+            await lic.async_set_revoked(answer["revoke"])
+            if answer["revoke"]:
+                _LOGGER.warning("SmartNest: the installer has stopped this house's license")
         return True
 
     async def _take_key(self, key: str) -> None:

@@ -15,6 +15,8 @@ interface Beat {
   backup: string;
   /** Issue time of the key the house runs. */
   key_t?: number;
+  /** The house reports it's locked by a stop from here. */
+  revoked?: boolean;
 }
 
 interface House {
@@ -58,6 +60,7 @@ export class SmartNestLicenses extends LitElement {
   @property({ attribute: false }) panel?: PanelInfo;
   @state() private ready?: boolean;
   @state() private houses: House[] = [];
+  @state() private blocked: string[] = [];
   @state() private beats: Record<string, Beat> = {};
   @state() private beatUrl = "";
   @state() private beatPath = "";
@@ -355,7 +358,8 @@ export class SmartNestLicenses extends LitElement {
 
   private async refresh() {
     try {
-      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; heartbeat_url?: string; heartbeat_path?: string }>({ type: "smartnest/issuer/status" });
+      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; blocked?: string[]; heartbeat_url?: string; heartbeat_path?: string }>({ type: "smartnest/issuer/status" });
+      this.blocked = s.blocked ?? [];
       this.ready = s.ready;
       this.houses = s.houses;
       this.beats = s.beats ?? {};
@@ -442,6 +446,21 @@ export class SmartNestLicenses extends LitElement {
     }
   }
 
+  /** Stop a house from afar, or let it back: it reaches the house with its next heartbeat. */
+  private async block(h: House, on: boolean) {
+    const reach = this.beats[h.install]
+      ? "بيوصله مع النبض الجاي (خلال 3 ساعات)."
+      : "⚠️ هاد البيت ما بعتلك نبض أبداً (ما فيه رابط النبض)، فما رح يوصله لحد ما ينحط الرابط عنده.";
+    if (!confirm(on ? `توقّف ${h.name}؟ الداشبورد عنده بيتقفل.\n${reach}` : `ترجّع ${h.name}؟\n${reach}`)) return;
+    try {
+      await this.hass.callWS({ type: "smartnest/issuer/block", install: h.install, blocked: on });
+      this.toast(on ? "⛔ انوقف" : "✓ رجع");
+      this.refresh();
+    } catch (err: any) {
+      this.toast(`ما زبطت: ${err?.message ?? ""}`);
+    }
+  }
+
   private renderSetup() {
     return html`<div class="card">
       <h2>🔑 ركّب مفتاح التوقيع</h2>
@@ -514,6 +533,11 @@ export class SmartNestLicenses extends LitElement {
       <span>${ago} · SmartNest ${b.version} · HA ${b.ha}</span>
       ${b.offline ? html`<span>${b.offline} أجهزة فاصلة: ${b.offline_names.join("، ")}</span>` : nothing}
       ${b.low_battery ? html`<span>${b.low_battery} بطاريات ضعيفة</span>` : nothing}
+      ${this.blocked.includes(h.install)
+        ? html`<span>${b.revoked ? "🔒 مقفول عنده" : "⏳ بيتقفل أول ما البيت يتصل"}</span>`
+        : b.revoked
+        ? html`<span>⏳ بيفتح أول ما البيت يتصل</span>`
+        : nothing}
       ${b.key_t !== undefined
         ? b.key_t >= h.issued
           ? html`<span>🔑 المفتاح الأخير شغّال عنده</span>`
@@ -529,7 +553,7 @@ export class SmartNestLicenses extends LitElement {
       <div class="top">
         <span class="nm">${h.name}</span>
         <span class="badge p-${h.plan}">${h.plan}${h.trial ? " · تجربة" : ""}</span>
-        <span class="badge s-${cls}">${txt}</span>
+        ${this.blocked.includes(h.install) ? html`<span class="badge s-bad">⛔ موقوف</span>` : html`<span class="badge s-${cls}">${txt}</span>`}
       </div>
       <div class="meta">
         <span class="mono" style="font-size:12px">${h.install}</span><span>انعمل ${fmt(h.issued)}</span>
@@ -576,6 +600,9 @@ export class SmartNestLicenses extends LitElement {
         >
           شيل
         </button>
+        ${this.blocked.includes(h.install)
+          ? html`<button class="btn pressable" @click=${() => this.block(h, false)}>رجّعه</button>`
+          : html`<button class="btn pressable" style="color:var(--alert-text)" @click=${() => this.block(h, true)}>⛔ أوقف</button>`}
       </div>
     </div>`;
   }

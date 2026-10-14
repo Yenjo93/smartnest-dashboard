@@ -890,6 +890,11 @@ const en = {
   fast_auto: "Automatic",
   fast_hint: "Solid cards instead of live blur, no ambient animations, fewer redraws. Best for wall tablets.",
   fast_hint_weak: "This tablet is on the weaker side, so Automatic turns fast mode on.",
+  revoked_title: "Dashboard stopped",
+  revoked_text: "Your installer has stopped this license. Contact them to turn it back on.",
+  lic_check: "Check now",
+  lic_check_ok: "Up to date ✓",
+  lic_check_none: "Couldn't reach your installer (no heartbeat link?)",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1784,6 +1789,11 @@ const ar: Record<I18nKey, string> = {
   fast_auto: "تلقائي",
   fast_hint: "كروت مصمتة بدل التغبيش، بدون حركات بالخلفية، وتحديث أقل. الأحسن لتابلت الحيط.",
   fast_hint_weak: "هالتابلت ضعيف شوي، فالتلقائي بيشغّل الوضع السريع.",
+  revoked_title: "الداشبورد موقوف",
+  revoked_text: "اللي ركّبلك وقّف الترخيص. تواصل معه ليرجّعه.",
+  lic_check: "تحقّق هلأ",
+  lic_check_ok: "محدّث ✓",
+  lic_check_none: "ما قدرت أوصل للمركّب (في رابط نبض؟)",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2676,6 +2686,11 @@ const he: Record<I18nKey, string> = {
   fast_auto: "אוטומטי",
   fast_hint: "כרטיסים אטומים במקום טשטוש, בלי אנימציות רקע, פחות רענונים. מומלץ לטאבלט קיר.",
   fast_hint_weak: "הטאבלט הזה חלש יחסית, לכן אוטומטי מפעיל מצב מהיר.",
+  revoked_title: "הדשבורד הופסק",
+  revoked_text: "המתקין עצר את הרישיון. פנו אליו כדי להפעיל מחדש.",
+  lic_check: "בדוק עכשיו",
+  lic_check_ok: "מעודכן ✓",
+  lic_check_none: "לא הצלחתי להגיע למתקין (יש קישור דופק?)",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };
