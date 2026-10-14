@@ -1,6 +1,7 @@
 import type { DashboardConfig, Floor, Hass, Lang, Page, Settings, Widget, WidgetType } from "./types";
 import { domainOf, listEntities } from "./entities";
 import type { I18nKey, Translate } from "./i18n";
+import { roomsWidgets } from "./autofill";
 
 export const COLS = 12;
 export const DEFAULT_ACCENT = "#E9971D";
@@ -122,11 +123,12 @@ function flow(widgets: Widget[], startY = 0): Widget[] {
   });
 }
 
-export type TemplateId = "blank" | "home" | "power" | "security" | "doorbell" | "climate" | "robot";
+export type TemplateId = "blank" | "home" | "rooms" | "power" | "security" | "doorbell" | "climate" | "robot";
 
 export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
   { id: "blank", icon: "dashboard", label: "template_blank" },
   { id: "home", icon: "home", label: "template_home" },
+  { id: "rooms", icon: "sofa", label: "template_rooms" },
   { id: "power", icon: "lightning-bolt", label: "template_power" },
   { id: "security", icon: "shield-home", label: "template_security" },
   { id: "doorbell", icon: "doorbell", label: "template_doorbell" },
@@ -137,8 +139,12 @@ export const TEMPLATES: { id: TemplateId; icon: string; label: I18nKey }[] = [
 /** Builds a page pre-filled with the client's matching devices, so a new install starts useful. */
 export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardConfig, t: Translate): Page {
   const tpl = TEMPLATES.find((x) => x.id === id)!;
+  // Skip technical entities (diagnostics, config switches, hidden ones): they're not for the family.
   const ents = (domains: string[], classes?: string[], limit = 8) =>
-    listEntities(hass, config, { domains, deviceClasses: classes }).slice(0, limit).map((e) => e.id);
+    listEntities(hass, config, { domains, deviceClasses: classes })
+      .filter((e) => !hass.entities?.[e.id]?.entity_category && !hass.entities?.[e.id]?.hidden)
+      .slice(0, limit)
+      .map((e) => e.id);
   const tiles = (ids: string[]) => ids.map((entity) => newWidget("tile", { entity }));
   const cams = (ids: string[], w = 6, h = 5) => ids.map((entity) => newWidget("camera", { entity }, { w, h }));
   let widgets: Widget[] = [];
@@ -174,6 +180,9 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
       ]);
       break;
     }
+    case "rooms":
+      widgets = roomsWidgets(hass, t("other_devices"));
+      break;
     case "robot":
       widgets = ents(["vacuum"], undefined, 2).map((entity, i) => newWidget("vacuum", { entity }, { y: i * 9 }));
       break;
@@ -181,13 +190,13 @@ export function pageFromTemplate(id: TemplateId, hass: Hass, config: DashboardCo
       widgets = flow([...tiles(ents(["climate"])), ...tiles(ents(["sensor"], ["temperature", "humidity"]))]);
       break;
   }
-  return { id: uid(), title: id === "blank" ? t("untitled") : t(tpl.label), icon: tpl.icon, widgets: resolveLayout(widgets) };
+  return { id: uid(), title: id === "blank" ? t("untitled") : t(tpl.label), icon: tpl.icon, widgets: id === "rooms" ? widgets : resolveLayout(widgets) };
 }
 
 export function defaultConfig(hass: Hass, t: Translate, lang: Lang): DashboardConfig {
   const config: DashboardConfig = { version: 1, settings: defaultSettings(lang), names: {}, pages: [] };
   const hasCameras = Object.keys(hass.states).some((id) => domainOf(id) === "camera");
-  const ids: TemplateId[] = hasCameras ? ["home", "power", "security", "doorbell"] : ["home", "power", "climate"];
+  const ids: TemplateId[] = hasCameras ? ["home", "rooms", "power", "security", "doorbell"] : ["home", "rooms", "power", "climate"];
   config.pages = ids.map((id) => pageFromTemplate(id, hass, config, t));
   config.settings.default_page = config.pages[0].id;
   return config;

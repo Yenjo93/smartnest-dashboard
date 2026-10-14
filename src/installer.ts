@@ -46,9 +46,9 @@ export function maintenanceDue(config: DashboardConfig, now = Date.now()) {
 // ---- first-run wizard ----
 
 const HOUSES: Record<string, TemplateId[]> = {
-  flat: ["home", "power", "security"],
-  villa: ["home", "power", "security", "doorbell", "climate", "robot"],
-  office: ["home", "power", "climate"],
+  flat: ["home", "rooms", "power", "security"],
+  villa: ["home", "rooms", "power", "security", "doorbell", "climate", "robot"],
+  office: ["home", "rooms", "power", "climate"],
 };
 
 /** Three questions when the integration is first added: name and language, kind of home, then pages are built from what's there. */

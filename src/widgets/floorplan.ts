@@ -10,6 +10,7 @@ import "../ui/icon";
 import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
+import { autoPlace } from "../autofill";
 import "../ui/entity-picker";
 
 type MapMode = "off" | "temp" | "humidity" | "co2";
@@ -1199,6 +1200,19 @@ export class SnFloorplan extends LitElement {
       <button class="btn primary pressable" @click=${() => (this.drawing = [])}>
         <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("draw_room")}
       </button>
+      ${this.floor?.rooms?.length
+        ? html`<button
+            class="btn pressable"
+            @click=${() => {
+              const floor = this.floor!;
+              const added = autoPlace(this.ctx.hass, floor);
+              this.edit((_f, fl) => fl && (fl.markers = [...fl.markers, ...added]));
+              this.ctx.toast(t("autofill_done", { n: added.length }));
+            }}
+          >
+            <sn-icon icon="marker-plus" style="--icon-size:20px"></sn-icon>${t("autofill_rooms")}
+          </button>`
+        : nothing}
       <button class="btn pressable" @click=${() => (this.roomMode = false)}>${t("done")}</button>
     </div>`;
   }

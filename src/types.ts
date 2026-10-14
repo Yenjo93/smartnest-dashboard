@@ -11,13 +11,18 @@ export interface HassEntity {
 export interface HassEntityReg {
   entity_id: string;
   device_id?: string;
+  area_id?: string;
   platform?: string;
   translation_key?: string;
+  /** "config" / "diagnostic": technical entities, not for the family. */
+  entity_category?: string | null;
+  hidden?: boolean;
 }
 
 export interface HassDevice {
   id: string;
   name?: string;
+  area_id?: string | null;
   identifiers?: [string, string][];
 }
 

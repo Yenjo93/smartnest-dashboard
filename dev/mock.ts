@@ -131,6 +131,21 @@ const entityRegistry: Record<string, any> = Object.fromEntries(
 entityRegistry["remote.living_tv"] = { entity_id: "remote.living_tv", platform: "androidtv_remote" };
 for (const id of ["vacuum.robot", "image.robot_map", "select.robot_mop_intensity", "sensor.robot_cleaning_area", "sensor.robot_cleaning_time", "sensor.robot_main_brush_time_left", "sensor.robot_side_brush_time_left", "sensor.robot_filter_time_left", "sensor.robot_sensor_time_left", "button.robot_empty_dustbin"])
   entityRegistry[id] = { entity_id: id, device_id: "dev-robot", platform: "roborock" };
+// HA areas, named like the rooms drawn on the demo plan, so "Fill rooms" has something to match.
+const areas: Record<string, { area_id: string; name: string }> = Object.fromEntries(
+  [["living", "الصالة"], ["kitchen", "المطبخ"], ["bath", "الحمام"], ["hall", "الممر"], ["entry", "المدخل"], ["bedroom", "غرفة النوم"]].map(([area_id, name]) => [area_id, { area_id, name }])
+);
+const AREA_OF: Record<string, string> = {
+  "light.living_room": "living", "climate.living_ac": "living", "sensor.living_temperature": "living", "sensor.living_humidity": "living", "cover.living_blinds": "living",
+  "media_player.living_speaker": "living", "light.kitchen": "kitchen", "switch.coffee_machine": "kitchen", "binary_sensor.kitchen_window": "kitchen",
+  "binary_sensor.bathroom_leak": "bath", "switch.water_heater": "bath", "binary_sensor.hallway_motion": "hall", "light.entrance": "entry",
+  "lock.front_door": "entry", "binary_sensor.front_door_contact": "entry", "camera.front_door": "entry", "light.bedroom": "bedroom",
+  "climate.bedroom_ac": "bedroom", "fan.bedroom": "bedroom", "sensor.bedroom_humidity": "bedroom",
+};
+for (const [id, area_id] of Object.entries(AREA_OF)) entityRegistry[id] = { ...(entityRegistry[id] ?? { entity_id: id }), area_id };
+// A diagnostic sensor that must never reach the dashboard.
+add(ent("sensor.coffee_machine_signal", "-61", { friendly_name: "Coffee machine signal", device_class: "signal_strength", unit_of_measurement: "dBm" }));
+entityRegistry["sensor.coffee_machine_signal"] = { entity_id: "sensor.coffee_machine_signal", area_id: "kitchen", entity_category: "diagnostic" };
 const deviceRegistry: Record<string, HassDevice> = { [FULLY_DEVICE]: { id: FULLY_DEVICE, name: "تابلت الحيط", identifiers: [["fully_kiosk", "dev-tablet-1"]] } };
 // ?fully=1 pretends this browser is the tablet (Fully's JavaScript Interface).
 if (params.get("fully") === "1") (window as any).fully = { getDeviceId: () => "dev-tablet-1" };
@@ -494,6 +509,7 @@ function snapshot(): Hass {
     states: { ...states },
     entities: entityRegistry,
     devices: deviceRegistry,
+    areas,
     user: { id: "dev", name: isAdmin ? "Installer" : "Client", is_admin: isAdmin },
     language: lang,
     config: { location_name: "Home" },
