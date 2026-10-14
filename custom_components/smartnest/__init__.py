@@ -75,6 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["timers"] = timers
 
     from .family import Family
+    from .issuer import Issuer
+
+    issuer = Issuer(hass)
+    await issuer.async_load()
+    hass.data[DOMAIN]["issuer"] = issuer
 
     family = Family(hass)
     await family.async_load()
@@ -88,17 +93,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     version = str(integration.version)
     stamp = await hass.async_add_executor_job(_build_stamp)
 
+    module_url = f"{STATIC_URL}/smartnest-panel.js?v={version}-{stamp}"
+    hass.data[DOMAIN]["module_url"] = module_url
+    hass.data[DOMAIN]["asset_base"] = f"{STATIC_URL}/static/"
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_COMPONENT,
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        module_url=f"{STATIC_URL}/smartnest-panel.js?v={version}-{stamp}",
+        module_url=module_url,
         embed_iframe=False,
         require_admin=False,
         config={"asset_base": f"{STATIC_URL}/static/", "version": version},
     )
+    from .issuer import async_sync_panel
+
+    await async_sync_panel(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -107,6 +118,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove the panel; the saved dashboard stays on disk."""
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
+    if "smartnest-licenses" in hass.data.get("frontend_panels", {}):
+        frontend.async_remove_panel(hass, "smartnest-licenses")
     hass.services.async_remove(DOMAIN, "show_message")
     data = hass.data.pop(DOMAIN, None) or {}
     if visitors := data.get("visitors"):

@@ -581,6 +581,30 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       const speech = /طف|off/i.test(text) ? "طفّيت 4 أضواء." : /حرار|temp/i.test(text) ? "الحرارة بالصالة 23.5 درجة." : /باب|door/i.test(text) ? "الباب مقفول." : "تمام، عملتها.";
       return { conversation_id: "c1", response: { response_type: "action_done", speech: { plain: { speech } } } };
     }
+    case "smartnest/issuer/status": {
+      const db = JSON.parse(localStorage.getItem("smartnest-dev-issued") ?? "null");
+      return { ready: !!db, houses: db ?? [] };
+    }
+    case "smartnest/issuer/setup":
+      localStorage.setItem("smartnest-dev-issued", "[]");
+      return null;
+    case "smartnest/issuer/issue": {
+      // Dev can't sign: a fake key with the real shape.
+      const now = Math.floor(Date.now() / 1000);
+      const db = JSON.parse(localStorage.getItem("smartnest-dev-issued") ?? "[]");
+      const payload: any = { v: 1, i: msg.install, n: msg.name, t: now, p: msg.trial ? "premium" : msg.plan };
+      const days = msg.trial ? 14 : msg.days;
+      if (days) payload.x = now + days * 86400;
+      const rec = { id: Math.random().toString(36).slice(2), key: `SN1.${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}.devsignature`, install: msg.install, name: msg.name, plan: payload.p, trial: !!msg.trial, reseller: msg.reseller ?? "", issued: now, expires: payload.x ?? null, phone: msg.phone ?? "", note: msg.note ?? "" };
+      db.unshift(rec);
+      localStorage.setItem("smartnest-dev-issued", JSON.stringify(db));
+      return rec;
+    }
+    case "smartnest/issuer/remove": {
+      const db = JSON.parse(localStorage.getItem("smartnest-dev-issued") ?? "[]").filter((h: any) => h.install !== msg.install);
+      localStorage.setItem("smartnest-dev-issued", JSON.stringify(db));
+      return null;
+    }
     case "smartnest/history/list":
       return {
         items: JSON.parse(localStorage.getItem("smartnest-dev-history") ?? "[]").map((i: any) => ({
