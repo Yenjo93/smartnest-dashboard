@@ -1,3 +1,4 @@
+import { FONTS } from "./look";
 import { html, nothing, type TemplateResult } from "lit";
 import { unsafeStatic, html as staticHtml } from "lit/static-html.js";
 import type { Ctx } from "./ctx";
@@ -815,6 +816,9 @@ export function settingsSheet(
                     ${c.allows("welcome") ? html`<div class="field">${t("welcome_moment")} ${toggle(c, s.welcome, (v) => set((d) => (d.settings.welcome = v)))}</div>` : nothing}
                     ${c.allows("page_moods") ? html`<div class="field">${t("page_moods")} ${toggle(c, s.page_moods, (v) => set((d) => (d.settings.page_moods = v)))}</div>` : nothing}
                     ${c.allows("season_skin") ? html`<div class="field">${t("season_skin")} ${toggle(c, s.season_skin, (v) => set((d) => (d.settings.season_skin = v)))}</div>` : nothing}
+                    ${c.allows("accent_day") ? html`<div class="field">${t("accent_day")} ${toggle(c, s.accent_day, (v) => set((d) => (d.settings.accent_day = v)))}</div>` : nothing}
+                    ${c.allows("active_glow") ? html`<div class="field">${t("active_glow")} ${toggle(c, s.active_glow, (v) => set((d) => (d.settings.active_glow = v)))}</div>` : nothing}
+                    ${c.allows("aurora") ? html`<div class="field">${t("aurora")} ${toggle(c, s.aurora, (v) => set((d) => (d.settings.aurora = v)))}</div>` : nothing}
                     ${c.allows("monogram")
                       ? html`<label class="field"
                           >${t("monogram")}
@@ -832,6 +836,23 @@ export function settingsSheet(
               <span class="hint">${t("style_hint")}</span>
             </div>`
           : nothing,
+        c.allows("fonts")
+          ? html`<label class="field"
+              >${t("font")}
+              <select @change=${(e: any) => set((d) => (d.settings.font = e.target.value))}>
+                ${Object.entries(FONTS).map(([id, f]) => html`<option value=${id} ?selected=${(s.font ?? "rubik") === id} style="font-family:'${f.family}'">${f.label}</option>`)}
+              </select>
+              <span class="hint">${t("font_hint")}</span>
+            </label>`
+          : nothing,
+        c.allows("icon_styles")
+          ? html`<div class="field">
+              ${t("icons_style")}
+              <div class="seg">${(["filled", "line"] as const).map((v) => html`<button aria-pressed=${(s.icons ?? "filled") === v} @click=${() => set((d) => (d.settings.icons = v))}>${t(v === "line" ? "icons_line" : "icons_filled")}</button>`)}</div>
+            </div>`
+          : nothing,
+        c.allows("occasions") ? html`<div class="field">${t("occasions")} ${toggle(c, s.occasions, (v) => set((d) => (d.settings.occasions = v)))}</div>` : nothing,
+        c.allows("burn_in") ? html`<div class="field">${t("burn_in")} ${toggle(c, s.burn_in, (v) => set((d) => (d.settings.burn_in = v)))}</div>` : nothing,
         html`<div class="field">
           ${t("accent")}
           ${row(

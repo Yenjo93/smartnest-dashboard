@@ -146,6 +146,40 @@ export class SnTile extends LitElement {
         top: 10px;
         font-size: 15px;
       }
+      /* 2.0: a slow light runs around the border of whatever is on. */
+      .ring {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1.5px;
+        overflow: hidden;
+        pointer-events: none;
+        display: var(--active-glow, none);
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+      }
+      .ring i {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 300%;
+        aspect-ratio: 1;
+        translate: -50% -50%;
+        background: conic-gradient(transparent 0 72%, color-mix(in srgb, var(--tone, var(--accent)) 90%, #fff) 88%, transparent 100%);
+        animation: ring 5s linear infinite;
+        animation-play-state: var(--loops, running);
+      }
+      @keyframes ring {
+        to {
+          rotate: 360deg;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ring {
+          display: none;
+        }
+      }
       .tile.armed {
         transform: scale(0.97);
         transition: transform 160ms var(--ease-out);
@@ -298,6 +332,7 @@ export class SnTile extends LitElement {
         ${this.dim !== undefined
           ? html`<div class="dim" style="transform:scaleX(${this.dim / 100});--from:${this.ctx.rtl ? "right" : "left"}"></div><b class="dimv ltr">${this.dim}%</b>`
           : ""}
+        ${on ? html`<span class="ring" aria-hidden="true"><i></i></span>` : ""}
         <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, id)}></sn-icon></span>
         <span class="text">
           <span class="name">${entityName(ctx.hass, ctx.config, id)}</span>

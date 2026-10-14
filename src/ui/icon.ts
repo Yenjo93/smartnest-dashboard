@@ -74,6 +74,13 @@ export class SnIcon extends LitElement {
     .mono {
       display: var(--mono-on, block);
     }
+    /* Line icons (Settings → icons): the outline drawing where MDI has one, the solid one otherwise. */
+    .mono .f {
+      display: var(--fill-on, inline);
+    }
+    .mono .o {
+      display: var(--line-on, none);
+    }
     .duo {
       display: var(--duo-on, none);
       overflow: visible;
@@ -100,7 +107,7 @@ export class SnIcon extends LitElement {
     const path = ICONS[this.icon] ?? ICONS[key];
     if (path) {
       const outline = DUO[key];
-      return html`<svg class="mono" viewBox="0 0 24 24" aria-hidden="true">${svg`<path d=${path}></path>`}</svg>
+      return html`<svg class="mono" viewBox="0 0 24 24" aria-hidden="true">${outline ? svg`<path class="f" d=${path}></path><path class="o" d=${outline}></path>` : svg`<path d=${path}></path>`}</svg>
         <svg class="duo" viewBox="0 0 24 24" aria-hidden="true">
           ${outline
             ? svg`<path class="back" d=${path}></path><path d=${outline}></path>`

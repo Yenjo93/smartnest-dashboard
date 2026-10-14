@@ -9,6 +9,7 @@ import { shortValue } from "./entities";
 import { shared } from "./theme";
 import { currentSeason } from "./season";
 import "./season";
+import "./ui/icon";
 
 interface Slide {
   url: string;
@@ -78,6 +79,35 @@ export class SnScreensaver extends LitElement {
         font-size: clamp(28px, 3.4vw, 40px);
         font-weight: 500;
         color: #e9971d;
+      }
+      /* What's on in the house, in one glance from across the room. */
+      .now {
+        position: absolute;
+        bottom: 86px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 90vw;
+      }
+      .now span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        -webkit-backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px);
+        color: #e9edf1;
+        font-size: 17px;
+        font-weight: 600;
+        --icon-size: 20px;
+      }
+      .now span.warn {
+        background: rgba(242, 107, 104, 0.25);
       }
       .brand {
         position: absolute;
@@ -275,6 +305,23 @@ export class SnScreensaver extends LitElement {
     </div>`;
   }
 
+  /** Lights on, ACs running, anything open or unlocked: the night-time "is everything fine?" without waking it. */
+  private renderNow() {
+    const { hass, t } = this.ctx;
+    const all = Object.values(hass.states).filter((e) => !hass.entities?.[e.entity_id]?.entity_category && !hass.entities?.[e.entity_id]?.hidden);
+    const lights = all.filter((e) => e.entity_id.startsWith("light.") && e.state === "on").length;
+    const acs = all.filter((e) => e.entity_id.startsWith("climate.") && !["off", "unavailable"].includes(e.state)).length;
+    const open = all.filter((e) => e.entity_id.startsWith("binary_sensor.") && ["door", "window", "garage_door", "opening"].includes(e.attributes.device_class) && e.state === "on").length;
+    const unlocked = all.filter((e) => e.entity_id.startsWith("lock.") && e.state === "unlocked").length;
+    if (!lights && !acs && !open && !unlocked) return nothing;
+    return html`<div class="now" aria-hidden="true">
+      ${lights ? html`<span><sn-icon icon="lightbulb"></sn-icon>${lights}</span>` : nothing}
+      ${acs ? html`<span><sn-icon icon="snowflake"></sn-icon>${acs}</span>` : nothing}
+      ${open ? html`<span class="warn"><sn-icon icon="door-open"></sn-icon>${t("ss_open", { n: open })}</span>` : nothing}
+      ${unlocked ? html`<span class="warn"><sn-icon icon="lock-open"></sn-icon>${t("ss_unlocked", { n: unlocked })}</span>` : nothing}
+    </div>`;
+  }
+
   render() {
     const { ctx } = this;
     const loc = LOCALE[ctx.lang];
@@ -303,6 +350,7 @@ export class SnScreensaver extends LitElement {
       ${photos ? html`<div class="shade"></div>` : nothing} ${this.renderClock(loc, photos)}
       ${this.guests ? html`<sn-guests dim .ctx=${ctx} style="position:absolute;top:32px;inset-inline-end:32px;max-width:min(560px,80vw)"></sn-guests>` : nothing}
       ${ctx.allows("seasons") ? html`<sn-season .season=${currentSeason(ctx.config.settings, this.now)}></sn-season>` : nothing}
+      ${this.renderNow()}
       <div class="brand">
         <img src="${ctx.assetBase}logo/smartnest-symbol-white.svg" alt="" />
         <span>SmartNest${photos ? "" : html` · ${ctx.t("tagline")}`}</span>

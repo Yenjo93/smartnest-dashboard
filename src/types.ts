@@ -131,6 +131,20 @@ export interface Settings {
   wallpaper?: string;
   wallpaper_dim: number;
   accent_from_wallpaper: boolean;
+  /** Typeface: Rubik (built in) or an Arabic display face from Google Fonts. */
+  font: string;
+  /** Solid icons, or line drawings where there's one. */
+  icons: "filled" | "line";
+  /** The accent follows the day: gold mornings, teal days, coral evenings, violet nights. */
+  accent_day: boolean;
+  /** A slow light running around the border of whatever is on. */
+  active_glow: boolean;
+  /** A slow aurora behind the cards when there's no wallpaper. */
+  aurora: boolean;
+  /** Ramadan, the Eids, Christmas and New Year dress the dashboard by themselves. */
+  occasions: boolean;
+  /** Wall tablets: the picture moves a few pixels now and then so nothing burns in. */
+  burn_in: boolean;
   /** 2.0 extras: a camera as the background, the album art while music plays, a welcome when someone gets home,
    *  a colour mood per page, the family's monogram instead of the logo, and seasonal skies. */
   window_camera?: string;

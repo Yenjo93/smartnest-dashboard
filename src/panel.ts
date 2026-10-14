@@ -4,7 +4,7 @@ import { repeat } from "lit/directives/repeat.js";
 import type { Ctx, SheetSpec } from "./ctx";
 import type { DashboardConfig, Hass, HassEntity, Lang, PanelInfo } from "./types";
 import { defaultConfig, loadConfig, normalizeConfig, saveConfig, subscribeConfig } from "./config";
-import { isRtl, translator } from "./i18n";
+import { isRtl, translator, type I18nKey } from "./i18n";
 import { fontFaceCss, shared, themeVars } from "./theme";
 import "./ui/icon";
 import "./ui/sheet-host";
@@ -28,6 +28,8 @@ import { setSounds } from "./sounds";
 import { setStill } from "./motion";
 import "./flair";
 import "./rainglass";
+import "./occasion";
+import { dayAccent, fontStack, occasionToday } from "./look";
 import { monogram, seasonNow } from "./flair";
 import { snapshotUrl } from "./widgets/camera";
 import "./ui/empty";
@@ -53,6 +55,22 @@ import { haptic } from "./ui/haptic";
 
 /** Settings, page and widget editors: loaded the first time they're opened. */
 const editors = () => import("./editors");
+
+function readFlag(key: string) {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    on ? localStorage.setItem(key, "1") : localStorage.removeItem(key);
+  } catch {
+    /* per screen */
+  }
+}
 
 const CACHE = "smartnest-cache-v1";
 type Cached = { config: DashboardConfig; lic: { licensee: string; plan: Plan; expires?: number; trial: boolean; reseller: string } };
@@ -405,6 +423,9 @@ export class SmartNestPanel extends LitElement {
       return false;
     }
   })();
+  /** This screen: night red (warm, dim, after dark) and the simple mode for grandparents. */
+  @state() private nightRed = readFlag("smartnest-nightred");
+  @state() private simple = readFlag("smartnest-simple");
   @state() private touring = false;
   @state() private searching = false;
   /** Cmd/Ctrl+K opens search, like Spotlight. */
@@ -809,6 +830,72 @@ export class SmartNestPanel extends LitElement {
         zoom: 1.35;
       }
       /* Large text for grandparents: bigger everything, stronger text. */
+      /* Simple mode: the pages and the big buttons, nothing else to get lost in. */
+      .simple header .actions,
+      .simple sn-island,
+      .simple .chips,
+      .simple .statusline,
+      .simple sn-sunarc {
+        display: none !important;
+      }
+      /* Night red: warm and dim after dark, easy on eyes waking up at night. */
+      .redshift {
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        pointer-events: none;
+        background: rgba(255, 70, 20, 0.5);
+        mix-blend-mode: multiply;
+      }
+      .redshift::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      /* Aurora: slow colour fields drifting behind the cards (2.0, when there's no wallpaper). */
+      .aurora {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        overflow: hidden;
+        pointer-events: none;
+        opacity: 0.55;
+      }
+      .aurora i {
+        position: absolute;
+        width: 70vmax;
+        height: 70vmax;
+        border-radius: 50%;
+        filter: blur(70px);
+        opacity: 0.55;
+        animation: drift 38s ease-in-out infinite alternate;
+        animation-play-state: var(--loops, running);
+      }
+      .aurora i:nth-child(1) {
+        background: var(--accent);
+        left: -20vmax;
+        top: -25vmax;
+      }
+      .aurora i:nth-child(2) {
+        background: #3fb5a6;
+        right: -25vmax;
+        top: 10vh;
+        animation-duration: 46s;
+        animation-delay: -12s;
+      }
+      .aurora i:nth-child(3) {
+        background: #8b7cf6;
+        left: 20vw;
+        bottom: -35vmax;
+        animation-duration: 54s;
+        animation-delay: -24s;
+      }
+      @keyframes drift {
+        to {
+          transform: translate(12vmax, 8vmax) scale(1.15);
+        }
+      }
       .big {
         zoom: 1.2;
         --text-2: var(--text);
@@ -1210,6 +1297,26 @@ export class SmartNestPanel extends LitElement {
     this.fullyTick();
     this.checkMorning();
     this.checkOverload();
+    this.shiftPixels();
+  }
+
+  private burnStep = 0;
+
+  /**
+   * Wall tablets show the same picture all day: every two minutes the whole dashboard moves by a couple of pixels
+   * in a slow loop, so the static parts (header, plan lines) never burn into the screen. Too small to notice.
+   */
+  private shiftPixels() {
+    const s = this.config?.settings;
+    const wall = this.kiosk || (allows(this.lic.plan, "fully") && !!this.hass && !!thisTablet(this.hass));
+    const app = this.renderRoot.querySelector<HTMLElement>(".app");
+    if (!app) return;
+    if (!s?.burn_in || !wall || !allows(this.lic.plan, "burn_in")) return void app.style.removeProperty("translate");
+    if (++this.burnStep % 12) return;
+    const path = [[0, 0], [2, 1], [1, 3], [-1, 2], [-2, 0], [-1, -2], [1, -2], [2, -1]];
+    const [x, y] = path[(this.burnStep / 12) % path.length];
+    app.style.transition = "translate 2s ease";
+    app.style.translate = `${x}px ${y}px`;
   }
 
   /** Over the limit for 20 seconds straight (a kettle blip doesn't count); then quiet for 10 minutes after "dismiss". */
@@ -1732,7 +1839,13 @@ export class SmartNestPanel extends LitElement {
     const back = pro && this.current && this.hass ? this.backdrop(this.makeCtx()) : undefined;
     const wallOn = !!back;
     if (wallOn && s!.accent_from_wallpaper && back !== this.wallSrc && !back!.includes("camera_proxy")) this.pickWallAccent(back!);
-    const vars = themeVars(this.dark, wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : s?.accent ?? "");
+    const sun = this.hass?.states["sun.sun"];
+    const dayTint = s?.accent_day && allows(this.lic.plan, "accent_day") ? dayAccent(new Date(), Number(sun?.attributes.elevation ?? NaN) || undefined, !!sun?.attributes.rising) : undefined;
+    const vars = themeVars(this.dark, wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : dayTint ?? s?.accent ?? "");
+    vars["--font"] = fontStack(allows(this.lic.plan, "fonts") ? s?.font : "rubik");
+    if (s?.icons === "line" && allows(this.lic.plan, "icon_styles")) Object.assign(vars, { "--fill-on": "none", "--line-on": "inline" });
+    else Object.assign(vars, { "--fill-on": "inline", "--line-on": "none" });
+    vars["--active-glow"] = pro && s?.active_glow && !this.lite && allows(this.lic.plan, "active_glow") ? "block" : "none";
     const midnight = !!s && pro && (s.theme === "midnight" || (s.night_midnight && this.dark && s.theme === "schedule"));
     if (midnight) Object.assign(vars, midnightVars());
     Object.assign(vars, proVars(pro, this.dark, midnight, (s?.material ?? "none") as Material, pro && this.hass && this.current ? ambientColor(this.hass, this.current) : undefined, vars["--accent"]));
@@ -1933,6 +2046,7 @@ export class SmartNestPanel extends LitElement {
       </div>
       ${ctx.editing ? this.renderDock(ctx) : this.kids ? nothing : this.renderChips(ctx)}
       ${this.pro && ctx.allows("status_line") ? this.renderStatusLine(ctx) : nothing}
+      ${ctx.config.settings.occasions && ctx.allows("occasions") && !ctx.editing && !this.lite && !this.simple ? this.renderOccasion() : nothing}
       ${this.renderExpiry(ctx)}
     </header>`;
   }
@@ -2070,6 +2184,24 @@ export class SmartNestPanel extends LitElement {
               </div>
               <span class="hint">${c.t(weakDevice() ? "fast_hint_weak" : "fast_hint")}${this.lite ? " ✓" : ""}</span>
             </div>
+            ${c.allows("simple_mode")
+              ? html`<div class="field">
+                  ${c.t("simple_mode")}
+                  <div class="seg">
+                    ${[true, false].map((v) => html`<button aria-pressed=${this.simple === v} @click=${() => ((this.simple = v), writeFlag("smartnest-simple", v))}>${c.t(v ? "on" : "off")}</button>`)}
+                  </div>
+                  <span class="hint">${c.t("simple_hint")}</span>
+                </div>`
+              : nothing}
+            ${c.allows("night_red")
+              ? html`<div class="field">
+                  ${c.t("night_red")}
+                  <div class="seg">
+                    ${[true, false].map((v) => html`<button aria-pressed=${this.nightRed === v} @click=${() => ((this.nightRed = v), writeFlag("smartnest-nightred", v))}>${c.t(v ? "on" : "off")}</button>`)}
+                  </div>
+                  <span class="hint">${c.t("night_red_hint")}</span>
+                </div>`
+              : nothing}
             <div class="field">
               ${c.t("big_text")}
               <div class="seg">
@@ -2303,6 +2435,15 @@ export class SmartNestPanel extends LitElement {
   }
 
   /** 2.0: drops on the glass while it rains outside. */
+  /** The calendar's big days, at the top edge. The greeting shows on the first day only. */
+  private renderOccasion() {
+    const kind = occasionToday(this.now);
+    if (!kind) return nothing;
+    const t = translator(this.uiLang);
+    const first = kind !== occasionToday(new Date(this.now.getTime() - 86_400_000));
+    return html`<sn-occasion .kind=${kind} .greeting=${first || kind !== "ramadan" ? t(`occ_${kind}` as I18nKey) : ""}></sn-occasion>`;
+  }
+
   private renderRainGlass(ctx: Ctx) {
     if (!this.pro || this.lite || ctx.editing || ctx.config.settings.motion !== "full" || !ctx.allows("rain_glass")) return nothing;
     const id = ctx.config.settings.weather.entity;
@@ -2358,7 +2499,9 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && !this.lite && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+    return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && !this.lite && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${(this.big || this.simple) && !this.tvMode ? "big" : ""} ${this.simple && !ctx.editing ? "simple" : ""}">
+      ${this.pro && !this.lite && !this.backdrop(ctx) && ctx.config.settings.aurora && ctx.allows("aurora") ? html`<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>` : nothing}
+      ${this.nightRed && this.dark && ctx.allows("night_red") ? html`<div class="redshift" aria-hidden="true"></div>` : nothing}
       ${this.lite
         ? nothing
         : (() => {
