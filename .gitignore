@@ -6,3 +6,4 @@ __pycache__/
 
 # Source artwork; the panel ships its own logo files
 /SmartNest Cozy Home Logo_*.png
+dev/plan-photo.jpg

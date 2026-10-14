@@ -1,5 +1,6 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiAutoFix,
   mdiAirConditioner,
   mdiAlertCircleOutline,
   mdiArrowLeft,
@@ -249,6 +250,7 @@ export const ICONS: Record<string, string> = {
   lamp: mdiFloorLamp,
   "check-circle": mdiCheckCircle,
   rooms: mdiVectorSquare,
+  "auto-fix": mdiAutoFix,
   undo: mdiUndo,
   "w-sunny": mdiWeatherSunny,
   "w-clear-night": mdiWeatherNight,

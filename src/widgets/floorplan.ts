@@ -11,6 +11,7 @@ import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import { autoPlace } from "../autofill";
+import { detectRooms } from "../plan-detect";
 import "../ui/entity-picker";
 
 type MapMode = "off" | "temp" | "humidity" | "co2";
@@ -59,6 +60,7 @@ export class SnFloorplan extends LitElement {
   @state() private heat: MapMode = "off";
   @state() private tilt = false;
   @state() private robotRooms?: RoomChoice[];
+  @state() private detecting = false;
   private press?: { id: string; x: number; y: number; timer: number };
 
   static styles = [
@@ -374,6 +376,8 @@ export class SnFloorplan extends LitElement {
         color: var(--text-2);
         padding-inline: 8px;
         max-width: 280px;
+        min-width: 170px;
+        flex-shrink: 0;
       }
       .stage {
         transform-origin: 0 0;
@@ -1062,6 +1066,55 @@ export class SnFloorplan extends LitElement {
     });
   }
 
+  /** Traces the rooms off the plan image, names them (AI Task, when the house has one) and drops the devices in. */
+  private async detect() {
+    const { ctx } = this;
+    const { t, hass } = ctx;
+    const floor = this.floor;
+    if (!floor?.image || this.detecting) return;
+    this.detecting = true;
+    try {
+      const existing = floor.rooms ?? [];
+      const found = (await detectRooms(floor.image)).filter((f) => !existing.some((r) => inside(f.center, r.points)));
+      if (!found.length) return ctx.toast(t("detect_none"));
+      const rooms: Room[] = found.map((f, i) => ({ id: uid(), name: t("room_default", { n: existing.length + i + 1 }), points: f.points }));
+      const ai = Object.keys(hass.states).find((id) => id.startsWith("ai_task."));
+      if (ai)
+        try {
+          const res = await hass.callWS<{ rooms: { label: string; area: string; x: number; y: number }[] }>({
+            type: "smartnest/plan/read_rooms",
+            image: floor.image,
+            entity_id: ai,
+            areas: Object.values(hass.areas ?? {}).map((a) => a.name),
+          });
+          for (const l of res.rooms) {
+            const p: Pt = [l.x, l.y];
+            // The label's own room, else the nearest room centre: the model's positions are approximate.
+            let j = found.findIndex((f) => inside(p, f.points));
+            if (j < 0) {
+              const d = found.map((f) => Math.hypot(f.center[0] - p[0], f.center[1] - p[1]));
+              const k = d.indexOf(Math.min(...d));
+              if (d[k] < 15) j = k;
+            }
+            if (j >= 0) rooms[j].name = l.area || l.label;
+          }
+        } catch {
+          // No names, then: the installer picks each room's HA area from the list.
+        }
+      const placed = autoPlace(hass, { ...floor, rooms: [...existing, ...rooms] });
+      this.edit((_f, fl) => {
+        if (!fl) return;
+        fl.rooms = [...(fl.rooms ?? []), ...rooms];
+        fl.markers = [...fl.markers, ...placed];
+      });
+      ctx.toast(placed.length ? t("detect_done_placed", { n: rooms.length, m: placed.length }) : t("detect_done", { n: rooms.length }));
+    } catch {
+      ctx.toast(t("detect_failed"));
+    } finally {
+      this.detecting = false;
+    }
+  }
+
   private renameRoom(room: Room) {
     this.ctx.showSheet({
       title: this.ctx.t("room_name"),
@@ -1158,6 +1211,9 @@ export class SnFloorplan extends LitElement {
         <button class="btn primary pressable" ?disabled=${this.drawing.length < 3} @click=${() => this.finishRoom()}>${t("finish")}</button>
       </div>`;
     const room = this.floor?.rooms?.find((r) => r.id === this.selRoom);
+    const areas = Object.values(this.ctx.hass.areas ?? {})
+      .map((a) => a.name)
+      .sort((a, b) => a.localeCompare(b));
     if (room)
       return html`<div class="tools glass" @pointerdown=${stop}>
         <span class="label">${room.name}</span>
@@ -1178,6 +1234,22 @@ export class SnFloorplan extends LitElement {
               ${this.robotRooms.map((r) => html`<option value=${r.id} ?selected=${room.robot_room === r.id}>🤖 ${r.name}</option>`)}
             </select>`
           : nothing}
+        ${areas.length
+          ? html`<select
+              aria-label=${t("room_area")}
+              title=${t("room_area")}
+              style="width:auto;min-height:40px"
+              @change=${(e: any) =>
+                e.target.value &&
+                this.edit((_f, fl) => {
+                  const r = fl?.rooms?.find((x) => x.id === room.id);
+                  if (r) r.name = e.target.value;
+                })}
+            >
+              <option value="" ?selected=${!areas.includes(room.name)}>🏠 ${t("room_area")}</option>
+              ${areas.map((a) => html`<option value=${a} ?selected=${a === room.name}>🏠 ${a}</option>`)}
+            </select>`
+          : nothing}
         <button class="icon-btn pressable" aria-label=${t("room_name")} @click=${() => this.renameRoom(room)}>
           <sn-icon icon="pencil" style="--icon-size:20px"></sn-icon>
         </button>
@@ -1196,9 +1268,12 @@ export class SnFloorplan extends LitElement {
         </button>
       </div>`;
     return html`<div class="tools glass" @pointerdown=${stop}>
-      <span class="hint">${t("rooms_hint")}</span>
+      ${this.floor?.rooms?.length ? nothing : html`<span class="hint">${t("rooms_hint")}</span>`}
       <button class="btn primary pressable" @click=${() => (this.drawing = [])}>
         <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("draw_room")}
+      </button>
+      <button class="btn pressable" ?disabled=${this.detecting} @click=${() => this.detect()}>
+        <sn-icon icon="auto-fix" style="--icon-size:20px"></sn-icon>${t(this.detecting ? "detecting" : "detect_rooms")}
       </button>
       ${this.floor?.rooms?.length
         ? html`<button

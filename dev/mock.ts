@@ -82,6 +82,7 @@ add(ent("sensor.energy_today", "12.4", { friendly_name: "استهلاك اليو
 add(ent("event.doorbell", new Date(Date.now() - 7_200_000).toISOString(), { friendly_name: "جرس الباب", device_class: "doorbell", event_types: ["ring"] }));
 add(ent("cover.living_blinds", "open", { friendly_name: "برادي الصالة", current_position: 100, current_tilt_position: 50, supported_features: 255 }));
 add(ent("scene.movie_night", "scening", { friendly_name: "سهرة فيلم" }));
+add(ent("ai_task.openai", "unknown", { friendly_name: "OpenAI AI Task" }));
 add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
 add(ent("sun.sun", "above_horizon", { friendly_name: "Sun", elevation: Number(params.get("elev") ?? 4), rising: false, next_rising: new Date(Date.now() + 9 * 3600_000).toISOString(), next_setting: new Date(Date.now() + 1 * 3600_000).toISOString() }));
 add(ent("sensor.bedroom_humidity", "68", { friendly_name: "رطوبة غرفة النوم", unit_of_measurement: "%", device_class: "humidity" }));
@@ -454,6 +455,19 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       if (!isAdmin || !String(msg.key).startsWith("SN1.")) throw { code: "invalid_key", message: "invalid" };
       localStorage.setItem("smartnest-dev-license", "1");
       return { licensed: true, licensee: "بيت أبو محمد" };
+    case "smartnest/plan/read_rooms":
+      // What a vision model answered for a typical exported plan (labels in English, matched to the HA areas).
+      // Drop such a plan at dev/plan-photo.jpg (git-ignored) to try "Find rooms" end to end.
+      await new Promise((r) => setTimeout(r, 1200));
+      if (!String(msg.image).endsWith("plan-photo.jpg")) return { rooms: [] };
+      return {
+        rooms: [
+          { label: "Bedroom", area: "غرفة النوم", x: 55, y: 22 }, { label: "Bathroom 1", area: "الحمام", x: 88, y: 16 },
+          { label: "Bathroom 2", area: "", x: 91, y: 33 }, { label: "Laundry", area: "", x: 91, y: 46 },
+          { label: "Hallway", area: "الممر", x: 61, y: 47 }, { label: "Office", area: "", x: 25, y: 53 },
+          { label: "Kitchen", area: "المطبخ", x: 49, y: 76 }, { label: "Living Room", area: "الصالة", x: 78, y: 74 },
+        ],
+      };
     case "smartnest/visitors/list": {
       const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
       return { visitors: [0.5, 3, 26, 30].map((h, i) => ({ url: i % 2 ? "/dev/cam-garden.svg" : "/dev/cam-front.svg", time: ago(h) })) };
