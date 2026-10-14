@@ -19,6 +19,7 @@ import "./morning";
 import "./message";
 import "./assistant";
 import "./licenses-panel";
+import { setVoice, voiceOn } from "./voice";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
 import "./security";
@@ -109,6 +110,8 @@ export class SmartNestPanel extends LitElement {
   private alarmHiddenAt?: string;
   /** Weather alert dismissed: condition + day. */
   @state() private wxDismissed = "";
+  /** Hands-free voice on this screen. */
+  @state() private voice = voiceOn();
   private overSnooze = 0;
   @state() private guests = readGuests();
   @state() private tvMode = (() => {
@@ -1144,6 +1147,25 @@ export class SmartNestPanel extends LitElement {
                 )}
               </div>
             </div>
+            ${c.allows("voice")
+              ? html`<div class="field">
+                  ${c.t("voice_hands_free")}
+                  <div class="seg">
+                    ${[true, false].map(
+                      (v) => html`<button
+                        aria-pressed=${this.voice === v}
+                        @click=${() => {
+                          this.voice = v;
+                          setVoice(v);
+                        }}
+                      >
+                        ${c.t(v ? "on" : "off")}
+                      </button>`
+                    )}
+                  </div>
+                  <span class="hint">${c.t("voice_hint")}</span>
+                </div>`
+              : nothing}
           </section>
         </div>`;
       },
@@ -1332,6 +1354,7 @@ export class SmartNestPanel extends LitElement {
             }}
           ></sn-overload>`
         : nothing}
+      ${this.voice && ctx.allows("voice") && !ctx.editing && !this.sleeping ? html`<sn-voice .ctx=${ctx}></sn-voice>` : nothing}
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
       ${this.scene ? html`<sn-cinematic .ctx=${ctx} .mode=${this.scene} .onDone=${() => (this.scene = undefined)}></sn-cinematic>` : nothing}

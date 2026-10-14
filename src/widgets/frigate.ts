@@ -6,6 +6,7 @@ import { LOCALE, type I18nKey } from "../i18n";
 import { relativeTime } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { cameraDigest } from "../ai-features";
 
 interface FEvent {
   id: string;
@@ -180,6 +181,9 @@ export class SnFrigate extends LitElement {
     const { t } = ctx;
     return html`<div class="card glass">
       <h3><sn-icon icon="cctv"></sn-icon>${t("widget_frigate")}</h3>
+      ${ctx.allows("ai_cameras") && !this.missing
+        ? html`<sn-ai-ask-button .ctx=${ctx} label=${t("ai_cam_btn")} .run=${() => cameraDigest(ctx, this.instance)}></sn-ai-ask-button>`
+        : ""}
       ${this.missing
         ? html`<span class="muted">${t("frigate_missing")}</span>`
         : html`<div class="strip" data-no-swipe>

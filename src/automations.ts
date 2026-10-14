@@ -10,6 +10,8 @@ import { shared } from "./theme";
 import "./ui/icon";
 import "./ui/entity-picker";
 import { dismiss, findHabits, habitKey, type Habit } from "./suggest";
+import { aiEntity } from "./ai";
+import { automationFromText } from "./ai-features";
 
 // ---- model ----
 
@@ -145,6 +147,7 @@ export class SnAutoList extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @state() private items?: AutoModel[];
   @state() private habits?: Habit[];
+  @state() private thinking = false;
 
   static styles = [
     shared,
@@ -221,6 +224,26 @@ export class SnAutoList extends LitElement {
     return html`<button class="btn primary pressable" @click=${() => builderSheet(ctx, undefined, () => this.load())}>
         <sn-icon icon="plus" style="--icon-size:20px"></sn-icon>${t("new_automation")}
       </button>
+      ${aiEntity(hass) && ctx.allows("ai_automation")
+        ? html`<form
+            style="display:flex;gap:8px"
+            @submit=${async (e: SubmitEvent) => {
+              e.preventDefault();
+              const input = (e.currentTarget as HTMLFormElement).querySelector("input")!;
+              const ask = input.value.trim();
+              if (!ask) return;
+              this.thinking = true;
+              const model = await automationFromText(ctx, ask);
+              this.thinking = false;
+              if (!model) return ctx.toast(t("ai_auto_fail"));
+              input.value = "";
+              builderSheet(ctx, model, () => this.load());
+            }}
+          >
+            <input type="text" style="flex:1" placeholder=${t("ai_auto_hint")} />
+            <button class="btn pressable" type="submit" ?disabled=${this.thinking}>✨ ${this.thinking ? "…" : t("ai_do_it")}</button>
+          </form>`
+        : nothing}
       ${this.items && !this.items.length ? html`<p class="muted" style="margin:0">${t("auto_empty")}</p>` : nothing}
       ${(this.items ?? []).map((m) => {
         const ent = automationEntity(hass, m.id);

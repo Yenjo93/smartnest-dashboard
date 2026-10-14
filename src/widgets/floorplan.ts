@@ -13,6 +13,7 @@ import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import { autoPlace, isAreaName } from "../autofill";
 import { fxRow } from "../lightfx";
+import "../ai-features";
 import { detectRooms } from "../plan-detect";
 import "../ui/entity-picker";
 
@@ -1261,6 +1262,7 @@ export class SnFloorplan extends LitElement {
           ${c.allows("light_fx") && lights.some((id) => (c.hass.states[id]?.attributes.supported_color_modes ?? []).some((m: string) => ["hs", "rgb", "rgbw", "rgbww", "xy"].includes(m)))
             ? fxRow(c, lights)
             : nothing}
+          <sn-ai-scene .ctx=${c} .lights=${lights}></sn-ai-scene>
           ${ids.map((id) => {
             const e = c.hass.states[id];
             return html`<button

@@ -32,6 +32,32 @@ _PROMPTS = {
         "friendly sentences: what matters today and anything unusual overnight. No lists, no greeting, no emojis "
         "except at most one. Reply in {lang}.\nFacts:\n{facts}"
     ),
+    "scene": (
+        "You set the lights of one room for a mood. The request: {ask}\n"
+        "Lights (id: name, what it can do):\n{facts}\n"
+        "Reply with only a JSON array, one object per light you change: "
+        '{{"entity": "light.x", "on": true, "brightness_pct": 0-100, "rgb": [r,g,b] (colour lights only), "kelvin": 2000-6500 (white lights only)}}. '
+        "Lights that should be off: {{\"entity\": \"light.x\", \"on\": false}}. Then on a last line, one short sentence in {lang} describing the mood."
+    ),
+    "automation": (
+        "Turn this request into a home automation: {ask}\n"
+        "Devices (id: name):\n{facts}\n"
+        "Reply with only JSON in this shape (no comments):\n"
+        '{{"name": "short title in {lang}", "trigger": one of {{"kind":"time","at":"HH:MM"}} | {{"kind":"sun","event":"sunrise"|"sunset","offset":minutes}} | '
+        '{{"kind":"state","entity":"id","to":"on"|"off"|"open"|"closed"|"locked"|"unlocked"|"home"|"not_home"}}, '
+        '"days": ["sun","mon","tue","wed","thu","fri","sat"] or [] for every day, '
+        '"window": {{"after":"HH:MM","before":"HH:MM"}} or null, '
+        '"actions": [{{"kind":"on"|"off","entity":"id"}} | {{"kind":"message","text":"..."}}]}}. '
+        "Use only the device ids given. A notification to phones is a message action."
+    ),
+    "cameras": (
+        "Summarise today at this home from its camera detections, in 2-3 short sentences in {lang}: who and what came by and when, "
+        "anything unusual. No lists.\nDetections:\n{facts}"
+    ),
+    "bill": (
+        "Explain this home's electricity this month to the family, in 3 short sentences in {lang}: why it's higher or lower than last month, "
+        "the biggest users, and one concrete tip. Plain words, numbers rounded.\nFacts:\n{facts}"
+    ),
     "explain": (
         "You help a smart home installer. For each problem below, say in one short line the most likely cause and the "
         "fix (battery, Zigbee range, Wi-Fi, power, integration needs re-login...). Reply in {lang} as plain lines, "
@@ -85,6 +111,7 @@ async def ai_generate(hass: HomeAssistant, entity_id: str, task: str, instructio
         vol.Optional("lang", default="ar"): vol.In(list(_LANG)),
         vol.Optional("camera"): str,
         vol.Optional("facts", default=[]): [str],
+        vol.Optional("ask", default=""): vol.All(str, vol.Length(max=300)),
     }
 )
 @websocket_api.async_response
@@ -96,11 +123,11 @@ async def ws_ai_ask(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         connection.send_error(msg["id"], "bad_entity", "Not an AI Task entity")
         return
     task = msg["task"]
-    if task == "explain" and not connection.user.is_admin:
+    if task in ("explain", "automation") and not connection.user.is_admin:
         connection.send_error(msg["id"], "unauthorized", "Admin only")
         return
-    facts = "\n".join(f"- {f[:200]}" for f in msg["facts"][:60])
-    instructions = _PROMPTS[task].format(lang=_LANG[msg["lang"]], facts=facts)
+    facts = "\n".join(f"- {f[:200]}" for f in msg["facts"][:150])
+    instructions = _PROMPTS[task].format(lang=_LANG[msg["lang"]], facts=facts, ask=msg["ask"])
     image = None
     if task == "doorbell":
         cam = msg.get("camera", "")
@@ -123,4 +150,4 @@ async def ws_ai_ask(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     except Exception as err:  # noqa: BLE001 - provider errors go back as-is
         connection.send_error(msg["id"], "ai_failed", str(err))
         return
-    connection.send_result(msg["id"], {"text": text[:1200]})
+    connection.send_result(msg["id"], {"text": text[:6000]})

@@ -6,6 +6,8 @@ import { entityName, formatNumber, ltr } from "../entities";
 import { dashboardEntities } from "../chips";
 import { shared } from "../theme";
 import "../ui/icon";
+import { askAI } from "../ai";
+import { billFacts } from "../ai-features";
 import "../ui/num";
 
 interface Stat {
@@ -296,6 +298,9 @@ export class SnEnergyStats extends LitElement {
     const max = d?.top[0]?.kwh ?? 1;
     return html`<div class="card glass">
       <h3><sn-icon icon="lightning-bolt"></sn-icon>${t("bill_title")}</h3>
+      ${d && ctx.allows("ai_bill")
+        ? html`<sn-ai-ask-button .ctx=${ctx} label=${t("ai_bill_btn")} .run=${() => askAI(ctx, "bill", { facts: billFacts(ctx, d, tariff, currency) })}></sn-ai-ask-button>`
+        : nothing}
       ${d
         ? html`<div class="bill">
               <span class="lbl">${t("bill_projected")}</span>

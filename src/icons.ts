@@ -1,5 +1,6 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiMicrophoneOff,
   mdiUpload,
   mdiKeyChain,
   mdiSprinklerVariant,
@@ -356,6 +357,7 @@ export const ICONS: Record<string, string> = {
   sprinkler: mdiSprinklerVariant,
   key: mdiKeyChain,
   upload: mdiUpload,
+  "microphone-off": mdiMicrophoneOff,
 };
 
 /** Icons offered when naming a page. */

@@ -634,6 +634,10 @@ async function callWS(msg: Record<string, any>): Promise<any> {
         doorbell: "رجل بزي توصيل ومعه طرد صغير.",
         summary: "صباح هادي: الباب الأمامي انفتح مرة بالليل والروبوت نضّف الساعة 4. اليوم مشمس وبتوصل 31، فخلي المكيف جاهز للظهر.",
         explain: "حساس الحمام: Zigbee، البطارية غالباً خلصت (CR2032).\nمكيف الصالة: انقطع عن الواي فاي، افصله ورجعه.",
+        scene: `Here you go:\n${JSON.stringify((msg.facts as string[]).map((f, i) => ({ entity: f.split(":")[0], on: i < 2, brightness_pct: 30, rgb: [255, 140, 60] })))}\nضو دافي وخفيف، جو هادي للفيلم 🎬`,
+        automation: JSON.stringify({ name: "طفّي الصالة بالليل", trigger: { kind: "time", at: "23:00" }, days: [], window: null, actions: [{ kind: "off", entity: "light.living_room" }, { kind: "message", text: "طفّيت الصالة" }] }),
+        cameras: "يوم عادي: ساعي البريد مرّ الساعة 10 الصبح، وسيارتين وقفوا عالمدخل بالعصر. ما في إشي غريب.",
+        bill: "صرفتوا 9% أكثر من الشهر الماضي، أغلبه من المكيفات (130 kWh) لأنه الأسبوع كان حامي. السخان ثاني أكبر واحد. نصيحة: حطوا المكيف على 24 بدل 22 بتوفّروا حوالي ₪40.",
       };
       return { text: text[msg.task] };
     }
