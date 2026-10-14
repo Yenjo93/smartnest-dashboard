@@ -42,7 +42,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_kv_get, ws_kv_set, ws_kv_subscribe, ws_fx_start, ws_fx_stop, ws_parcels,
         ws_history_list, ws_history_restore,
         issuer.ws_status, issuer.ws_setup, issuer.ws_forget, issuer.ws_issue, issuer.ws_renew,
-        issuer.ws_update, issuer.ws_remove, issuer.ws_import,
+        issuer.ws_update, issuer.ws_remove, issuer.ws_import, issuer.ws_test_url,
         ws_codes_list, ws_codes_add, ws_codes_remove, ws_photo_link,
     ):
         websocket_api.async_register_command(hass, cmd)

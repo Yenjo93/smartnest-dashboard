@@ -58,6 +58,10 @@ export class SmartNestLicenses extends LitElement {
   @state() private houses: House[] = [];
   @state() private beats: Record<string, Beat> = {};
   @state() private beatUrl = "";
+  @state() private beatPath = "";
+  /** The address this HA is reached on from outside (Cloudflare domain, DuckDNS…). */
+  @state() private beatBase = "";
+  @state() private beatTest = "";
   @state() private plan: House["plan"] = "premium";
   @state() private days = "";
   @state() private q = "";
@@ -349,11 +353,23 @@ export class SmartNestLicenses extends LitElement {
 
   private async refresh() {
     try {
-      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; heartbeat_url?: string }>({ type: "smartnest/issuer/status" });
+      const s = await this.hass.callWS<{ ready: boolean; houses: House[]; beats?: Record<string, Beat>; heartbeat_url?: string; heartbeat_path?: string }>({ type: "smartnest/issuer/status" });
       this.ready = s.ready;
       this.houses = s.houses;
       this.beats = s.beats ?? {};
       this.beatUrl = s.heartbeat_url ?? "";
+      this.beatPath = s.heartbeat_path ?? "";
+      if (!this.beatBase) {
+        let saved = "";
+        try {
+          saved = localStorage.getItem("smartnest-beat-base") ?? "";
+        } catch {
+          /* fine */
+        }
+        // Opened through the public address (https), that's the one clients can reach.
+        const fromBackend = /^https:\/\//.test(this.beatUrl) && !/nabu\.casa/.test(this.beatUrl) ? new URL(this.beatUrl).origin : "";
+        this.beatBase = saved || (location.protocol === "https:" ? location.origin : fromBackend);
+      }
     } catch {
       this.ready = false;
     }
@@ -614,15 +630,59 @@ export class SmartNestLicenses extends LitElement {
                       ? list.map((h) => this.renderHouse(h))
                       : html`<div class="empty">${all.length ? "ما في نتايج" : "لسا ما عملت مفاتيح. أول مفتاح من الفورم."}</div>`}
                   </div>
-                  ${this.beatUrl
-                    ? html`<details class="card">
-                        <summary>💓 نبض البيوت (تعرف المشاكل قبل ما يتصلوا)</summary>
-                        <span class="muted" style="font-size:14px"
-                          >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 12 ساعة: شغّال، كم جهاز فاصل، وأي نسخة. بدها رابط خارجي لـ HA تبعك (Nabu Casa أو دومين).</span
-                        >
-                        <code class="mono" style="word-break:break-all;font-size:12px">${this.beatUrl}</code>
-                        <button class="btn pressable" style="justify-self:start" @click=${() => this.copy(this.beatUrl)}>نسخ الرابط</button>
-                      </details>`
+                  ${this.beatPath
+                    ? (() => {
+                        const full = this.beatBase ? `${this.beatBase.replace(/\/+$/, "")}${this.beatPath}` : "";
+                        return html`<details class="card" open>
+                          <summary>💓 نبض البيوت (تعرف المشاكل قبل ما يتصلوا)</summary>
+                          <span class="muted" style="font-size:14px"
+                            >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 12 ساعة: شغّال، كم جهاز فاصل، وأي نسخة.</span
+                          >
+                          <label class="field"
+                            >عنوان HA تبعك من برا (دومين Cloudflare)
+                            <input
+                              type="url"
+                              class="mono"
+                              placeholder="https://ha.example.com"
+                              .value=${this.beatBase}
+                              @change=${(e: any) => {
+                                this.beatBase = e.target.value.trim();
+                                this.beatTest = "";
+                                try {
+                                  localStorage.setItem("smartnest-beat-base", this.beatBase);
+                                } catch {
+                                  /* fine */
+                                }
+                              }}
+                            />
+                          </label>
+                          ${full
+                            ? html`<code class="mono" style="word-break:break-all;font-size:12px">${full}</code>
+                                <div class="row">
+                                  <button class="btn pressable" @click=${() => this.copy(full)}>نسخ الرابط</button>
+                                  <button
+                                    class="btn pressable"
+                                    @click=${async () => {
+                                      this.beatTest = "عم بجرّب…";
+                                      const r = await this.hass.callWS<{ status: number; body: string; server: string }>({ type: "smartnest/issuer/test_url", url: full }).catch(() => undefined);
+                                      this.beatTest = !r
+                                        ? "ما زبطت التجربة"
+                                        : r.status === 200
+                                        ? "✓ الرابط شغّال من برا. البيوت بتقدر توصلك."
+                                        : r.status === 403 || /cloudflare/i.test(r.server)
+                                        ? `✗ Cloudflare مسكّر الرابط (${r.status}). بـ Cloudflare: Security ← WAF، اعمل قاعدة Skip لـ /api/webhook/ (وطفّي Bot Fight Mode إذا شغّال، وإذا في Cloudflare Access استثني نفس المسار).`
+                                        : r.status === 0
+                                        ? `✗ ما قدر يوصل: ${r.body}`
+                                        : `✗ رجع ${r.status}. تأكد من العنوان.`;
+                                    }}
+                                  >
+                                    جرّب الرابط
+                                  </button>
+                                </div>
+                                ${this.beatTest ? html`<span style="font-size:14px">${this.beatTest}</span>` : nothing}`
+                            : html`<span class="muted" style="font-size:13px">اكتب العنوان اللي بتفتح فيه HA من برا البيت.</span>`}
+                        </details>`;
+                      })()
                     : nothing}
                   <details class="card">
                     <summary>أضف مفتاح قديم للقائمة</summary>

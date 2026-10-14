@@ -90,7 +90,10 @@ class Issuer:
             self.webhook_id = f"smartnest_{secrets.token_hex(16)}"
             await self.key_store.async_save({**saved, "webhook": self.webhook_id})
         try:
-            webhook.async_register(self.hass, DOMAIN, "SmartNest heartbeat", self.webhook_id, self._on_beat, allowed_methods=["POST"])
+            # Client houses post from the internet (through Cloudflare, DuckDNS, Nabu Casa…), so not local-only.
+            webhook.async_register(
+                self.hass, DOMAIN, "SmartNest heartbeat", self.webhook_id, self._on_beat, local_only=False, allowed_methods=["POST"]
+            )
         except ValueError:
             pass  # already registered (integration reloaded)
 
@@ -199,7 +202,38 @@ async def ws_status(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     if not iss.key:
         connection.send_result(msg["id"], {"ready": False, "houses": []})
         return
-    connection.send_result(msg["id"], {"ready": True, "houses": await iss.houses(), "beats": await iss.beats(), "heartbeat_url": iss.webhook_url()})
+    from homeassistant.components import webhook
+
+    connection.send_result(
+        msg["id"],
+        {
+            "ready": True,
+            "houses": await iss.houses(),
+            "beats": await iss.beats(),
+            "heartbeat_url": iss.webhook_url(),
+            # The page builds the full link from the address it's opened on (a Cloudflare domain, DuckDNS…).
+            "heartbeat_path": webhook.async_generate_path(iss.webhook_id),
+        },
+    )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/issuer/test_url", vol.Required("url"): str})
+@websocket_api.async_response
+async def ws_test_url(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Posts to the heartbeat link from outside (through Cloudflare or whatever fronts HA) to see that it gets in."""
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    url = msg["url"].strip()
+    if not url.startswith(("https://", "http://")):
+        connection.send_error(msg["id"], "bad_url", "Not a link")
+        return
+    try:
+        async with async_get_clientsession(hass).post(url, json={"test": True}, timeout=15, allow_redirects=False) as resp:
+            body = (await resp.text())[:200]
+            connection.send_result(msg["id"], {"status": resp.status, "body": body, "server": resp.headers.get("server", "")})
+    except Exception as err:  # noqa: BLE001
+        connection.send_result(msg["id"], {"status": 0, "body": str(err)[:200], "server": ""})
 
 
 @websocket_api.require_admin
