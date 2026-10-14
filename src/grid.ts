@@ -32,6 +32,11 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/parcels";
+import "./widgets/commute";
+import "./widgets/radar";
+import "./widgets/verse";
+import "./widgets/board";
 import "./widgets/internet";
 import "./widgets/timeline";
 import "./widgets/irrigation";
@@ -357,6 +362,16 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-timeline .ctx=${ctx} .widget=${w}></sn-w-timeline>`;
       case "internet":
         return html`<sn-w-internet .ctx=${ctx} .widget=${w}></sn-w-internet>`;
+      case "board":
+        return html`<sn-w-board .ctx=${ctx} .widget=${w}></sn-w-board>`;
+      case "verse":
+        return html`<sn-w-verse .ctx=${ctx} .widget=${w}></sn-w-verse>`;
+      case "radar":
+        return html`<sn-w-radar .ctx=${ctx} .widget=${w}></sn-w-radar>`;
+      case "commute":
+        return html`<sn-w-commute .ctx=${ctx} .widget=${w}></sn-w-commute>`;
+      case "parcels":
+        return html`<sn-w-parcels .ctx=${ctx} .widget=${w}></sn-w-parcels>`;
       default:
         return nothing;
     }

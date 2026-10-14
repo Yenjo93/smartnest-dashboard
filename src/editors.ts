@@ -303,6 +303,11 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "irrigation", icon: "sprinkler" },
   { type: "timeline", icon: "history" },
   { type: "internet", icon: "wifi" },
+  { type: "board", icon: "note" },
+  { type: "verse", icon: "book-open-variant" },
+  { type: "radar", icon: "weather-pouring" },
+  { type: "commute", icon: "car" },
+  { type: "parcels", icon: "package" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

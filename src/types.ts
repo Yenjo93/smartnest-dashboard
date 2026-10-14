@@ -38,7 +38,7 @@ export interface Hass {
   entities?: Record<string, HassEntityReg>;
   devices?: Record<string, HassDevice>;
   user?: { id: string; name: string; is_admin: boolean };
-  config?: { location_name?: string; time_zone?: string };
+  config?: { location_name?: string; time_zone?: string; latitude?: number; longitude?: number };
   language: string;
   callService(domain: string, service: string, data?: Record<string, any>): Promise<any>;
   callWS<T = any>(msg: Record<string, any>): Promise<T>;
@@ -133,7 +133,12 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "boiler"
   | "irrigation"
   | "timeline"
-  | "internet";
+  | "internet"
+  | "board"
+  | "verse"
+  | "radar"
+  | "commute"
+  | "parcels";
 
 export interface Widget {
   id: string;

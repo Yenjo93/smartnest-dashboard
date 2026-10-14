@@ -7,6 +7,7 @@ import { domainOf, entityName, formatNumber, relativeTime } from "./entities";
 import { dashboardEntities } from "./chips";
 import { guessBill } from "./widgets/energy-stats";
 import { maintenanceDue, weeklyFaults } from "./installer";
+import { qrSvg } from "./guests";
 import "./ui/icon";
 
 // ---- support: "something's wrong" straight to the installer's WhatsApp ----
@@ -268,6 +269,27 @@ export async function licensesSheet(ctx: Ctx) {
           }}
         />
       </label>
+    </div>`,
+  });
+}
+
+// ---- photos from a phone ----
+
+/** A QR code the family scans to send photos to the frame. The link works for 15 minutes. */
+export async function photoDropSheet(ctx: Ctx) {
+  let link: { path: string; minutes: number };
+  try {
+    link = await ctx.hass.callWS({ type: "smartnest/photos/link" });
+  } catch {
+    return ctx.toast(ctx.t("error"));
+  }
+  const url = `${location.origin}${link.path}`;
+  ctx.showSheet({
+    title: ctx.t("photos_from_phone"),
+    render: (c) => html`<div style="display:grid;gap:14px;justify-items:center;text-align:center">
+      ${qrSvg(url, 220)}
+      <span style="font-size:16px">${c.t("photos_scan", { n: link.minutes })}</span>
+      <span class="muted" style="font-size:13px">${c.t("photos_wifi")}</span>
     </div>`,
   });
 }

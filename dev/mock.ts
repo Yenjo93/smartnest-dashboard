@@ -75,6 +75,8 @@ add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("switch.sara_tablet_internet", "on", { friendly_name: "تابلت سارة" }));
 add(ent("switch.mohammad_phone_internet", "on", { friendly_name: "جوال محمد" }));
+add(ent("sensor.to_work", "23", { friendly_name: "للشغل", unit_of_measurement: "min", attribution: "Powered by Waze", route: "طريق 1", duration: 17 }));
+add(ent("sensor.to_school", "9", { friendly_name: "للمدرسة", unit_of_measurement: "min", attribution: "Powered by Waze", route: "شارع المدارس", duration: 8 }));
 add(ent("sensor.washing_machine_power", "455", { friendly_name: "الغسالة استهلاك", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.home_abu_mohammad_distance", "7.4", { friendly_name: "Home Abu Mohammad Distance", unit_of_measurement: "km", device_class: "distance" }));
 add(ent("sensor.home_abu_mohammad_direction_of_travel", "towards", { friendly_name: "Home Abu Mohammad Direction of travel" }));
@@ -638,6 +640,15 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       configListeners.forEach((cb) => cb({ config: item.config }));
       return null;
     }
+    case "smartnest/photos/link":
+      return { path: "/api/smartnest/photos/demo-token", minutes: 15 };
+    case "smartnest/parcels":
+      return {
+        packages: [
+          { friendly_name: "سماعات من AliExpress", tracking_number: "LP00123", status: "In Transit", info_text: "وصلت مركز الفرز", location: "Tel Aviv" },
+          { friendly_name: "كتب الولاد", tracking_number: "RR998", status: "Ready to be picked up", info_text: "جاهز بالبريد", location: "" },
+        ],
+      };
     case "smartnest/codes/list":
       return { codes: JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]"), zwave: true };
     case "smartnest/codes/add": {
@@ -688,7 +699,7 @@ function snapshot(): Hass {
     areas,
     user: { id: "dev", name: isAdmin ? "Installer" : "Client", is_admin: isAdmin },
     language: lang,
-    config: { location_name: "Home" },
+    config: { location_name: "Home", latitude: 32.08, longitude: 34.78 },
     services: { notify: { mobile_app_omar: {}, family_group: {} } },
     callService,
     callWS,

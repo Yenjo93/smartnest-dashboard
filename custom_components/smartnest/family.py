@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake", "boiler", "irrigation", "internet")
+KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
@@ -276,7 +276,7 @@ def ws_kv_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
 async def ws_kv_set(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     if not (fam := _guard(hass, connection, msg)):
         return
-    if len(json.dumps(msg["value"])) > _MAX:
+    if len(json.dumps(msg["value"])) > (_MAX * 4 if msg["key"] == "board" else _MAX):
         connection.send_error(msg["id"], "too_large", "Too much data")
         return
     await fam.async_set(msg["key"], msg["value"])
@@ -319,3 +319,24 @@ def ws_fx_stop(hass: HomeAssistant, connection: websocket_api.ActiveConnection, 
     if fam := _guard(hass, connection, msg):
         fam.stop_fx(msg["lights"])
         connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/parcels"})
+@websocket_api.async_response
+async def ws_parcels(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Parcels from 17TRACK for the wall, without giving the screen admin rights."""
+    if not is_licensed(hass):
+        connection.send_error(msg["id"], NOT_LICENSED, "SmartNest needs an activation key")
+        return
+    entries = hass.config_entries.async_entries("seventeentrack")
+    if not entries:
+        connection.send_error(msg["id"], "missing", "17TRACK isn't set up")
+        return
+    try:
+        res = await hass.services.async_call(
+            "seventeentrack", "get_packages", {"config_entry_id": entries[0].entry_id}, blocking=True, return_response=True
+        )
+    except Exception as err:  # noqa: BLE001
+        connection.send_error(msg["id"], "failed", str(err))
+        return
+    connection.send_result(msg["id"], {"packages": (res or {}).get("packages", [])})

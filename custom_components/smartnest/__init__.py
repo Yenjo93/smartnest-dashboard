@@ -65,6 +65,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ]
         )
         hass.http.register_view(SmartNestUploadView(hass, files_dir))
+        from .photodrop import PhotoDropView
+
+        hass.http.register_view(PhotoDropView(hass))
         async_register_commands(hass)
         hass.data[_REGISTERED] = True
 

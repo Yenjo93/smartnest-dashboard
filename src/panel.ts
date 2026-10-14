@@ -20,6 +20,9 @@ import "./message";
 import "./assistant";
 import "./licenses-panel";
 import { setVoice, voiceOn } from "./voice";
+import { tourDone, type TourStep } from "./tour";
+import "./tour";
+import { photoDropSheet } from "./business";
 import "./overload";
 import { TRAVEL, travelSheet, weatherRisk } from "./security";
 import "./security";
@@ -110,6 +113,15 @@ export class SmartNestPanel extends LitElement {
   private alarmHiddenAt?: string;
   /** Weather alert dismissed: condition + day. */
   @state() private wxDismissed = "";
+  /** Large text on this screen. */
+  @state() private big = (() => {
+    try {
+      return localStorage.getItem("smartnest-big") === "1";
+    } catch {
+      return false;
+    }
+  })();
+  @state() private touring = false;
   /** Hands-free voice on this screen. */
   @state() private voice = voiceOn();
   private overSnooze = 0;
@@ -300,6 +312,14 @@ export class SmartNestPanel extends LitElement {
       /* TV mode: read from the sofa. */
       .tv {
         zoom: 1.35;
+      }
+      /* Large text for grandparents: bigger everything, stronger text. */
+      .big {
+        zoom: 1.2;
+        --text-2: var(--text);
+      }
+      .big main {
+        font-weight: 500;
       }
       /* Kids mode: bigger targets everywhere on the one page they get. */
       .kids main {
@@ -550,6 +570,7 @@ export class SmartNestPanel extends LitElement {
       }
       this.pageId = (here && this.config.pages.some((p) => p.id === here) ? here : "") || this.config.settings.default_page || this.config.pages[0]?.id || "";
       if (!this.config.settings.setup_done && this.hass.user?.is_admin) window.setTimeout(() => this.openWizard(), 300);
+      else if (!this.hass.user?.is_admin && !tourDone()) window.setTimeout(() => (this.touring = true), 1500);
       this.unsubMsg = this.hass.connection.subscribeMessage<{ message: ScreenMessage | null }>(
         (m) => {
           this.message = m.message ?? undefined;
@@ -1084,6 +1105,21 @@ export class SmartNestPanel extends LitElement {
   }
 
   /** For everyone: who installed it, the version, rate the installer, and this screen's own preferences. */
+  /** What the first-visit tour points at. Steps for parts this dashboard doesn't have are skipped. */
+  private tourSteps(): TourStep[] {
+    const root = this.renderRoot;
+    const inGrid = (sel: string) => root.querySelector("sn-page-grid")?.shadowRoot?.querySelector(sel);
+    return [
+      { target: () => root.querySelector("nav"), text: "tour_tabs" },
+      { target: () => root.querySelector(".chips"), text: "tour_chips" },
+      { target: () => inGrid("sn-w-floorplan"), text: "tour_plan" },
+      { target: () => inGrid("sn-w-modes"), text: "tour_modes" },
+      { target: () => inGrid("sn-w-tile"), text: "tour_tile" },
+      { target: () => root.querySelector('header button[aria-label="' + this.makeCtx().t("assistant") + '"]'), text: "tour_assistant" },
+      { target: () => root.querySelector(".home img"), text: "tour_logo" },
+    ];
+  }
+
   private aboutSheet() {
     const t = translator(this.uiLang);
     this.pushSheet({
@@ -1146,6 +1182,30 @@ export class SmartNestPanel extends LitElement {
                   </button>`
                 )}
               </div>
+            </div>
+            <div class="field">
+              ${c.t("big_text")}
+              <div class="seg">
+                ${[true, false].map(
+                  (v) => html`<button
+                    aria-pressed=${this.big === v}
+                    @click=${() => {
+                      this.big = v;
+                      try {
+                        v ? localStorage.setItem("smartnest-big", "1") : localStorage.removeItem("smartnest-big");
+                      } catch {
+                        /* fine */
+                      }
+                    }}
+                  >
+                    ${c.t(v ? "on" : "off")}
+                  </button>`
+                )}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${c.allows("photo_frame") ? html`<button class="btn pressable" @click=${() => photoDropSheet(c)}>📷 ${c.t("photos_from_phone")}</button>` : nothing}
+              <button class="btn pressable" @click=${() => ((this.sheets = []), (this.touring = true))}>🧭 ${c.t("tour_again")}</button>
             </div>
             ${c.allows("voice")
               ? html`<div class="field">
@@ -1305,7 +1365,7 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""}">
+    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page
@@ -1354,6 +1414,7 @@ export class SmartNestPanel extends LitElement {
             }}
           ></sn-overload>`
         : nothing}
+      ${this.touring ? html`<sn-tour .ctx=${ctx} .steps=${this.tourSteps()} .onDone=${() => (this.touring = false)}></sn-tour>` : nothing}
       ${this.voice && ctx.allows("voice") && !ctx.editing && !this.sleeping ? html`<sn-voice .ctx=${ctx}></sn-voice>` : nothing}
       ${this.camwall ? html`<sn-camwall .ctx=${ctx} .onClose=${() => (this.camwall = false)}></sn-camwall>` : nothing}
       ${this.morning ? html`<sn-morning .ctx=${ctx} .onDone=${() => (this.morning = false)}></sn-morning>` : nothing}
