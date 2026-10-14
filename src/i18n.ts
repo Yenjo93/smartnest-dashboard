@@ -818,6 +818,17 @@ const en = {
   war_invoice: "Invoice photo",
   showroom: "Showroom mode",
   showroom_hint: "This screen shows a demo house instead of this home, for the shop. Turn it off here.",
+  style: "Look",
+  style_classic: "Classic",
+  style_pro: "SmartNest 2.0",
+  style_hint: "2.0: deeper glass with a light that follows your finger, the room's light colour behind everything, film grain and two-tone icons.",
+  material_none: "Plain",
+  material_marble: "Marble",
+  material_wood: "Wood",
+  material_sand: "Sand",
+  material_olive: "Olive",
+  night_midnight: "Midnight at night (pure black, only what's on glows)",
+  theme_midnight: "Midnight",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1640,6 +1651,17 @@ const ar: Record<I18nKey, string> = {
   war_invoice: "صورة الفاتورة",
   showroom: "وضع المعرض",
   showroom_hint: "هالشاشة بتعرض بيت وهمي بدل هالبيت، للمحل. بتطفيه من هون.",
+  style: "الستايل",
+  style_classic: "الكلاسيكي",
+  style_pro: "SmartNest 2.0",
+  style_hint: "2.0: زجاج أعمق وضو بيلحق إصبعك، لون أضواء البيت ورا كل إشي، حبيبات خفيفة، وأيقونات بلونين.",
+  material_none: "سادة",
+  material_marble: "رخام",
+  material_wood: "خشب",
+  material_sand: "رمل",
+  material_olive: "زيتون",
+  night_midnight: "منتصف الليل بالليل (أسود كامل، بس الشغّال بيضوي)",
+  theme_midnight: "منتصف الليل",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2460,6 +2482,17 @@ const he: Record<I18nKey, string> = {
   war_invoice: "תמונת חשבונית",
   showroom: "מצב תצוגה",
   showroom_hint: "המסך מציג בית לדוגמה במקום הבית הזה, לחנות. מכבים מכאן.",
+  style: "מראה",
+  style_classic: "קלאסי",
+  style_pro: "SmartNest 2.0",
+  style_hint: "2.0: זכוכית עמוקה עם אור שעוקב אחרי האצבע, צבע האורות ברקע, גרעיניות ואייקונים דו-גוניים.",
+  material_none: "חלק",
+  material_marble: "שיש",
+  material_wood: "עץ",
+  material_sand: "חול",
+  material_olive: "זית",
+  night_midnight: "חצות בלילה (שחור מלא, רק מה שדולק זוהר)",
+  theme_midnight: "חצות",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

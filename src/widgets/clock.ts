@@ -55,6 +55,8 @@ export class SnClock extends LitElement {
       }
       .time {
         font-size: clamp(28px, 22cqi, 60px);
+        font-weight: var(--display-weight, 700);
+        letter-spacing: var(--display-track, 0);
         white-space: nowrap;
         font-weight: 700;
         line-height: 1;
@@ -63,6 +65,8 @@ export class SnClock extends LitElement {
       }
       .full .time {
         font-size: clamp(40px, 20cqi, 84px);
+        font-weight: var(--display-weight, 700);
+        letter-spacing: var(--display-track, 0);
       }
       .date {
         color: var(--text-2);

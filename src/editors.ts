@@ -502,6 +502,7 @@ const THEMES: { id: ThemeMode; label: I18nKey }[] = [
   { id: "auto", label: "theme_auto" },
   { id: "light", label: "theme_light" },
   { id: "dark", label: "theme_dark" },
+  { id: "midnight", label: "theme_midnight" },
 ];
 
 export function settingsSheet(
@@ -558,6 +559,23 @@ export function settingsSheet(
             : nothing}
         </div>`,
         c.allows("presets") ? presetPicker(c, set) : nothing,
+        c.allows("style_pro")
+          ? html`<div class="field">
+              ${t("style")}
+              <div class="seg">
+                ${(["classic", "pro"] as const).map((v) => html`<button aria-pressed=${s.style === v} @click=${() => set((d) => (d.settings.style = v))}>${t(v === "pro" ? "style_pro" : "style_classic")}</button>`)}
+              </div>
+              ${s.style === "pro"
+                ? html`<div class="seg" style="margin-top:8px">
+                      ${(["none", "marble", "wood", "sand", "olive"] as const).map(
+                        (m) => html`<button aria-pressed=${s.material === m} @click=${() => set((d) => (d.settings.material = m))}>${t(`material_${m}` as I18nKey)}</button>`
+                      )}
+                    </div>
+                    <div class="field" style="margin-top:8px">${t("night_midnight")} ${toggle(c, s.night_midnight, (v) => set((d) => (d.settings.night_midnight = v)))}</div>`
+                : nothing}
+              <span class="hint">${t("style_hint")}</span>
+            </div>`
+          : nothing,
         html`<div class="field">
           ${t("accent")}
           ${row(

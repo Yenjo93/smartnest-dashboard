@@ -78,8 +78,14 @@ export class SnTile extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      .tile:not(.on) {
+        opacity: var(--idle-opacity, 1);
+        transition: opacity 600ms var(--ease-out);
+      }
       .tile.on {
+        --duo-fill: 0.95;
         background: var(--surface-solid);
+        box-shadow: 0 16px 40px -14px color-mix(in srgb, var(--tone, var(--accent)) var(--on-glow, 0%), transparent), var(--shadow);
         border-color: transparent;
       }
       .tile.on .ic {

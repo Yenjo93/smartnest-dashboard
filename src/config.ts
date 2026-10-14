@@ -81,6 +81,9 @@ export function defaultSettings(lang: Lang): Settings {
     night_path: { motion: [], lights: [], brightness: 10, minutes: 3, from: "23:00", to: "06:00" },
     arrival: { climate: [], lights: [], km: 5 },
     outage: { shed: [] },
+    style: "classic",
+    material: "none",
+    night_midnight: false,
     tou: { enabled: false, cheap_from: "23:00", cheap_to: "07:00", peak_from: "17:00", peak_to: "22:00" },
   };
 }

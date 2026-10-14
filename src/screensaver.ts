@@ -63,6 +63,8 @@ export class SnScreensaver extends LitElement {
       }
       .time {
         font-size: clamp(96px, 18vw, 220px);
+        font-weight: var(--display-weight, 700);
+        letter-spacing: var(--display-track, 0);
         font-weight: 700;
         line-height: 0.95;
         letter-spacing: -0.03em;
@@ -121,6 +123,8 @@ export class SnScreensaver extends LitElement {
       }
       .corner .time {
         font-size: clamp(64px, 10vw, 128px);
+        font-weight: var(--display-weight, 700);
+        letter-spacing: var(--display-track, 0);
       }
       .corner .date {
         color: rgba(255, 255, 255, 0.85);

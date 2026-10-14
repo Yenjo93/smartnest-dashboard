@@ -117,7 +117,9 @@ export const shared = css`
     -webkit-tap-highlight-color: transparent;
   }
   .glass {
-    background: var(--surface);
+    background-color: var(--surface);
+    background-image: var(--sheen, none);
+    background-attachment: fixed;
     -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
     backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
     border: 1px solid var(--border);

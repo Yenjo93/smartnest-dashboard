@@ -296,6 +296,12 @@ export class SnFloorplan extends LitElement {
           opacity: 0.8;
         }
       }
+      .marker.on {
+        --duo-fill: 0.95;
+      }
+      .marker:not(.on):not(.editable) {
+        opacity: var(--idle-opacity, 1);
+      }
       .marker:active {
         transform: translate(-50%, -50%) scale(calc(var(--inv, 1) * 0.92));
       }

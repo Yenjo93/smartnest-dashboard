@@ -21,6 +21,7 @@ import "./assistant";
 import "./licenses-panel";
 import { setVoice, voiceOn } from "./voice";
 import { tourDone, type TourStep } from "./tour";
+import { ambientColor, followLight, midnightVars, proVars, registerAnimatedVars, type Material } from "./pro";
 import "./tour";
 import { photoDropSheet } from "./business";
 import "./overload";
@@ -150,6 +151,9 @@ export class SmartNestPanel extends LitElement {
   private alarmHiddenAt?: string;
   /** Weather alert dismissed: condition + day. */
   @state() private wxDismissed = "";
+  /** SmartNest 2.0 look is on. */
+  @state() private pro = false;
+  private stopLight?: () => void;
   /** Large text on this screen. */
   @state() private big = (() => {
     try {
@@ -193,10 +197,71 @@ export class SmartNestPanel extends LitElement {
         transition: background-color 600ms var(--ease-out), color 600ms var(--ease-out);
       }
       .app {
+        isolation: isolate;
         position: relative;
         min-height: 100vh;
         background: radial-gradient(900px 600px at 0% 0%, var(--bg-glow), transparent 70%),
           radial-gradient(700px 500px at 100% 100%, var(--bg-glow), transparent 70%);
+      }
+      /* 2.0: a surface (marble, wood…), film grain, and slow light leaks in the lights' colour. */
+      .app.pro::before,
+      .app.pro::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+      }
+      .app.pro::before {
+        background-image: var(--material);
+        background-size: cover;
+        opacity: 0.55;
+      }
+      .app.pro::after {
+        background-image: var(--grain);
+        opacity: var(--grain-opacity, 0.05);
+        z-index: 30;
+        mix-blend-mode: overlay;
+      }
+      .leaks {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        overflow: hidden;
+        opacity: var(--leak-opacity, 0);
+        transition: opacity 1.2s var(--ease-out);
+      }
+      .leaks i {
+        position: absolute;
+        width: 60vmax;
+        height: 60vmax;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--leak), transparent 62%);
+        filter: blur(40px);
+        transition: --leak 2s ease;
+        animation: drift 38s ease-in-out infinite alternate;
+      }
+      .leaks i:nth-child(1) {
+        top: -25vmax;
+        inset-inline-start: -15vmax;
+      }
+      .leaks i:nth-child(2) {
+        bottom: -30vmax;
+        inset-inline-end: -20vmax;
+        animation-duration: 46s;
+        animation-direction: alternate-reverse;
+        opacity: 0.7;
+      }
+      @keyframes drift {
+        to {
+          transform: translate(12vmax, 8vmax) scale(1.15);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .leaks i {
+          animation: none;
+        }
       }
       header {
         position: sticky;
@@ -485,10 +550,13 @@ export class SmartNestPanel extends LitElement {
     window.addEventListener("resize", this.onResize);
     this.mql.addEventListener("change", this.onScheme);
     this.ticker = window.setInterval(() => this.tick(), 10_000);
+    registerAnimatedVars();
+    this.stopLight = followLight(this);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.stopLight?.();
     window.removeEventListener("pointerdown", this.onActivity, { capture: true });
     window.removeEventListener("keydown", this.onActivity, { capture: true });
     window.removeEventListener("resize", this.onResize);
@@ -800,7 +868,7 @@ export class SmartNestPanel extends LitElement {
   private get dark(): boolean {
     const s = this.current?.settings;
     if (!s) return this.systemDark;
-    if (s.theme === "dark") return true;
+    if (s.theme === "dark" || s.theme === "midnight") return true;
     if (s.theme === "light") return false;
     if (s.theme === "auto") return this.systemDark;
     return inWindow(this.now, s.dark_from, s.dark_to);
@@ -964,13 +1032,21 @@ export class SmartNestPanel extends LitElement {
       this.enterDir = 0;
     }
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
-    const vars = themeVars(this.dark, this.current?.settings.accent ?? "");
+    const s = this.current?.settings;
+    const vars = themeVars(this.dark, s?.accent ?? "");
+    const pro = s?.style === "pro" && allows(this.lic.plan, "style_pro");
+    const midnight = !!s && pro && (s.theme === "midnight" || (s.night_midnight && this.dark && s.theme === "schedule"));
+    if (midnight) Object.assign(vars, midnightVars());
+    Object.assign(vars, proVars(pro, this.dark, midnight, (s?.material ?? "none") as Material, pro && this.hass && this.current ? ambientColor(this.hass, this.current) : undefined, vars["--accent"]));
+    this.pro = pro;
     // Liquid glass: thinner, more refractive cards with a lit edge.
     const liquid = this.current?.settings.glass === "liquid" && allows(this.lic.plan, "liquid_glass");
     Object.assign(vars, {
       "--glass-blur": liquid ? "40px" : "24px",
       "--glass-sat": liquid ? "230%" : "170%",
-      "--glass-edge": liquid
+      "--glass-edge": pro && !liquid
+        ? vars["--glass-edge"]
+        : liquid
         ? this.dark
           ? "inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.07)"
           : "inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.45)"
@@ -1426,7 +1502,8 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+    return html`<div class="app ${this.pro ? "pro" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+      ${this.pro ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page

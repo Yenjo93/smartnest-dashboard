@@ -54,7 +54,7 @@ export interface PanelInfo {
 }
 
 export type Lang = "ar" | "en" | "he";
-export type ThemeMode = "auto" | "schedule" | "light" | "dark";
+export type ThemeMode = "auto" | "schedule" | "light" | "dark" | "midnight";
 
 export interface Settings {
   home_name: string;
@@ -119,6 +119,12 @@ export interface Settings {
   outage: { sensor?: string; shed: string[]; below?: number };
   /** Time-of-use tariff: cheap night hours and the peak to avoid. */
   tou: { enabled: boolean; cheap_from: string; cheap_to: string; peak_from: string; peak_to: string };
+  /** SmartNest 2.0: deeper materials, moving light, grain, duotone icons. */
+  style: "classic" | "pro";
+  /** A surface behind everything (2.0 only). */
+  material: "none" | "marble" | "wood" | "sand" | "olive";
+  /** At night, the dark look becomes Midnight (pure black, only what's on glows). */
+  night_midnight: boolean;
   /** Numbers on the alarm screen. */
   emergency: { police: string; contacts: { name: string; phone: string }[] };
 }
