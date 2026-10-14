@@ -870,7 +870,8 @@ export function settingsSheet(
                 <div class="seg">${(["full", "light", "off"] as const).map((v) => html`<button aria-pressed=${s.motion === v} @click=${() => set((d) => (d.settings.motion = v))}>${t(`motion_${v}` as I18nKey)}</button>`)}</div>
                 <span class="hint">${t("motion_hint")}</span>
               </div>`
-            : nothing
+            : nothing,
+          c.allows("high_contrast") ? html`<div class="field">${t("high_contrast")} ${toggle(c, !!s.contrast, (v) => set((d) => (d.settings.contrast = v)))}</div>` : nothing
         ),
         c.allows("travel") ? travelSettings(c, set) : nothing,
         c.allows("home_helpers") ? helpersSettings(c, set) : nothing,

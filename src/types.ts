@@ -130,6 +130,8 @@ export interface Settings {
   /** Soft clicks when things switch, and which tone the doorbell plays. */
   sounds: boolean;
   doorbell_tone: "chime" | "dingdong" | "melody";
+  /** Stronger text and borders, solid cards. */
+  contrast?: boolean;
   /** How much things move: everything, a little, or nothing. */
   motion: "full" | "light" | "off";
   /** Pages as tabs in the bar, or a floating dock at the bottom (2.0, big screens). */

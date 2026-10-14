@@ -27,6 +27,7 @@ export class SnTile extends LitElement {
         height: 100%;
       }
       .tile {
+        position: relative;
         height: 100%;
         width: 100%;
         display: flex;
@@ -78,6 +79,29 @@ export class SnTile extends LitElement {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      /* 2.0: what's on breathes slowly in its own colour. */
+      .tile.on::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone, var(--accent)) 40%, transparent), 0 0 24px color-mix(in srgb, var(--tone, var(--accent)) 45%, transparent);
+        opacity: 0;
+        animation: breathe-glow 4.5s ease-in-out infinite;
+        animation-play-state: var(--loops, running);
+        display: var(--breathe, none);
+      }
+      @keyframes breathe-glow {
+        50% {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tile.on::after {
+          animation: none;
+        }
       }
       .tile:not(.on) {
         opacity: var(--idle-opacity, 1);

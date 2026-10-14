@@ -862,6 +862,9 @@ const en = {
   motion_light: "Light",
   motion_off: "Still",
   motion_hint: "Light keeps feedback but stops the ambient loops (drifting light, breathing cards). Still stops page animations too.",
+  plan_model: "3D house model",
+  plan_lens: "Magnifier",
+  high_contrast: "Higher contrast (stronger text, solid cards)",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1728,6 +1731,9 @@ const ar: Record<I18nKey, string> = {
   motion_light: "خفيفة",
   motion_off: "بدون",
   motion_hint: "الخفيفة بتخلّي ردة الفعل وبتوقف الحركة اللي بتتكرر (الضو الماشي، الكروت اللي بتتنفس). بدون بتوقف كمان حركة الصفحات.",
+  plan_model: "مجسّم البيت 3D",
+  plan_lens: "عدسة مكبّرة",
+  high_contrast: "تباين أعلى (نص أوضح، كروت مصمتة)",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2592,6 +2598,9 @@ const he: Record<I18nKey, string> = {
   motion_light: "קלה",
   motion_off: "ללא",
   motion_hint: "קלה שומרת משוב ועוצרת לולאות רקע. ללא עוצרת גם אנימציות דפים.",
+  plan_model: "מודל תלת-ממדי",
+  plan_lens: "זכוכית מגדלת",
+  high_contrast: "ניגודיות גבוהה",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

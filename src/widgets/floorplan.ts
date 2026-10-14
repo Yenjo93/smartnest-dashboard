@@ -13,6 +13,7 @@ import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import { autoPlace, isAreaName } from "../autofill";
 import { fxRow } from "../lightfx";
+import "./plan-model";
 import "../ai-features";
 import { detectRooms } from "../plan-detect";
 import "../ui/entity-picker";
@@ -68,6 +69,11 @@ export class SnFloorplan extends LitElement {
   /** Replaying the last 24 hours on the plan. */
   @state() private replay?: { start: number; at: number; playing: boolean; data: Record<string, { s: string; lu: number }[]> };
   private replayTimer?: number;
+  /** The plan as a 3D model built from the drawn rooms. */
+  @state() private model = false;
+  /** Magnifier following the finger over the plan. */
+  @state() private lens?: { x: number; y: number };
+  @state() private lensOn = false;
   /** All floors stacked in 3D. */
   @state() private stack = false;
   /** Rooms the robot has been in today, per floor. */
@@ -120,6 +126,48 @@ export class SnFloorplan extends LitElement {
         pointer-events: none;
         border-radius: var(--r-sm);
       }
+      /* Night halos (2.0): the plan sinks into the dark and lights pour real-looking pools of light on the floor. */
+      .stage.night img {
+        filter: brightness(0.42) saturate(0.6);
+        transition: filter 1.2s var(--ease-out);
+      }
+      :host([dark]) .stage.night img.plan-light {
+        filter: invert(0.88) hue-rotate(180deg) brightness(0.5);
+      }
+      .stage.night .glow {
+        mix-blend-mode: screen;
+        filter: blur(4px) saturate(1.3);
+      }
+      .lens {
+        position: absolute;
+        width: 150px;
+        height: 150px;
+        margin: -75px 0 0 -75px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 6;
+        background-repeat: no-repeat;
+        box-shadow: 0 0 0 3px var(--surface-solid), 0 18px 40px rgba(0, 0, 0, 0.35), inset 0 0 20px rgba(0, 0, 0, 0.2);
+        animation: lens-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .lens span {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        translate: -50% 0;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--surface-solid);
+        font: 600 12px var(--font);
+        white-space: nowrap;
+        color: var(--text);
+      }
+      @keyframes lens-in {
+        from {
+          opacity: 0;
+          transform: scale(0.6);
+        }
+      }
       :host([dark]) .stage img.plan-light {
         /* Line drawings on white turn into glowing outlines on charcoal. */
         filter: invert(0.88) hue-rotate(180deg) brightness(1.05);
@@ -166,6 +214,7 @@ export class SnFloorplan extends LitElement {
         stroke-dasharray: 4 3;
         transform-origin: 4px 36px;
         animation: fx-swing 2.4s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+        animation-play-state: var(--loops, running);
       }
       .fx-ripple i {
         position: absolute;
@@ -173,6 +222,7 @@ export class SnFloorplan extends LitElement {
         border-radius: 999px;
         border: 2px solid #3a86ff;
         animation: fx-ripple 2.1s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+        animation-play-state: var(--loops, running);
       }
       .fx-ripple i:nth-child(2) {
         animation-delay: 0.7s;
@@ -210,6 +260,7 @@ export class SnFloorplan extends LitElement {
         border-radius: 0 0 50% 50%;
         opacity: 0;
         animation: fx-blow 1.8s linear infinite;
+        animation-play-state: var(--loops, running);
       }
       .fx-air.hot i {
         border-color: #ff8a3d;
@@ -229,6 +280,7 @@ export class SnFloorplan extends LitElement {
         color: var(--accent);
         opacity: 0;
         animation: fx-note 2.4s ease-out infinite;
+        animation-play-state: var(--loops, running);
       }
       .fx-notes i:nth-child(2) {
         animation-delay: 0.8s;
@@ -685,6 +737,7 @@ export class SnFloorplan extends LitElement {
         background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.5) 45%, transparent 60%) 0 0 / 300% 100%,
           color-mix(in srgb, #2bb673 12%, transparent);
         animation: shine 4s linear infinite;
+        animation-play-state: var(--loops, running);
       }
       .clean-tag {
         position: absolute;
@@ -1887,6 +1940,21 @@ export class SnFloorplan extends LitElement {
     </div>`;
   }
 
+  /** A round magnifier over the plan: the same drawing at 2.5x, with the room's name. */
+  private renderLens(floor: Floor, stage: { w: number; h: number }) {
+    const l = this.lens!;
+    const z = 2.5;
+    const room = floor.rooms?.find((r) => inside([l.x, l.y], r.points));
+    const bx = 75 - (l.x / 100) * stage.w * z;
+    const by = 75 - (l.y / 100) * stage.h * z;
+    return html`<div
+      class="lens"
+      style="left:${l.x}%;top:${l.y}%;background-image:url('${floor.image}');background-size:${stage.w * z}px ${stage.h * z}px;background-position:${bx}px ${by}px"
+    >
+      ${room ? html`<span>${room.name}</span>` : nothing}
+    </div>`;
+  }
+
   /** Every floor as a slab, one above the other; lit lights glow through. Tap one to go there. */
   private renderStack() {
     const floors = this.floors.filter((f) => f.image);
@@ -2056,7 +2124,7 @@ export class SnFloorplan extends LitElement {
             </div>
           </div>`
         : nothing}
-      ${floor?.image && !ctx.editing && (modes.length || ctx.allows("plan_3d") || ctx.allows("plan_replay"))
+      ${floor?.image && !ctx.editing && (modes.length || ctx.allows("plan_3d") || ctx.allows("plan_replay") || ctx.allows("plan_lens"))
         ? html`<div class="corner-btns" @pointerdown=${(e: Event) => e.stopPropagation()}>
             ${modes.length
               ? html`<button
@@ -2072,6 +2140,16 @@ export class SnFloorplan extends LitElement {
                   }}
                 >
                   <sn-icon icon=${mode === "humidity" ? "humidity" : mode === "co2" ? "co2" : "thermometer"}></sn-icon>
+                </button>`
+              : nothing}
+            ${ctx.allows("plan_model") && floor.rooms?.length
+              ? html`<button class="pressable" aria-pressed=${this.model} aria-label=${t("plan_model")} title=${t("plan_model")} @click=${() => ((this.model = !this.model), (this.stack = false))}>
+                  <sn-icon icon="home-city"></sn-icon>
+                </button>`
+              : nothing}
+            ${ctx.allows("plan_lens") && !this.model
+              ? html`<button class="pressable" aria-pressed=${this.lensOn} aria-label=${t("plan_lens")} title=${t("plan_lens")} @click=${() => ((this.lensOn = !this.lensOn), (this.lens = undefined))}>
+                  <sn-icon icon="magnify"></sn-icon>
                 </button>`
               : nothing}
             ${ctx.allows("floor_stack") && floors.filter((f) => f.image).length > 1
@@ -2110,11 +2188,15 @@ export class SnFloorplan extends LitElement {
         @pointercancel=${(e: PointerEvent) => this.onAreaUp(e)}
         @wheel=${(e: WheelEvent) => this.onWheel(e)}
       >
-        ${this.stack && !ctx.editing
+        ${this.model && !ctx.editing && floor?.rooms?.length
+          ? html`<sn-plan-model .ctx=${ctx} .floor=${floor} .ratio=${ratio}></sn-plan-model>`
+          : this.stack && !ctx.editing
           ? this.renderStack()
           : floor?.image
           ? html`<div
-              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""} ${tilt ? "tilt" : ""}"
+              class="stage ${this.roomMode ? "room-mode" : ""} ${this.drawing ? "drawing" : ""} ${this.settling ? "settle" : ""} ${tilt ? "tilt" : ""} ${ctx.dark && !ctx.editing && ctx.allows("night_halos") && !mode ? "night" : ""}"
+              @pointermove=${(e: PointerEvent) => this.lensOn && !ctx.editing && (this.lens = { x: this.pct(e)[0], y: this.pct(e)[1] })}
+              @pointerleave=${() => (this.lens = undefined)}
               style="width:${stage.w}px;height:${stage.h}px;transform:${tilt
                 ? "perspective(1400px) rotateX(40deg) scale(0.86)"
                 : `translate(${this.zoom.x}px, ${this.zoom.y}px) scale(${this.zoom.s})`};--inv:${1 / this.zoom.s}"
@@ -2139,6 +2221,7 @@ export class SnFloorplan extends LitElement {
               ${!ctx.editing && ctx.allows("robot_on_plan") ? this.renderCleaned(floor) : nothing}
               ${floor.markers.map((m) => this.renderMarker(m))} ${ctx.editing ? nothing : this.renderPeople(floor)}
               ${ctx.editing && this.roomMode ? this.renderRoomEditor(floor) : nothing}
+              ${this.lensOn && this.lens && !ctx.editing ? this.renderLens(floor, stage) : nothing}
             </div>`
           : html`<div class="empty">
               <sn-icon icon="image"></sn-icon>

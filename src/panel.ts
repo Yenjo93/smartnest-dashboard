@@ -27,6 +27,7 @@ import "./island";
 import "./search";
 import "./ui/skeleton";
 import { setSounds } from "./sounds";
+import { setStill } from "./motion";
 import "./ui/empty";
 import { photoDropSheet } from "./business";
 import "./overload";
@@ -398,6 +399,7 @@ export class SmartNestPanel extends LitElement {
         filter: blur(40px);
         transition: --leak 2s ease;
         animation: drift 38s ease-in-out infinite alternate;
+        animation-play-state: var(--loops, running);
       }
       .leaks i:nth-child(1) {
         top: -25vmax;
@@ -762,7 +764,6 @@ export class SmartNestPanel extends LitElement {
     this.ticker = window.setInterval(() => this.tick(), 10_000);
     registerAnimatedVars();
     window.addEventListener("keydown", this.onSearchKey);
-    this.stopLight = followLight(this);
   }
 
   disconnectedCallback() {
@@ -1262,6 +1263,22 @@ export class SmartNestPanel extends LitElement {
     Object.assign(vars, proVars(pro, this.dark, midnight, (s?.material ?? "none") as Material, pro && this.hass && this.current ? ambientColor(this.hass, this.current) : undefined, vars["--accent"]));
     this.pro = pro;
     setSounds(!!s?.sounds && allows(this.lic.plan, "ui_sounds"));
+    const motion = allows(this.lic.plan, "motion_levels") ? s?.motion ?? "full" : "full";
+    setStill(motion === "off");
+    vars["--loops"] = motion === "full" ? "running" : "paused";
+    // The moving light only in full motion; otherwise it rests in the top corner.
+    if (pro && motion === "full" && !this.stopLight) this.stopLight = followLight(this);
+    if ((!pro || motion !== "full") && this.stopLight) {
+      this.stopLight();
+      this.stopLight = undefined;
+    }
+    vars["--breathe"] = pro && motion === "full" && allows(this.lic.plan, "breathing") ? "block" : "none";
+    if (s?.contrast && allows(this.lic.plan, "high_contrast"))
+      Object.assign(vars, {
+        "--text-2": this.dark ? "#e3e6ea" : "#2a333b",
+        "--border": this.dark ? "rgba(255,255,255,.28)" : "rgba(30,37,43,.32)",
+        "--surface": this.dark ? "rgba(30,36,42,.94)" : "rgba(255,255,255,.96)",
+      });
     // Liquid glass: thinner, more refractive cards with a lit edge.
     const liquid = this.current?.settings.glass === "liquid" && allows(this.lic.plan, "liquid_glass");
     Object.assign(vars, {

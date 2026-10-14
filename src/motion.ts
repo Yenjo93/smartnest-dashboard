@@ -11,6 +11,12 @@ import { domainOf, isActive } from "./entities";
  * Reduced motion: no loops; one-shots become a short fade.
  */
 export const livingStyles = css`
+  .living-spin,
+  .living-drift,
+  .living-glow,
+  .living-wobble {
+    animation-play-state: var(--loops, running) !important;
+  }
   .living-spin {
     animation: sn-spin 1.6s linear infinite;
   }
@@ -65,8 +71,12 @@ const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 /** One-shot feedback when a device's state flips. Call from updated() with the previous state. */
+/** The house chose "Still" motion: no one-shot icon animations at all. */
+let still = false;
+export const setStill = (v: boolean) => (still = v);
+
 export function playStateChange(icon: Element | null | undefined, e: HassEntity | undefined, prev: string | undefined) {
-  if (!icon || !e || prev === undefined || prev === e.state) return;
+  if (!icon || !e || prev === undefined || prev === e.state || still) return;
   if (prev === "unavailable" || e.state === "unavailable") return;
   if (reduced()) {
     icon.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 200, easing: EASE_OUT });
