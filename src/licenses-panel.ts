@@ -13,6 +13,8 @@ interface Beat {
   offline_names: string[];
   low_battery: number;
   backup: string;
+  /** Issue time of the key the house runs. */
+  key_t?: number;
 }
 
 interface House {
@@ -431,11 +433,12 @@ export class SmartNestLicenses extends LitElement {
   private async renew(h: House, opts: { plan?: House["plan"]; days?: number }, question: string) {
     if (!confirm(question)) return;
     try {
-      const rec = await this.hass.callWS<House>({ type: "smartnest/issuer/renew", id: h.id, ...opts });
-      this.copy(rec.key);
+      const rec = await this.hass.callWS<House>({ type: "smartnest/issuer/renew", house: h.id, ...opts });
       this.refresh();
-    } catch {
-      this.toast("ما زبطت");
+      if (this.beats[h.install]) this.toast("✓ تجدد، وبيوصل للبيت لحاله خلال 3 ساعات");
+      else this.copy(rec.key);
+    } catch (err: any) {
+      this.toast(`ما زبطت: ${err?.message ?? err?.code ?? ""}`);
     }
   }
 
@@ -503,7 +506,7 @@ export class SmartNestLicenses extends LitElement {
     const b = this.beats[h.install];
     if (!b) return nothing;
     const hours = (Date.now() / 1000 - b.at) / 3600;
-    const late = hours > 36;
+    const late = hours > 12;
     const ago = hours < 1 ? "هلأ" : hours < 24 ? `قبل ${Math.round(hours)} ساعة` : `قبل ${Math.round(hours / 24)} يوم`;
     const issues = b.offline + b.low_battery;
     return html`<div class="beat ${late ? "late" : issues ? "warn" : "ok"}">
@@ -511,6 +514,11 @@ export class SmartNestLicenses extends LitElement {
       <span>${ago} · SmartNest ${b.version} · HA ${b.ha}</span>
       ${b.offline ? html`<span>${b.offline} أجهزة فاصلة: ${b.offline_names.join("، ")}</span>` : nothing}
       ${b.low_battery ? html`<span>${b.low_battery} بطاريات ضعيفة</span>` : nothing}
+      ${b.key_t !== undefined
+        ? b.key_t >= h.issued
+          ? html`<span>🔑 المفتاح الأخير شغّال عنده</span>`
+          : html`<span>🔑 المفتاح الجديد بيوصل لحاله أول ما البيت يتصل (كل 3 ساعات)</span>`
+        : nothing}
     </div>`;
   }
 
@@ -538,7 +546,7 @@ export class SmartNestLicenses extends LitElement {
               @click=${async () => {
                 const phone = prompt("رقم واتساب الزبون (مع مفتاح الدولة)", "");
                 if (!phone) return;
-                await this.hass.callWS({ type: "smartnest/issuer/update", id: h.id, phone });
+                await this.hass.callWS({ type: "smartnest/issuer/update", house: h.id, phone });
                 this.refresh();
               }}
             >
@@ -636,7 +644,7 @@ export class SmartNestLicenses extends LitElement {
                         return html`<details class="card" open>
                           <summary>💓 نبض البيوت (تعرف المشاكل قبل ما يتصلوا)</summary>
                           <span class="muted" style="font-size:14px"
-                            >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 12 ساعة: شغّال، كم جهاز فاصل، وأي نسخة.</span
+                            >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 3 ساعات: شغّال، كم جهاز فاصل، وأي نسخة. ولما تجدّدله، المفتاح الجديد بيوصله لحاله بنفس الطريق.</span
                           >
                           <label class="field"
                             >عنوان HA تبعك من برا (دومين Cloudflare)

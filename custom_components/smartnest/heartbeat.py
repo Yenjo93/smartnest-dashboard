@@ -1,11 +1,13 @@
-"""A short daily "all well?" from each client house to the installer's license page.
+"""A short "all well?" every few hours from each client house to the installer's license page.
 
 Only when the installer puts their heartbeat link in this house's settings. It carries the house's own license key,
 so the installer's side knows it's a genuine house of theirs, plus a few counts: nothing about the family.
+When the installer has renewed the house's key, the answer carries the new one and it's put in here by itself.
 """
 from __future__ import annotations
 
 from datetime import timedelta
+import json
 import logging
 import time
 from typing import Any
@@ -16,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import DOMAIN, LICENSE_STORAGE_KEY
+from .license import verify
 
 _LOGGER = logging.getLogger(__name__)
 _WATCHED = ("light", "switch", "lock", "climate", "cover", "binary_sensor", "camera", "vacuum", "fan")
@@ -29,7 +32,7 @@ class Heartbeat:
 
     def async_start(self) -> None:
         self._unsubs.append(async_call_later(self.hass, 120, self._beat))
-        self._unsubs.append(async_track_time_interval(self.hass, self._beat, timedelta(hours=12)))
+        self._unsubs.append(async_track_time_interval(self.hass, self._beat, timedelta(hours=3)))
 
     def async_stop(self) -> None:
         for unsub in self._unsubs:
@@ -72,10 +75,31 @@ class Heartbeat:
         }
         try:
             async with async_get_clientsession(self.hass).post(url, json=payload, timeout=20) as resp:
-                return resp.status < 300
-        except Exception as err:  # noqa: BLE001 - a missed beat is fine, the next one comes in 12 h
+                if resp.status >= 300:
+                    return False
+                text = await resp.text()
+        except Exception as err:  # noqa: BLE001 - a missed beat is fine, the next one comes in 3 h
             _LOGGER.debug("SmartNest heartbeat failed: %s", err)
             return False
+        try:
+            answer = json.loads(text) if text.strip() else None
+        except ValueError:
+            answer = None
+        if isinstance(answer, dict) and isinstance(answer.get("key"), str):
+            await self._take_key(answer["key"])
+        return True
+
+    async def _take_key(self, key: str) -> None:
+        """A renewal from the installer. Taken only if it verifies for this house and is newer than the current key."""
+        lic = (self.hass.data.get(DOMAIN) or {}).get("license")
+        if lic is None:
+            return
+        info = verify(key, lic.iid)
+        exp = (info or {}).get("x")
+        if info is None or (exp and time.time() > float(exp)) or int(info.get("t") or 0) <= int((lic.info or {}).get("t") or 0):
+            return
+        await lic.async_activate(key)
+        _LOGGER.info("SmartNest: the installer renewed this house's license (%s)", info.get("p", "premium"))
 
 
 def _num(v: str) -> float | None:

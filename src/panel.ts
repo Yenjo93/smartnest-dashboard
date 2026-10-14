@@ -919,6 +919,7 @@ export class SmartNestPanel extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.clearInterval(this.renewTimer);
     this.stopLight?.();
     window.removeEventListener("keydown", this.onSearchKey);
     window.removeEventListener("pointerdown", this.onActivity, { capture: true });
@@ -1067,6 +1068,7 @@ export class SmartNestPanel extends LitElement {
       if ((err as any)?.code === "not_licensed") {
         const st = await this.hass.callWS<{ instance_id: string; expired?: boolean }>({ type: "smartnest/license/status" });
         this.license = { instance_id: st.instance_id, expired: st.expired };
+        this.waitForRenewal();
         return;
       }
       this.loadError = String((err as any)?.message ?? err);
@@ -1862,6 +1864,22 @@ export class SmartNestPanel extends LitElement {
         </button>`
       )}
     </div>`;
+  }
+
+  private renewTimer?: number;
+
+  /** The installer can renew from afar (the new key rides on the heartbeat): open by itself once it lands. */
+  private waitForRenewal() {
+    window.clearInterval(this.renewTimer);
+    this.renewTimer = window.setInterval(async () => {
+      if (!this.license) return window.clearInterval(this.renewTimer);
+      const st = await this.hass.callWS<{ licensed: boolean }>({ type: "smartnest/license/status" }).catch(() => undefined);
+      if (!st?.licensed || this.license.busy) return;
+      window.clearInterval(this.renewTimer);
+      this.license = undefined;
+      this.initStarted = false;
+      this.init();
+    }, 60_000);
   }
 
   private async activate(key: string) {

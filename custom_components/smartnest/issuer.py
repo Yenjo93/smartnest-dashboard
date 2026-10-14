@@ -105,19 +105,22 @@ class Issuer:
         except Exception:  # noqa: BLE001 - no external URL configured
             return webhook.async_generate_path(self.webhook_id)
 
-    async def _on_beat(self, hass: HomeAssistant, webhook_id: str, request: Any) -> None:
+    async def _on_beat(self, hass: HomeAssistant, webhook_id: str, request: Any) -> Any:
+        """Stores the house's report, and answers with a newer key when the installer renewed it: remote renewal."""
+        from aiohttp import web
+
         try:
             data = await request.json()
         except ValueError:
-            return
+            return None
         key = str(data.get("key", ""))
         try:
             install = json.loads(_b64d(key.split(".")[1])).get("i", "")
         except (ValueError, IndexError):
-            return
+            return None
         # Only genuine houses of this installer: the key must verify for the install it claims.
-        if not install or verify(key, install) is None:
-            return
+        if not install or (sent := verify(key, install)) is None:
+            return None
         db = await self.db.async_load() or {}
         beats = db.get("beats", {})
         beats[install] = {
@@ -129,8 +132,14 @@ class Issuer:
             "offline_names": [str(x)[:40] for x in (data.get("offline_names") or [])[:8]],
             "low_battery": int(data.get("low_battery") or 0),
             "backup": str(data.get("backup") or "")[:40],
+            # Which key the house runs, so the page can say whether a renewal has reached it.
+            "key_t": int(sent.get("t") or 0),
         }
         await self.db.async_save({**db, "beats": beats})
+        newest = max((h for h in db.get("houses", []) if h.get("install") == install), key=lambda h: h.get("issued", 0), default=None)
+        if newest and newest.get("issued", 0) > int(sent.get("t") or 0) and newest.get("key") != key:
+            return web.json_response({"key": newest["key"]})
+        return None
 
     async def async_setup_key(self, pem: str) -> bool:
         key = _load_key(pem)
@@ -294,7 +303,8 @@ async def ws_issue(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "smartnest/issuer/renew",
-        vol.Required("id"): str,
+        # Not "id": that's the websocket message's own number, so the house's id travels as "house".
+        vol.Required("house"): str,
         vol.Optional("plan"): vol.In(PLANS),
         vol.Optional("days"): vol.Any(None, vol.All(int, vol.Range(min=1, max=36500))),
     }
@@ -305,7 +315,7 @@ async def ws_renew(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     if not (iss := _ready(hass, connection, msg)):
         return
     houses = await iss.houses()
-    old = next((h for h in houses if h["id"] == msg["id"]), None)
+    old = next((h for h in houses if h["id"] == msg["house"]), None)
     if old is None:
         connection.send_error(msg["id"], "not_found", "Not in the list")
         return
@@ -316,14 +326,14 @@ async def ws_renew(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "smartnest/issuer/update", vol.Required("id"): str, vol.Optional("phone"): str, vol.Optional("note"): str})
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/issuer/update", vol.Required("house"): str, vol.Optional("phone"): str, vol.Optional("note"): str})
 @websocket_api.async_response
 async def ws_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     if not (iss := _ready(hass, connection, msg)):
         return
     houses = await iss.houses()
     for h in houses:
-        if h["id"] == msg["id"]:
+        if h["id"] == msg["house"]:
             for k in ("phone", "note"):
                 if k in msg:
                     h[k] = msg[k].strip()
