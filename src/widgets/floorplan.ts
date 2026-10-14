@@ -107,6 +107,10 @@ export class SnFloorplan extends LitElement {
         place-items: center;
         padding: 16px;
       }
+      /* Editing: the plan shrinks a little so its tools bar sits under it, not on top of the bottom rooms. */
+      .wrap.editing .area {
+        padding-bottom: 78px;
+      }
       :host([narrow]) .area {
         flex: none;
         padding: 12px;
@@ -2099,7 +2103,7 @@ export class SnFloorplan extends LitElement {
         /* per-device preference */
       }
     };
-    return html`<div class="wrap glass">
+    return html`<div class="wrap glass ${ctx.editing ? "editing" : ""}">
       ${floors.length > 1 || ctx.editing
         ? html`<div class="floors" @pointerdown=${(e: Event) => e.stopPropagation()}>
             <div class="seg">

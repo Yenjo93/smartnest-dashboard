@@ -2656,7 +2656,7 @@ const t={},e=function(e,i,s){let a=Promise.resolve();if(i&&i.length>0){document.
         <sn-icon icon="marker-plus" style="--icon-size:20px"></sn-icon>${e("add_device")}
       </button>
       <input type="file" accept="image/png,image/jpeg,image/webp" @change=${this.onFile} />
-    </div>`}render(){const{ctx:t}=this,{t:e}=t,i=this.floor,s=this.floors,a=this.stageSize(),n=this.natural?this.natural.w/this.natural.h:1.6,o=i?this.mapModes(i):[],r=o.includes(this.heat)?this.heat:void 0,l=this.tilt&&t.allows("plan_3d")&&!t.editing&&1===this.zoom.s,c=()=>{try{localStorage.setItem(this.heatKey,this.heat),localStorage.setItem(`${this.heatKey}-3d`,this.tilt?"1":"0")}catch{}};return F`<div class="wrap glass">
+    </div>`}render(){const{ctx:t}=this,{t:e}=t,i=this.floor,s=this.floors,a=this.stageSize(),n=this.natural?this.natural.w/this.natural.h:1.6,o=i?this.mapModes(i):[],r=o.includes(this.heat)?this.heat:void 0,l=this.tilt&&t.allows("plan_3d")&&!t.editing&&1===this.zoom.s,c=()=>{try{localStorage.setItem(this.heatKey,this.heat),localStorage.setItem(`${this.heatKey}-3d`,this.tilt?"1":"0")}catch{}};return F`<div class="wrap glass ${t.editing?"editing":""}">
       ${s.length>1||t.editing?F`<div class="floors" @pointerdown=${t=>t.stopPropagation()}>
             <div class="seg">
               ${s.map(((e,i)=>F`<button
@@ -2760,6 +2760,10 @@ const t={},e=function(e,i,s){let a=Promise.resolve();if(i&&i.length>0){document.
         display: grid;
         place-items: center;
         padding: 16px;
+      }
+      /* Editing: the plan shrinks a little so its tools bar sits under it, not on top of the bottom rooms. */
+      .wrap.editing .area {
+        padding-bottom: 78px;
       }
       :host([narrow]) .area {
         flex: none;
@@ -10003,7 +10007,7 @@ const t={},e=function(e,i,s){let a=Promise.resolve();if(i&&i.length>0){document.
               <sn-icon icon="pencil" style="--icon-size:20px"></sn-icon>
             </button>`:Y}
       </div>
-      ${t.editing||this.kids?Y:this.renderChips(t)}
+      ${t.editing?this.renderDock(t):this.kids?Y:this.renderChips(t)}
       ${this.renderExpiry(t)}
     </header>`}renderExpiry(t){const e=this.lic.expires;if(!e||!t.isAdmin)return Y;const i=Math.ceil((1e3*e-Date.now())/864e5);return i>14||i<0?Y:F`<div style="order:6;flex-basis:100%;font-size:13px;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)">
       ${t.t("expires_soon",{n:i})}
@@ -10194,7 +10198,6 @@ const t={},e=function(e,i,s){let a=Promise.resolve();if(i&&i.length>0){document.
               ${this.guests&&t.allows("guests")&&!t.editing?F`<sn-guests .ctx=${t}></sn-guests>`:Y}
               <sn-page-grid .ctx=${t} .page=${i}></sn-page-grid>
             </main>`):Y}
-      ${t.editing?this.renderDock(t):Y}
       ${t.narrow&&t.config.pages.length>1&&!this.kids?this.renderTabbar(t):Y}
       <sn-sheet-host .ctx=${t} .sheets=${this.sheets}></sn-sheet-host>
       ${this.ringingAt?F`<sn-doorbell .ctx=${t} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${()=>this.ringingAt=void 0}></sn-doorbell>`:Y}
@@ -10583,24 +10586,26 @@ const t={},e=function(e,i,s){let a=Promise.resolve();if(i&&i.length>0){document.
       .compact .dock {
         bottom: calc(76px + env(safe-area-inset-bottom));
       }
+      /* While editing, the edit buttons sit in the bar (where the chips are), so nothing covers the page. */
       .dock {
-        position: fixed;
-        bottom: max(20px, env(safe-area-inset-bottom));
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 30;
+        flex-basis: 100%;
         display: flex;
+        justify-content: center;
         gap: 6px;
         padding: 6px;
         border-radius: 999px;
-        animation: dock-in 520ms var(--spring);
-        max-width: calc(100vw - 24px);
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        animation: dock-in 420ms var(--ease-out);
         overflow-x: auto;
         scrollbar-width: none;
       }
       @keyframes dock-in {
         from {
-          transform: translate(-50%, 40px);
+          transform: translateY(-8px);
           opacity: 0;
         }
       }

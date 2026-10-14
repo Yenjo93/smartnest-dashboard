@@ -640,24 +640,26 @@ export class SmartNestPanel extends LitElement {
       .compact .dock {
         bottom: calc(76px + env(safe-area-inset-bottom));
       }
+      /* While editing, the edit buttons sit in the bar (where the chips are), so nothing covers the page. */
       .dock {
-        position: fixed;
-        bottom: max(20px, env(safe-area-inset-bottom));
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 30;
+        flex-basis: 100%;
         display: flex;
+        justify-content: center;
         gap: 6px;
         padding: 6px;
         border-radius: 999px;
-        animation: dock-in 520ms var(--spring);
-        max-width: calc(100vw - 24px);
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        animation: dock-in 420ms var(--ease-out);
         overflow-x: auto;
         scrollbar-width: none;
       }
       @keyframes dock-in {
         from {
-          transform: translate(-50%, 40px);
+          transform: translateY(-8px);
           opacity: 0;
         }
       }
@@ -1431,7 +1433,7 @@ export class SmartNestPanel extends LitElement {
             </button>`
           : nothing}
       </div>
-      ${ctx.editing || this.kids ? nothing : this.renderChips(ctx)}
+      ${ctx.editing ? this.renderDock(ctx) : this.kids ? nothing : this.renderChips(ctx)}
       ${this.renderExpiry(ctx)}
     </header>`;
   }
@@ -1773,7 +1775,6 @@ export class SmartNestPanel extends LitElement {
             </main>`
           )
         : nothing}
-      ${ctx.editing ? this.renderDock(ctx) : nothing}
       ${ctx.narrow && ctx.config.pages.length > 1 && !this.kids ? this.renderTabbar(ctx) : nothing}
       <sn-sheet-host .ctx=${ctx} .sheets=${this.sheets}></sn-sheet-host>
       ${this.ringingAt
