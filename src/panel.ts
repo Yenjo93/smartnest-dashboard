@@ -79,6 +79,20 @@ const MOODS: Record<string, string> = {
   garden: "#5AA83C", sprinkler: "#5AA83C", car: "#9AA4AD", paw: "#C68B59", pool: "#18BCF2",
 };
 
+/** Fast mode for this screen: "1" on, "0" off, unset = automatic (on for tablets with little memory or few cores). */
+const liteSaved = () => {
+  try {
+    return localStorage.getItem("smartnest-lite");
+  } catch {
+    return null;
+  }
+};
+const weakDevice = () => ((navigator as any).deviceMemory ?? 8) <= 2 || (navigator.hardwareConcurrency ?? 8) <= 4;
+const liteNow = () => {
+  const v = liteSaved();
+  return v === "1" || (v === null && weakDevice());
+};
+
 const SHOWROOM = (() => {
   try {
     return localStorage.getItem("smartnest-showroom") === "1";
@@ -112,8 +126,33 @@ export class SmartNestPanel extends LitElement {
       }
       return;
     }
+    // Home Assistant sends a new hass on every state change, often many a second. Redrawing the whole dashboard for
+    // each is what makes weak tablets hot: apply the first at once, then at most one per window (longer in fast mode).
+    if (!this._hass) {
+      this.applyHass(v);
+      return;
+    }
+    this.pendingHass = v;
+    if (this.hassTimer) return;
+    this.applyHass(v);
+    const flush = () => {
+      this.hassTimer = undefined;
+      if (this.pendingHass && this.pendingHass !== this._hass) {
+        this.applyHass(this.pendingHass);
+        this.hassTimer = window.setTimeout(flush, this.lite ? 700 : 150);
+      }
+    };
+    this.hassTimer = window.setTimeout(flush, this.lite ? 700 : 150);
+  }
+  private pendingHass?: Hass;
+  private hassTimer?: number;
+  /** Fast mode: no blur, no ambient animation, fewer redraws. */
+  @state() private lite = liteNow();
+  private liteChoice = liteSaved();
+  private applyHass(v: Hass) {
     const old = this._hass;
     this._hass = v;
+    this.pendingHass = undefined;
     this.requestUpdate("hass", old);
   }
   get hass(): Hass {
@@ -255,7 +294,7 @@ export class SmartNestPanel extends LitElement {
   /** Light ripples from lamps switched on. */
   @state() private waves: { id: number; x: number; y: number; color: string }[] = [];
   private onWave = (e: Event) => {
-    if (!this.pro || this.current?.settings.motion === "off") return;
+    if (!this.pro || this.lite || this.current?.settings.motion === "off") return;
     const d = (e as CustomEvent).detail as { x: number; y: number; color: string };
     const id = Date.now() + Math.random();
     this.waves = [...this.waves, { id, ...d }];
@@ -1397,12 +1436,29 @@ export class SmartNestPanel extends LitElement {
     setStill(motion === "off");
     vars["--loops"] = motion === "full" ? "running" : "paused";
     // The moving light only in full motion; otherwise it rests in the top corner.
-    if (pro && motion === "full" && !this.stopLight) this.stopLight = followLight(this);
+    if (pro && motion === "full" && !this.lite && !this.stopLight) this.stopLight = followLight(this);
     if ((!pro || motion !== "full") && this.stopLight) {
       this.stopLight();
       this.stopLight = undefined;
     }
     vars["--breathe"] = pro && motion === "full" && allows(this.lic.plan, "breathing") ? "block" : "none";
+    if (this.lite) {
+      // Fast mode: solid cards instead of live blur (the biggest cost on tablets), and nothing moving on its own.
+      Object.assign(vars, {
+        "--glass-filter": "none",
+        "--surface": vars["--surface-solid"] ?? (this.dark ? "#2A333B" : "#FFFFFF"),
+        "--sheen": "none",
+        "--grain": "none",
+        "--material": "none",
+        "--leak-opacity": "0",
+        "--loops": "paused",
+        "--breathe": "none",
+      });
+      if (this.stopLight) {
+        this.stopLight();
+        this.stopLight = undefined;
+      }
+    }
     // Each page its own mood colour (2.0): warm home, blue security, green power…
     const page = this.current?.pages.find((p) => p.id === this.pageId);
     const mood = pro && s?.page_moods && allows(this.lic.plan, "page_moods") && page ? MOODS[page.icon] : undefined;
@@ -1681,6 +1737,33 @@ export class SmartNestPanel extends LitElement {
               </div>
             </div>
             <div class="field">
+              ${c.t("fast_mode")}
+              <div class="seg">
+                ${([
+                  [null, "fast_auto"],
+                  ["1", "on"],
+                  ["0", "off"],
+                ] as const).map(
+                  ([v, label]) => html`<button
+                    aria-pressed=${this.liteChoice === v}
+                    @click=${() => {
+                      this.liteChoice = v;
+                      try {
+                        v === null ? localStorage.removeItem("smartnest-lite") : localStorage.setItem("smartnest-lite", v);
+                      } catch {
+                        /* per screen */
+                      }
+                      this.lite = liteNow();
+                      this.requestUpdate();
+                    }}
+                  >
+                    ${c.t(label)}
+                  </button>`
+                )}
+              </div>
+              <span class="hint">${c.t(weakDevice() ? "fast_hint_weak" : "fast_hint")}${this.lite ? " ✓" : ""}</span>
+            </div>
+            <div class="field">
               ${c.t("big_text")}
               <div class="seg">
                 ${[true, false].map(
@@ -1843,6 +1926,7 @@ export class SmartNestPanel extends LitElement {
   }
 
   private renderWeather(ctx: Ctx) {
+    if (this.lite) return nothing;
     const w = ctx.config.settings.weather;
     const e = w.background && w.entity && ctx.allows("weather_bg") ? this.hass.states[w.entity] : undefined;
     if (!e) return nothing;
@@ -1888,15 +1972,17 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
-      ${(() => {
+    return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && !this.lite && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+      ${this.lite
+        ? nothing
+        : (() => {
         const back = this.backdrop(ctx);
         return back ? html`<div class="wall" aria-hidden="true" style="background-image:url('${back}');--dim:${ctx.config.settings.wallpaper_dim}"></div>` : nothing;
       })()}
-      ${this.pro && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
+      ${this.pro && !this.lite && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
         ? html`<sn-seasonfx .season=${seasonNow()}></sn-seasonfx>`
         : nothing}
-      ${this.pro ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
+      ${this.pro && !this.lite ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page

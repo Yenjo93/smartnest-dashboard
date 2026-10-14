@@ -120,8 +120,8 @@ export const shared = css`
     background-color: var(--surface);
     background-image: var(--sheen, none);
     background-attachment: fixed;
-    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
-    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%));
+    -webkit-backdrop-filter: var(--glass-filter, blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%)));
+    backdrop-filter: var(--glass-filter, blur(var(--glass-blur, 24px)) saturate(var(--glass-sat, 170%)));
     border: 1px solid var(--border);
     box-shadow: var(--shadow), var(--glass-edge, 0 0 #0000);
   }

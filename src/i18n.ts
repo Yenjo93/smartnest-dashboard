@@ -886,6 +886,10 @@ const en = {
   ab_go: "Build {n} pages",
   ab_done: "{n} pages ready. Press Save to keep them.",
   template_media: "Music & TV",
+  fast_mode: "Fast mode",
+  fast_auto: "Automatic",
+  fast_hint: "Solid cards instead of live blur, no ambient animations, fewer redraws. Best for wall tablets.",
+  fast_hint_weak: "This tablet is on the weaker side, so Automatic turns fast mode on.",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1776,6 +1780,10 @@ const ar: Record<I18nKey, string> = {
   ab_go: "جهّز {n} صفحات",
   ab_done: "جهزت {n} صفحات. اضغط حفظ عشان يضلّوا.",
   template_media: "الموسيقى والتلفزيون",
+  fast_mode: "وضع سريع",
+  fast_auto: "تلقائي",
+  fast_hint: "كروت مصمتة بدل التغبيش، بدون حركات بالخلفية، وتحديث أقل. الأحسن لتابلت الحيط.",
+  fast_hint_weak: "هالتابلت ضعيف شوي، فالتلقائي بيشغّل الوضع السريع.",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2664,6 +2672,10 @@ const he: Record<I18nKey, string> = {
   ab_go: "בנה {n} דפים",
   ab_done: "{n} דפים מוכנים. לחץ שמור.",
   template_media: "מוזיקה וטלוויזיה",
+  fast_mode: "מצב מהיר",
+  fast_auto: "אוטומטי",
+  fast_hint: "כרטיסים אטומים במקום טשטוש, בלי אנימציות רקע, פחות רענונים. מומלץ לטאבלט קיר.",
+  fast_hint_weak: "הטאבלט הזה חלש יחסית, לכן אוטומטי מפעיל מצב מהיר.",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };
