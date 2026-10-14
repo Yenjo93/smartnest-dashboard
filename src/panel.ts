@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 import type { Ctx, SheetSpec } from "./ctx";
-import type { DashboardConfig, Hass, Lang, PanelInfo } from "./types";
+import type { DashboardConfig, Hass, HassEntity, Lang, PanelInfo } from "./types";
 import { defaultConfig, loadConfig, normalizeConfig, saveConfig, subscribeConfig } from "./config";
 import { isRtl, translator } from "./i18n";
 import { fontFaceCss, shared, themeVars } from "./theme";
@@ -28,6 +28,9 @@ import "./search";
 import "./ui/skeleton";
 import { setSounds } from "./sounds";
 import { setStill } from "./motion";
+import "./flair";
+import { monogram, seasonNow } from "./flair";
+import { snapshotUrl } from "./widgets/camera";
 import "./ui/empty";
 import { photoDropSheet } from "./business";
 import "./overload";
@@ -43,7 +46,7 @@ import { markMorningShown, morningDue } from "./morning";
 import "./ui/pinpad";
 import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./kiosk";
 import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
-import { buildChips, chipSheet } from "./chips";
+import { buildChips, chipSheet, dashboardEntities } from "./chips";
 import { rolling } from "./ui/num";
 import { allows, type Plan } from "./plans";
 
@@ -65,6 +68,15 @@ function inWindow(now: Date, from: string, to: string) {
 const pickLang = (hassLang: string | undefined): Lang => {
   const l = (hassLang ?? "").slice(0, 2);
   return l === "en" || l === "he" ? l : "ar";
+};
+
+/** Page moods (2.0): the colour each kind of page washes the background with, picked by its icon. */
+const MOODS: Record<string, string> = {
+  home: "#E9971D", dashboard: "#E9971D", sofa: "#E8A35C", bed: "#7C6CF0", kitchen: "#F26B68",
+  "shield-home": "#3A6DF0", cctv: "#3A6DF0", doorbell: "#8E6CEF",
+  "lightning-bolt": "#2BB673", solar: "#2BB673", water: "#3A9BFF",
+  "air-conditioner": "#18BCF2", thermometer: "#18BCF2", "robot-vacuum": "#14B8C4",
+  garden: "#5AA83C", sprinkler: "#5AA83C", car: "#9AA4AD", paw: "#C68B59", pool: "#18BCF2",
 };
 
 const SHOWROOM = (() => {
@@ -193,6 +205,15 @@ export class SmartNestPanel extends LitElement {
     img.src = src;
   }
 
+  /** A hairline under the bar that breathes with the house: gold and calm, blue while cooling, red on an alert. */
+  private renderStatusLine(ctx: Ctx) {
+    const chips = buildChips(ctx);
+    const alert = chips.some((c) => c.tone === "alert");
+    const cool = chips.some((c) => c.type === "climate");
+    const color = alert ? "var(--alert)" : cool ? "#3a9bff" : "var(--accent)";
+    return html`<i class="statusline ${alert ? "alert" : ""}" style="--sl:${color}" aria-hidden="true"></i>`;
+  }
+
   private useDock(ctx: Ctx) {
     return this.pro && ctx.config.settings.nav === "dock" && ctx.allows("dock") && !ctx.narrow && !ctx.editing;
   }
@@ -226,6 +247,34 @@ export class SmartNestPanel extends LitElement {
     const r = btn.getBoundingClientRect();
     const d = Math.abs(r.left + r.width / 2 - this.dockX);
     return 1 + 0.55 * Math.max(0, 1 - d / 150);
+  }
+
+  /** Who just walked in (welcome moment), and the people we saw last time. */
+  @state() private welcomer?: HassEntity;
+  private peopleSeen?: Record<string, string>;
+  /** Light ripples from lamps switched on. */
+  @state() private waves: { id: number; x: number; y: number; color: string }[] = [];
+  private onWave = (e: Event) => {
+    if (!this.pro || this.current?.settings.motion === "off") return;
+    const d = (e as CustomEvent).detail as { x: number; y: number; color: string };
+    const id = Date.now() + Math.random();
+    this.waves = [...this.waves, { id, ...d }];
+    window.setTimeout(() => (this.waves = this.waves.filter((w) => w.id !== id)), 1100);
+  };
+
+  /** What's behind everything: the album art while music plays, else a live outdoor camera, else the wallpaper. */
+  private backdrop(ctx: Ctx): string | undefined {
+    const s = ctx.config.settings;
+    if (!this.pro) return undefined;
+    if (s.music_backdrop && ctx.allows("music_backdrop")) {
+      const playing = dashboardEntities(ctx.config)
+        .map((id) => this.hass.states[id])
+        .find((e) => e && e.entity_id.startsWith("media_player.") && e.state === "playing" && e.attributes.entity_picture);
+      if (playing) return this.hass.hassUrl(playing.attributes.entity_picture);
+    }
+    if (s.window_camera && this.hass.states[s.window_camera] && ctx.allows("window_camera"))
+      return snapshotUrl(this.hass, s.window_camera, Math.floor(this.now.getTime() / 15_000));
+    return s.wallpaper && ctx.allows("wallpaper") ? s.wallpaper : undefined;
   }
 
   /** SmartNest 2.0 look is on. */
@@ -307,6 +356,66 @@ export class SmartNestPanel extends LitElement {
         opacity: var(--grain-opacity, 0.05);
         z-index: 30;
         mix-blend-mode: overlay;
+      }
+      header {
+        position: sticky;
+      }
+      /* The sun's arc only where the bar has room for it. */
+      sn-sunarc {
+        display: none;
+      }
+      @media (min-width: 1180px) {
+        sn-sunarc {
+          display: inline-grid;
+        }
+      }
+      .statusline {
+        position: absolute;
+        inset: auto 8% -1px 8%;
+        height: 2px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, transparent, var(--sl), transparent);
+        opacity: 0.8;
+        animation: sl-breathe 4s ease-in-out infinite;
+        animation-play-state: var(--loops, running);
+        pointer-events: none;
+      }
+      .statusline.alert {
+        animation-duration: 1s;
+        height: 3px;
+      }
+      @keyframes sl-breathe {
+        50% {
+          opacity: 0.25;
+          transform: scaleX(0.85);
+        }
+      }
+      .wave {
+        position: fixed;
+        z-index: 50;
+        width: 40px;
+        height: 40px;
+        margin: -20px 0 0 -20px;
+        border-radius: 50%;
+        pointer-events: none;
+        background: radial-gradient(circle, color-mix(in srgb, var(--wc) 55%, transparent), transparent 70%);
+        animation: wave 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      @keyframes wave {
+        to {
+          transform: scale(40);
+          opacity: 0;
+        }
+      }
+      /* A sheet opens: the dashboard behind steps back and softens, like iOS. */
+      .app main,
+      .app > header {
+        transition: transform 500ms var(--ease-drawer), filter 500ms var(--ease-drawer);
+      }
+      .app.pushed main {
+        transform: scale(0.965);
+        filter: blur(2px) brightness(0.92);
+        border-radius: 24px;
       }
       .wall {
         position: fixed;
@@ -766,6 +875,7 @@ export class SmartNestPanel extends LitElement {
     this.ticker = window.setInterval(() => this.tick(), 10_000);
     registerAnimatedVars();
     window.addEventListener("keydown", this.onSearchKey);
+    this.addEventListener("sn-light-wave", this.onWave);
   }
 
   disconnectedCallback() {
@@ -924,11 +1034,27 @@ export class SmartNestPanel extends LitElement {
     }
   }
 
+  /** A person going from away to home: the welcome moment (2.0). The first look at the house doesn't count. */
+  private watchArrivals() {
+    const now: Record<string, string> = {};
+    for (const e of Object.values(this.hass.states)) if (e.entity_id.startsWith("person.")) now[e.entity_id] = e.state;
+    const before = this.peopleSeen;
+    this.peopleSeen = now;
+    const s = this.current?.settings;
+    if (!before || !this.pro || !s?.welcome || !allows(this.lic.plan, "welcome")) return;
+    const arrived = Object.keys(now).find((id) => now[id] === "home" && before[id] && before[id] !== "home");
+    if (arrived) {
+      this.welcomer = this.hass.states[arrived];
+      this.sleeping = false;
+    }
+  }
+
   protected willUpdate(changed: Map<string, unknown>) {
     if (changed.has("hass") && this.hass && !this.initStarted) this.init();
     if (changed.has("hass")) {
       this.watchDoorbell();
       this.watchScreen();
+      this.watchArrivals();
     }
     // PIN removed from another screen: a lock nobody can open must not stay on.
     if (changed.has("config") && this.kiosk && this.config && !this.config.settings.kiosk.pin_hash) this.setKiosk(false);
@@ -1257,8 +1383,10 @@ export class SmartNestPanel extends LitElement {
     if (this.kiosk) applyChrome(true); // HA may not have drawn its sidebar yet when we first connected
     const s = this.current?.settings;
     const pro = s?.style === "pro" && allows(this.lic.plan, "style_pro");
-    const wallOn = pro && !!s?.wallpaper && allows(this.lic.plan, "wallpaper");
-    if (wallOn && s!.wallpaper !== this.wallSrc) this.pickWallAccent(s!.wallpaper!);
+    this.pro = pro;
+    const back = pro && this.current && this.hass ? this.backdrop(this.makeCtx()) : undefined;
+    const wallOn = !!back;
+    if (wallOn && s!.accent_from_wallpaper && back !== this.wallSrc && !back!.includes("camera_proxy")) this.pickWallAccent(back!);
     const vars = themeVars(this.dark, wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : s?.accent ?? "");
     const midnight = !!s && pro && (s.theme === "midnight" || (s.night_midnight && this.dark && s.theme === "schedule"));
     if (midnight) Object.assign(vars, midnightVars());
@@ -1275,6 +1403,10 @@ export class SmartNestPanel extends LitElement {
       this.stopLight = undefined;
     }
     vars["--breathe"] = pro && motion === "full" && allows(this.lic.plan, "breathing") ? "block" : "none";
+    // Each page its own mood colour (2.0): warm home, blue security, green power…
+    const page = this.current?.pages.find((p) => p.id === this.pageId);
+    const mood = pro && s?.page_moods && allows(this.lic.plan, "page_moods") && page ? MOODS[page.icon] : undefined;
+    if (mood) Object.assign(vars, { "--leak": mood, "--bg-glow": `color-mix(in srgb, ${mood} ${this.dark ? 20 : 24}%, transparent)` });
     if (s?.contrast && allows(this.lic.plan, "high_contrast"))
       Object.assign(vars, {
         "--text-2": this.dark ? "#e3e6ea" : "#2a333b",
@@ -1318,15 +1450,18 @@ export class SmartNestPanel extends LitElement {
         : nothing}
       ${ctx.allows("island") && !ctx.editing && !this.kids ? html`<sn-island .ctx=${ctx}></sn-island>` : nothing}
       <div class="home">
-        <img
-          src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg"
-          alt="SmartNest"
-          role="button"
-          tabindex="0"
-          style="cursor:pointer"
-          @click=${() => this.aboutSheet()}
-        />
+        ${this.pro && cfg.settings.monogram && ctx.allows("monogram")
+          ? html`<span role="button" tabindex="0" style="cursor:pointer;display:inline-flex" @click=${() => this.aboutSheet()}>${monogram(cfg.settings.monogram, 40)}</span>`
+          : html`<img
+              src="${this.assetBase}logo/smartnest-symbol-${ctx.dark ? "white" : "color"}.svg"
+              alt="SmartNest"
+              role="button"
+              tabindex="0"
+              style="cursor:pointer"
+              @click=${() => this.aboutSheet()}
+            />`}
         <span>${name}</span>
+        ${this.pro && ctx.allows("sun_arc") && !ctx.narrow ? html`<sn-sunarc .hass=${this.hass} lang=${ctx.lang}></sn-sunarc>` : nothing}
       </div>
       ${ctx.narrow || this.kids || this.useDock(ctx)
         ? nothing
@@ -1434,6 +1569,7 @@ export class SmartNestPanel extends LitElement {
           : nothing}
       </div>
       ${ctx.editing ? this.renderDock(ctx) : this.kids ? nothing : this.renderChips(ctx)}
+      ${this.pro && ctx.allows("status_line") ? this.renderStatusLine(ctx) : nothing}
       ${this.renderExpiry(ctx)}
     </header>`;
   }
@@ -1752,9 +1888,13 @@ export class SmartNestPanel extends LitElement {
     const ctx = this.makeCtx();
     const pageId = this.kids && ctx.config.settings.kids_page ? ctx.config.settings.kids_page : this.pageId;
     const page = ctx.config.pages.find((p) => p.id === pageId) ?? ctx.config.pages[0];
-    return html`<div class="app ${this.pro ? "pro" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
-      ${this.pro && ctx.config.settings.wallpaper && ctx.allows("wallpaper")
-        ? html`<div class="wall" aria-hidden="true" style="background-image:url('${ctx.config.settings.wallpaper}');--dim:${ctx.config.settings.wallpaper_dim}"></div>`
+    return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${this.big && !this.tvMode ? "big" : ""}">
+      ${(() => {
+        const back = this.backdrop(ctx);
+        return back ? html`<div class="wall" aria-hidden="true" style="background-image:url('${back}');--dim:${ctx.config.settings.wallpaper_dim}"></div>` : nothing;
+      })()}
+      ${this.pro && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
+        ? html`<sn-seasonfx .season=${seasonNow()}></sn-seasonfx>`
         : nothing}
       ${this.pro ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
@@ -1804,6 +1944,8 @@ export class SmartNestPanel extends LitElement {
             }}
           ></sn-overload>`
         : nothing}
+      ${this.waves.map((w) => html`<i class="wave" style="left:${w.x}px;top:${w.y}px;--wc:${w.color}" aria-hidden="true"></i>`)}
+      ${this.welcomer ? html`<sn-welcome .ctx=${ctx} .person=${this.welcomer} .onDone=${() => (this.welcomer = undefined)}></sn-welcome>` : nothing}
       ${this.searching
         ? html`<sn-search .ctx=${ctx} .onClose=${() => (this.searching = false)} .onPage=${(id: string) => this.tabClick(ctx, id)}></sn-search>`
         : nothing}

@@ -127,6 +127,14 @@ export interface Settings {
   wallpaper?: string;
   wallpaper_dim: number;
   accent_from_wallpaper: boolean;
+  /** 2.0 extras: a camera as the background, the album art while music plays, a welcome when someone gets home,
+   *  a colour mood per page, the family's monogram instead of the logo, and seasonal skies. */
+  window_camera?: string;
+  music_backdrop: boolean;
+  welcome: boolean;
+  page_moods: boolean;
+  monogram?: string;
+  season_skin: boolean;
   /** Soft clicks when things switch, and which tone the doorbell plays. */
   sounds: boolean;
   doorbell_tone: "chime" | "dingdong" | "melody";

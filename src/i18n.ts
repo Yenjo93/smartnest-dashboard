@@ -865,6 +865,14 @@ const en = {
   plan_model: "3D house model",
   plan_lens: "Magnifier",
   high_contrast: "Higher contrast (stronger text, solid cards)",
+  welcome_home: "Welcome home, {name}",
+  window_camera: "Window: an outdoor camera as the background",
+  music_backdrop: "Album art behind everything while music plays",
+  welcome_moment: "Welcome moment when someone gets home",
+  page_moods: "Each page its own colour mood",
+  season_skin: "Seasonal skies (snow, leaves, petals)",
+  monogram: "Family monogram",
+  monogram_hint: "A gold seal with the family's initials replaces the logo in the bar.",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1734,6 +1742,14 @@ const ar: Record<I18nKey, string> = {
   plan_model: "مجسّم البيت 3D",
   plan_lens: "عدسة مكبّرة",
   high_contrast: "تباين أعلى (نص أوضح، كروت مصمتة)",
+  welcome_home: "أهلين {name}",
+  window_camera: "شباك: كاميرا برا كخلفية",
+  music_backdrop: "غلاف الأغنية خلفية وقت الموسيقى",
+  welcome_moment: "لحظة \"أهلين\" لما حدا يوصل",
+  page_moods: "كل صفحة إلها جو لون",
+  season_skin: "أجواء الفصول (ثلج، ورق شجر، ورد)",
+  monogram: "شعار العيلة",
+  monogram_hint: "ختم ذهبي بحروف العيلة بدل اللوجو بالبار.",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2601,6 +2617,14 @@ const he: Record<I18nKey, string> = {
   plan_model: "מודל תלת-ממדי",
   plan_lens: "זכוכית מגדלת",
   high_contrast: "ניגודיות גבוהה",
+  welcome_home: "ברוך הבא, {name}",
+  window_camera: "חלון: מצלמה חיצונית כרקע",
+  music_backdrop: "עטיפת השיר כרקע בזמן מוזיקה",
+  welcome_moment: "רגע קבלת פנים כשמישהו מגיע",
+  page_moods: "לכל דף צבע משלו",
+  season_skin: "שמי עונות (שלג, עלים, פרחים)",
+  monogram: "סמל המשפחה",
+  monogram_hint: "חותם זהב עם ראשי התיבות במקום הלוגו.",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

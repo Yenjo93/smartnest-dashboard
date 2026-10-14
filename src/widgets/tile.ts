@@ -158,6 +158,12 @@ export class SnTile extends LitElement {
     const e = this.ctx.hass.states[id];
     if (!e || e.state === "unavailable" || tapKind(id) === "sheet") return this.ctx.openEntity(id, this.renderRoot.querySelector(".tile") ?? undefined);
     navigator.vibrate?.(5);
+    // A light coming on sends a ripple of its colour across the screen (2.0).
+    if (domainOf(id) === "light" && !isActive(e) && this.ctx.allows("light_wave")) {
+      const r = this.getBoundingClientRect();
+      const rgb = Array.isArray(e.attributes.rgb_color) ? e.attributes.rgb_color : [255, 196, 120];
+      this.dispatchEvent(new CustomEvent("sn-light-wave", { bubbles: true, composed: true, detail: { x: r.left + r.width / 2, y: r.top + r.height / 2, color: `rgb(${rgb.join(",")})` } }));
+    }
     playUi(domainOf(id) === "lock" ? (e.state === "locked" ? "unlock" : "lock") : isActive(e) ? "off" : "on");
     runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
   }

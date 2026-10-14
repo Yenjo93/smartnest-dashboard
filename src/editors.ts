@@ -656,6 +656,20 @@ export function settingsSheet(
                             : nothing}
                         </div>`
                       : nothing}
+                    ${c.allows("window_camera")
+                      ? entityField(c, t("window_camera"), s.window_camera, { domains: ["camera"] }, (id) => set((d) => (d.settings.window_camera = id)), true)
+                      : nothing}
+                    ${c.allows("music_backdrop") ? html`<div class="field">${t("music_backdrop")} ${toggle(c, s.music_backdrop, (v) => set((d) => (d.settings.music_backdrop = v)))}</div>` : nothing}
+                    ${c.allows("welcome") ? html`<div class="field">${t("welcome_moment")} ${toggle(c, s.welcome, (v) => set((d) => (d.settings.welcome = v)))}</div>` : nothing}
+                    ${c.allows("page_moods") ? html`<div class="field">${t("page_moods")} ${toggle(c, s.page_moods, (v) => set((d) => (d.settings.page_moods = v)))}</div>` : nothing}
+                    ${c.allows("season_skin") ? html`<div class="field">${t("season_skin")} ${toggle(c, s.season_skin, (v) => set((d) => (d.settings.season_skin = v)))}</div>` : nothing}
+                    ${c.allows("monogram")
+                      ? html`<label class="field"
+                          >${t("monogram")}
+                          <input type="text" maxlength="30" placeholder="آل محمد" .value=${s.monogram ?? ""} @change=${(e: any) => set((d) => (d.settings.monogram = e.target.value.trim() || undefined))} />
+                          <span class="hint">${t("monogram_hint")}</span>
+                        </label>`
+                      : nothing}
                     ${c.allows("dock")
                       ? html`<div class="field" style="margin-top:8px">
                           ${t("nav_style")}
