@@ -116,7 +116,10 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "gauge" | "gate" | "frigate" | "schedule"
   | "media" | "remote"
   | "consumers"
-  | "water";
+  | "water"
+  | "wake"
+  | "chores"
+  | "air";
 
 export interface Widget {
   id: string;
@@ -133,6 +136,8 @@ export interface Page {
   title: string;
   icon: string;
   widgets: Widget[];
+  /** A family member's own page: reached from their photo in the bar instead of a tab. */
+  person?: string;
 }
 
 export type MarkerDisplay = "icon" | "value";

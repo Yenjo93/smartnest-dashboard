@@ -295,6 +295,9 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "remote", icon: "television" },
   { type: "consumers", icon: "lightning-bolt" },
   { type: "water", icon: "water" },
+  { type: "wake", icon: "weather-sunset-up" },
+  { type: "chores", icon: "star" },
+  { type: "air", icon: "leaf" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -426,6 +429,18 @@ export function pageSettingsSheet(ctx: Ctx, pageId: string, onDeleted: () => voi
             )}
           </div>
         </div>`,
+        c.allows("person_pages") && Object.keys(c.hass.states).some((id) => id.startsWith("person."))
+          ? html`<label class="field"
+              >${t("page_person")}
+              <select @change=${(e: any) => edit(c, (d, i) => (e.target.value ? (d.pages[i].person = e.target.value) : delete d.pages[i].person))}>
+                <option value="" ?selected=${!page.person}>${t("page_person_all")}</option>
+                ${Object.keys(c.hass.states)
+                  .filter((id) => id.startsWith("person."))
+                  .map((id) => html`<option value=${id} ?selected=${page.person === id}>${entityName(c.hass, c.config, id)}</option>`)}
+              </select>
+              <span class="hint">${t("page_person_hint")}</span>
+            </label>`
+          : nothing,
         row(
           html`<button class="btn pressable" ?disabled=${idx === 0} @click=${() => swap(-1)}>${t("move_earlier")}</button>`,
           html`<button class="btn pressable" ?disabled=${idx === c.config.pages.length - 1} @click=${() => swap(1)}>${t("move_later")}</button>`,

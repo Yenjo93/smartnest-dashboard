@@ -247,6 +247,21 @@ export class SmartNestPanel extends LitElement {
         align-items: center;
         gap: 8px;
       }
+      .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background: var(--surface-2) center / cover;
+        color: var(--text);
+        font: 700 16px var(--font);
+        cursor: pointer;
+        transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms;
+      }
+      .avatar.on {
+        border-color: var(--accent);
+        transform: scale(1.08);
+      }
       :host([narrow]) header,
       .compact header {
         padding-inline: 14px;
@@ -935,7 +950,7 @@ export class SmartNestPanel extends LitElement {
         ? nothing
         : html`<nav>
             <div class="seg" role="tablist">
-              ${cfg.pages.map(
+              ${cfg.pages.filter((p) => !p.person || !ctx.allows("person_pages") || ctx.editing || p.id === this.pageId).map(
                 (p) => html`<button role="tab" aria-pressed=${p.id === this.pageId} aria-selected=${p.id === this.pageId} @click=${() => this.tabClick(ctx, p.id)}>
                   <sn-icon .icon=${p.icon} style="--icon-size:18px"></sn-icon>${p.title}
                 </button>`
@@ -943,6 +958,23 @@ export class SmartNestPanel extends LitElement {
             </div>
           </nav>`}
       <div class="actions">
+        ${!this.kids && !ctx.editing && ctx.allows("person_pages")
+          ? cfg.pages
+              .filter((p) => p.person && this.hass.states[p.person])
+              .map((p) => {
+                const person = this.hass.states[p.person!];
+                const pic = person.attributes.entity_picture as string | undefined;
+                return html`<button
+                  class="avatar pressable ${p.id === this.pageId ? "on" : ""}"
+                  aria-label=${p.title}
+                  title=${p.title}
+                  style=${pic ? `background-image:url('${this.hass.hassUrl(pic)}')` : ""}
+                  @click=${() => this.tabClick(ctx, p.id)}
+                >
+                  ${pic ? "" : (person.attributes.friendly_name ?? "?").slice(0, 1)}
+                </button>`;
+              })
+          : nothing}
         ${this.kids
           ? html`<button class="icon-btn primary pressable" aria-label=${t("kids_mode")} title=${t("kids_mode")} @click=${() => this.pinThen(() => this.setKids(false))}>
               <sn-icon icon="child" style="--icon-size:22px"></sn-icon>

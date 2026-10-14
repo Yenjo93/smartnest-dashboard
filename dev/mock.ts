@@ -96,6 +96,8 @@ add(ent("ai_task.openai", "unknown", { friendly_name: "OpenAI AI Task" }));
 add(ent("weather.forecast_home", params.get("weather") ?? "sunny", { friendly_name: "الطقس", temperature: 27, humidity: 40 }));
 add(ent("sun.sun", "above_horizon", { friendly_name: "Sun", elevation: Number(params.get("elev") ?? 4), rising: false, next_rising: new Date(Date.now() + 9 * 3600_000).toISOString(), next_setting: new Date(Date.now() + 1 * 3600_000).toISOString() }));
 add(ent("sensor.bedroom_humidity", "68", { friendly_name: "رطوبة غرفة النوم", unit_of_measurement: "%", device_class: "humidity" }));
+add(ent("sensor.living_pm25", "22", { friendly_name: "غبار الصالة", unit_of_measurement: "µg/m³", device_class: "pm25" }));
+add(ent("fan.air_purifier", "off", { friendly_name: "منقّي الهوا" }));
 add(ent("sensor.living_co2", "1180", { friendly_name: "هوا الصالة", unit_of_measurement: "ppm", device_class: "carbon_dioxide" }));
 add(ent("sensor.abu_mohammad_area", "الصالة", { friendly_name: "أبو محمد · الغرفة" }));
 // Islamic Prayer Times sensors: timestamps for today.
@@ -566,6 +568,17 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       const speech = /طف|off/i.test(text) ? "طفّيت 4 أضواء." : /حرار|temp/i.test(text) ? "الحرارة بالصالة 23.5 درجة." : /باب|door/i.test(text) ? "الباب مقفول." : "تمام، عملتها.";
       return { conversation_id: "c1", response: { response_type: "action_done", speech: { plain: { speech } } } };
     }
+    case "smartnest/kv/get":
+      return { value: JSON.parse(localStorage.getItem(`smartnest-dev-kv-${msg.key}`) ?? "null") };
+    case "smartnest/kv/set":
+      localStorage.setItem(`smartnest-dev-kv-${msg.key}`, JSON.stringify(msg.value));
+      kvListeners.forEach((key, cb) => key === msg.key && cb({ value: msg.value }));
+      return null;
+    case "smartnest/fx/start":
+      console.info("[mock] light effect", msg.effect, msg.lights);
+      return null;
+    case "smartnest/fx/stop":
+      return null;
     case "smartnest/ai/ask": {
       await new Promise((r) => setTimeout(r, 1500));
       const text: Record<string, string> = {
@@ -579,6 +592,8 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       throw new Error(`[mock] unknown ws ${msg.type}`);
   }
 }
+
+const kvListeners = new Map<Listener, string>();
 
 function snapshot(): Hass {
   return {
@@ -638,7 +653,9 @@ function snapshot(): Hass {
           cb({ items: todoItems });
         }
         if (msg.type === "smartnest/message/subscribe") msgListeners.add(cb);
+        if (msg.type === "smartnest/kv/subscribe") kvListeners.set(cb, msg.key);
         return () => {
+          kvListeners.delete(cb);
           configListeners.delete(cb);
           todoListeners.delete(cb);
           msgListeners.delete(cb);

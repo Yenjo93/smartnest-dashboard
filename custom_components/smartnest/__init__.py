@@ -74,6 +74,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await timers.async_load()
     hass.data[DOMAIN]["timers"] = timers
 
+    from .family import Family
+
+    family = Family(hass)
+    await family.async_load()
+    hass.data[DOMAIN]["family"] = family
+
     visitors = VisitorLog(hass, files_dir)
     await visitors.async_start()
     hass.data[DOMAIN]["visitors"] = visitors
@@ -107,6 +113,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         visitors.async_stop()
     if timers := data.get("timers"):
         timers.async_stop()
+    if family := data.get("family"):
+        family.async_stop()
     return True
 
 

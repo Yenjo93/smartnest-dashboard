@@ -9,6 +9,7 @@ import { shared } from "./theme";
 import { hsToRgb, onColor, rgbCss, rgbHex } from "./color";
 import type { I18nKey } from "./i18n";
 import "./ui/icon";
+import { fxRow } from "./lightfx";
 import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
 import "./ui/color-wheel";
@@ -358,6 +359,7 @@ export class SnEntityDetail extends LitElement {
       ></sn-vslider>`;
     }
     return html`${body}
+      ${this.ctx.allows("light_fx") && modes.some((m) => COLOR_MODES.includes(m)) ? fxRow(this.ctx, [e.entity_id]) : nothing}
       ${tabs.length > 1
         ? html`<div class="seg" role="tablist">
             ${tabs.map(

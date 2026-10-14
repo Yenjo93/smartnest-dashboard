@@ -11,7 +11,7 @@ export type Feature =
   | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history"
   | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests"
   | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating"
-  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert";
+  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert" | "w_wake" | "w_chores" | "w_air" | "light_fx" | "person_pages";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -48,6 +48,11 @@ const NEEDS: Record<Feature, Plan> = {
   alarm_screen: "pro",
   package: "pro",
   weather_alert: "pro",
+  w_wake: "premium",
+  w_chores: "pro",
+  w_air: "pro",
+  light_fx: "premium",
+  person_pages: "pro",
 };
 
 export const planFor = (f: Feature): Plan => NEEDS[f];

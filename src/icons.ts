@@ -1,5 +1,9 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiAirPurifier,
+  mdiLeaf,
+  mdiAirFilter,
+  mdiWeatherSunsetUp,
   mdiShieldOffOutline,
   mdiPhone,
   mdiAlarmLight,
@@ -336,6 +340,10 @@ export const ICONS: Record<string, string> = {
   "shield-off": mdiShieldOffOutline,
   "weather-windy": mdiWeatherWindy,
   "weather-pouring": mdiWeatherPouring,
+  "weather-sunset-up": mdiWeatherSunsetUp,
+  "air-filter": mdiAirFilter,
+  leaf: mdiLeaf,
+  "air-purifier": mdiAirPurifier,
 };
 
 /** Icons offered when naming a page. */
