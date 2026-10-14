@@ -12,6 +12,7 @@ import { guessEnergy } from "./widgets/energy";
 import { guessBill } from "./widgets/energy-stats";
 import { healthSheet } from "./health";
 import { planFor, widgetFeature } from "./plans";
+import { automationsSheet } from "./automations";
 import "./ui/entity-picker";
 import "./ui/icon";
 
@@ -87,6 +88,8 @@ const ENTITY_FILTERS: Partial<Record<WidgetType, EntityFilter>> = {
   camera: { domains: ["camera"] },
   vacuum: { domains: ["vacuum"] },
   todo: { domains: ["todo"] },
+  gauge: { domains: ["sensor"] },
+  gate: { domains: ["cover"] },
 };
 
 function editWidget(ctx: Ctx, widgetId: string, fn: (w: Widget, d: DashboardConfig) => void) {
@@ -113,6 +116,28 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             ),
             w.config.entity ? nameField(c, w.config.entity) : nothing
           );
+        case "gauge":
+          return col(
+            entityField(c, t("entity"), w.config.entity, { domains: ["sensor"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id))),
+            html`<div class="row" style="display:flex;gap:8px">
+              ${(["min", "max", "low"] as const).map(
+                (k) => html`<label class="field" style="flex:1"
+                  >${k === "low" ? t("gauge_low") + " %" : k}
+                  <input type="number" .value=${String(w.config[k] ?? (k === "max" ? 100 : k === "low" ? 20 : 0))} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config[k] = Number(e.target.value)))} />
+                </label>`
+              )}
+            </div>`
+          );
+        case "gate":
+          return col(
+            entityField(c, t("widget_gate"), w.config.entity, { domains: ["cover"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id))),
+            entityField(c, t("widget_camera"), w.config.camera, { domains: ["camera"] }, (id) => editWidget(c, widgetId, (x) => (x.config.camera = id)), true)
+          );
+        case "frigate":
+          return html`<label class="field"
+            >Frigate instance ID
+            <input type="text" class="ltr" .value=${w.config.instance ?? "frigate"} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.instance = e.target.value.trim() || "frigate"))} />
+          </label>`;
         case "todo":
           return entityField(c, t("widget_todo"), w.config.entity, { domains: ["todo"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id)));
         case "calendar": {
@@ -240,6 +265,10 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "calendar", icon: "calendar" },
   { type: "forecast", icon: "w-partlycloudy" },
   { type: "countdown", icon: "countdown" },
+  { type: "gauge", icon: "gas" },
+  { type: "gate", icon: "gate" },
+  { type: "frigate", icon: "cctv" },
+  { type: "schedule", icon: "schedule" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];
@@ -264,7 +293,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
           class="glass pressable"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${() => {
-            if (choice.type === "tile" || choice.type === "camera" || choice.type === "vacuum") {
+            if (["tile", "camera", "vacuum", "gauge", "gate"].includes(choice.type)) {
               c.showSheet({
                 title: c.t("choose_entity"),
                 render: (c2) => html`<sn-entity-picker
@@ -428,9 +457,12 @@ export function settingsSheet(
       const t = c.t;
       const set = (fn: (d: DashboardConfig) => void) => c.update(fn);
       return col(
-        html`<button class="btn pressable" style="justify-self:stretch" @click=${() => healthSheet(c)}>
-          <sn-icon icon="gauge" style="--icon-size:20px"></sn-icon>${t("health")}
-        </button>`,
+        html`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn pressable" @click=${() => healthSheet(c)}><sn-icon icon="gauge" style="--icon-size:20px"></sn-icon>${t("health")}</button>
+          ${c.allows("automations")
+            ? html`<button class="btn pressable" @click=${() => automationsSheet(c)}><sn-icon icon="automation" style="--icon-size:20px"></sn-icon>${t("automations")}</button>`
+            : nothing}
+        </div>`,
         html`<label class="field"
           >${t("home_name")}
           <input

@@ -118,6 +118,18 @@ import {
   mdiSend,
   mdiAccount,
   mdiPill,
+  mdiGate,
+  mdiGateOpen,
+  mdiGasCylinder,
+  mdiWaterPump,
+  mdiRobotHappy,
+
+  mdiPackageVariantClosed,
+  mdiDog,
+  mdiCat,
+  mdiCalendarClock,
+  mdiHistory,
+  mdiWhiteBalanceSunny,
 } from "@mdi/js";
 
 export const ICONS: Record<string, string> = {
@@ -240,6 +252,17 @@ export const ICONS: Record<string, string> = {
   send: mdiSend,
   person: mdiAccount,
   pill: mdiPill,
+  gate: mdiGate,
+  "gate-open": mdiGateOpen,
+  gas: mdiGasCylinder,
+  pump: mdiWaterPump,
+  automation: mdiRobotHappy,
+  package: mdiPackageVariantClosed,
+  dog: mdiDog,
+  cat: mdiCat,
+  schedule: mdiCalendarClock,
+  history: mdiHistory,
+  sun: mdiWhiteBalanceSunny,
 };
 
 /** Icons offered when naming a page. */

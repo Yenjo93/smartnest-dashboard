@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "./ctx";
 import type { HassEntity } from "./types";
 import { tapKind, toneStyle, domainOf, entityIcon, formatNumber, isActive, isNumericSensor, ltr, relativeTime, stateLabel } from "./entities";
-import { hasKey } from "./i18n";
+import { LOCALE, hasKey } from "./i18n";
 import { liveUrl } from "./widgets/camera";
 import { shared } from "./theme";
 import { hsToRgb, onColor, rgbCss, rgbHex } from "./color";
@@ -53,6 +53,7 @@ export class SnEntityDetail extends LitElement {
   private tempTimer?: number;
   private prevState?: string;
   @state() private timerDue?: string;
+  @state() private lockLog?: { state: string; when: number }[];
   private tick?: number;
   private confirmTimer?: number;
 
@@ -237,7 +238,22 @@ export class SnEntityDetail extends LitElement {
     }
   }
 
+  private async loadLockLog() {
+    try {
+      const ev = await this.ctx.hass.callWS<{ state?: string; when: number }[]>({
+        type: "logbook/get_events",
+        start_time: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+        end_time: new Date().toISOString(),
+        entity_ids: [this.entityId],
+      });
+      this.lockLog = ev.filter((x) => x.state === "locked" || x.state === "unlocked" || x.state === "jammed").reverse().slice(0, 8) as { state: string; when: number }[];
+    } catch {
+      this.lockLog = [];
+    }
+  }
+
   protected firstUpdated() {
+    if (domainOf(this.entityId) === "lock" && this.ctx.allows("lock_history")) this.loadLockLog();
     if (this.ctx.allows("timers") && tapKind(this.entityId) === "toggle") {
       this.loadTimer();
       this.tick = window.setInterval(() => this.requestUpdate(), 30_000);
@@ -493,6 +509,24 @@ export class SnEntityDetail extends LitElement {
   }
 
   // ---- lock: two deliberate taps to unlock ----
+  private renderLockLog() {
+    const log = this.lockLog;
+    if (!log?.length) return nothing;
+    const { t, lang } = this.ctx;
+    const loc = LOCALE[lang];
+    return html`<div style="width:100%;display:grid;gap:6px">
+      <div class="sub" style="display:flex;gap:6px;align-items:center"><sn-icon icon="history" style="--icon-size:16px"></sn-icon>${t("history_lock")}</div>
+      ${log.map(
+        (x) => html`<div style="display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:6px 10px;border-radius:10px;background:var(--surface-2)">
+          <span style="display:inline-flex;gap:6px;align-items:center;color:${x.state === "unlocked" ? "var(--accent-text)" : "inherit"}">
+            <sn-icon icon=${x.state === "unlocked" ? "lock-open" : "lock"} style="--icon-size:16px"></sn-icon>${t(x.state as I18nKey)}
+          </span>
+          <span class="muted ltr">${new Date(x.when * 1000).toLocaleString(loc, { weekday: "short", hour: "2-digit", minute: "2-digit" })}</span>
+        </div>`
+      )}
+    </div>`;
+  }
+
   private renderLock(e: HassEntity) {
     const { t } = this.ctx;
     if (e.state === "unlocked" || e.state === "open")
@@ -601,7 +635,7 @@ export class SnEntityDetail extends LitElement {
       case "cover":
         return this.renderCover(e);
       case "lock":
-        return this.renderLock(e);
+        return html`${this.renderLock(e)} ${this.renderLockLog()}`;
       case "alarm_control_panel":
         return this.renderAlarm(e);
       case "camera": {

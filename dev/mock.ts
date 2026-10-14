@@ -97,6 +97,9 @@ add(ent("sun.sun", "above_horizon", { friendly_name: "Sun" }));
 add(ent("person.abu_mohammad", "home", { friendly_name: "أبو محمد" }));
 add(ent("person.um_mohammad", "not_home", { friendly_name: "أم محمد" }));
 add(ent("person.mohammad", "School", { friendly_name: "محمد" }));
+add(ent("sensor.water_tank", "18", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
+add(ent("sensor.gas_level", "64", { friendly_name: "جرة الغاز", unit_of_measurement: "%" }));
+add(ent("cover.main_gate", "closed", { friendly_name: "البوابة الرئيسية", device_class: "gate" }));
 add(ent("todo.shopping", "2", { friendly_name: "قائمة المشتريات" }));
 add(ent("calendar.family", "off", { friendly_name: "تقويم العيلة" }));
 add(ent("calendar.school", "off", { friendly_name: "المدرسة" }));
@@ -156,6 +159,7 @@ export const DEMO_ROOMS = [
 
 type Listener = (msg: any) => void;
 const timers: Record<string, string> = {};
+let autoSummaries: any[] = [];
 let todoItems = [
   { uid: "1", summary: "خبز", status: "needs_action" },
   { uid: "2", summary: "حليب", status: "needs_action" },
@@ -371,6 +375,13 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     }
     case "media_source/resolve_media":
       return { url: `/dev/${msg.media_content_id.split("/").pop()}`, mime_type: "image/svg+xml" };
+    case "smartnest/automations/get":
+      return { items: autoSummaries };
+    case "smartnest/automations/set":
+      autoSummaries = msg.items;
+      return null;
+    case "frigate/events/get":
+      throw { code: "not_found", message: "Frigate instance not found" };
     case "smartnest/message/send":
       currentMessage = { id: String(Date.now()), message: msg.message, title: isAdmin ? "Installer" : "Client" };
       pushMessage();
@@ -466,6 +477,19 @@ function snapshot(): Hass {
     callWS,
     hassUrl: (p = "") => p,
     fetchWithAuth: async (path: string, init?: RequestInit) => {
+      if (path.startsWith("/api/config/automation/config/")) {
+        const id = path.split("/").pop()!;
+        const entityId = `automation.${id}`;
+        if (init?.method === "DELETE") {
+          delete states[entityId];
+        } else {
+          const cfg = JSON.parse(String(init?.body));
+          console.info("[mock] automation saved", JSON.stringify(cfg));
+          states[entityId] = { entity_id: entityId, state: "on", attributes: { id, friendly_name: cfg.alias }, last_changed: now(), last_updated: now() };
+        }
+        onChange(snapshot());
+        return new Response(JSON.stringify({ result: "ok" }), { status: 200 });
+      }
       if (path.startsWith("/api/calendars/")) {
         const at = (days: number, h: number, m = 0) => {
           const d = new Date();

@@ -26,6 +26,10 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   calendar: { w: 4, h: 7, minW: 3, minH: 4 },
   forecast: { w: 6, h: 4, minW: 4, minH: 3 },
   countdown: { w: 4, h: 4, minW: 3, minH: 3 },
+  gauge: { w: 3, h: 4, minW: 2, minH: 3 },
+  gate: { w: 6, h: 6, minW: 4, minH: 4 },
+  frigate: { w: 12, h: 5, minW: 4, minH: 4 },
+  schedule: { w: 12, h: 6, minW: 6, minH: 4 },
 };
 
 export function defaultSettings(lang: Lang): Settings {

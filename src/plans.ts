@@ -7,7 +7,8 @@ export type Feature =
   | "w_vacuum" | "w_visitors" | "w_energy" | "w_energy_stats" | "w_panic" | "w_check"
   | "weather_bg" | "photo_frame" | "cinematic" | "morning" | "heat_map" | "room_glow" | "timers" | "fully"
   | "camera_wall" | "seasons" | "alarm"
-  | "w_family" | "w_todo" | "w_calendar" | "w_forecast" | "w_countdown" | "messages" | "kids";
+  | "w_family" | "w_todo" | "w_calendar" | "w_forecast" | "w_countdown" | "messages" | "kids"
+  | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -17,6 +18,8 @@ const NEEDS: Record<Feature, Plan> = {
   w_forecast: "basic",
   w_family: "pro", w_todo: "pro", w_calendar: "pro", w_countdown: "pro", messages: "pro",
   kids: "premium",
+  w_gauge: "basic", lock_history: "pro", w_gate: "pro",
+  w_frigate: "premium", w_schedule: "premium", automations: "premium",
   w_energy_stats: "premium", w_panic: "premium", camera_wall: "premium", seasons: "premium",
 };
 

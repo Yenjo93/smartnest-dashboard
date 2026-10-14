@@ -83,7 +83,8 @@ export interface Settings {
 }
 
 export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" | "modes" | "vacuum" | "visitors" | "energy" | "energy_stats" | "panic" | "check"
-  | "family" | "todo" | "calendar" | "forecast" | "countdown";
+  | "family" | "todo" | "calendar" | "forecast" | "countdown"
+  | "gauge" | "gate" | "frigate" | "schedule";
 
 export interface Widget {
   id: string;

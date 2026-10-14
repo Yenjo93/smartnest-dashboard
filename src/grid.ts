@@ -26,6 +26,10 @@ import "./widgets/todo";
 import "./widgets/calendar";
 import "./widgets/forecast";
 import "./widgets/countdown";
+import "./widgets/gauge";
+import "./widgets/gate";
+import "./widgets/frigate";
+import "./widgets/schedule";
 
 interface Gesture {
   id: string;
@@ -312,6 +316,14 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-forecast .ctx=${ctx} .widget=${w}></sn-w-forecast>`;
       case "countdown":
         return html`<sn-w-countdown .ctx=${ctx} .widget=${w}></sn-w-countdown>`;
+      case "gauge":
+        return html`<sn-w-gauge .ctx=${ctx} .widget=${w}></sn-w-gauge>`;
+      case "gate":
+        return html`<sn-w-gate .ctx=${ctx} .widget=${w}></sn-w-gate>`;
+      case "frigate":
+        return html`<sn-w-frigate .ctx=${ctx} .widget=${w}></sn-w-frigate>`;
+      case "schedule":
+        return html`<sn-w-schedule .ctx=${ctx} .widget=${w}></sn-w-schedule>`;
       default:
         return nothing;
     }

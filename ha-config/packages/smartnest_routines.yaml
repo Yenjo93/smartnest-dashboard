@@ -1,0 +1,191 @@
+# SmartNest: comfort routines (روتين الراحة)
+#
+# Copy to /config/packages/ (configuration.yaml needs `homeassistant: packages: !include_dir_named packages`),
+# fill the ✏️ lines, restart. Each one can be switched off on its own in Settings → Automations.
+# Simple time rules ("heater on at 5:30 on weekdays") are easier in the dashboard: ⚙️ → Automations.
+
+input_boolean:
+  smartnest_ramadan:
+    name: "SmartNest · Ramadan routines"
+    icon: mdi:moon-waning-crescent
+
+script:
+  # 🌙 Gentle bedtime: lights fade out over 10 minutes instead of snapping off.
+  smartnest_wind_down:
+    alias: "SmartNest · wind down"
+    icon: mdi:weather-night
+    sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.bedroom # ✏️
+        data:
+          brightness_pct: 25
+          color_temp_kelvin: 2200
+          transition: 30
+      - delay: "00:10:00"
+      - action: light.turn_off
+        target:
+          entity_id: light.bedroom # ✏️
+        data:
+          transition: 60
+
+  # ☀️ Gentle wake-up: blinds open and the light rises like a sunrise.
+  smartnest_wake_up:
+    alias: "SmartNest · wake up"
+    icon: mdi:weather-sunset-up
+    sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.bedroom # ✏️
+        data:
+          brightness_pct: 100
+          color_temp_kelvin: 4000
+          transition: 900
+      - delay: "00:10:00"
+      - action: cover.open_cover
+        target:
+          entity_id: cover.bedroom_blinds # ✏️
+
+  # 🌿 Eco: AC to 26°, heater off, idle plugs off.
+  smartnest_eco:
+    alias: "SmartNest · eco"
+    icon: mdi:leaf
+    sequence:
+      - action: climate.set_temperature
+        target:
+          entity_id: all
+        data:
+          temperature: 26
+      - action: switch.turn_off
+        target:
+          entity_id:
+            - switch.water_heater # ✏️
+            - switch.coffee_machine # ✏️
+
+automation:
+  # 🕌 Prayer: the TV turns down while the adhan plays (needs Islamic Prayer Times).
+  - id: smartnest_prayer_quiet
+    alias: "SmartNest · quiet at prayer time"
+    trigger:
+      - trigger: time
+        at: [sensor.fajr_prayer, sensor.dhuhr_prayer, sensor.asr_prayer, sensor.maghrib_prayer, sensor.isha_prayer]
+    action:
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.living_room_tv # ✏️
+        data:
+          volume_level: 0.05
+      - delay: "00:05:00"
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.living_room_tv # ✏️
+        data:
+          volume_level: 0.3
+
+  # 🌙 Suhoor: in Ramadan, soft lights and a message 45 minutes before Fajr.
+  - id: smartnest_suhoor
+    alias: "SmartNest · suhoor"
+    trigger:
+      - trigger: time
+        at: sensor.fajr_prayer
+        offset: "-00:45:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.smartnest_ramadan
+        state: "on"
+    action:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen # ✏️
+        data:
+          brightness_pct: 40
+          color_temp_kelvin: 2700
+      - action: smartnest.show_message
+        data:
+          title: "🌙"
+          message: "وقت السحور"
+
+  # 🏠 Coming home: the AC starts when someone gets within the "near home" zone.
+  - id: smartnest_coming_home
+    alias: "SmartNest · coming home"
+    trigger:
+      - trigger: zone
+        entity_id: person.abu_mohammad # ✏️
+        zone: zone.near_home # ✏️ create a ~2 km zone around the house in Settings → Areas & zones
+        event: enter
+    condition:
+      - condition: state
+        entity_id: input_select.house_mode
+        state: away
+    action:
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.living_ac # ✏️
+        data:
+          hvac_mode: cool
+
+  # 🚪 Door left open for 10 minutes → message on the screens.
+  - id: smartnest_door_open
+    alias: "SmartNest · door left open"
+    trigger:
+      - trigger: state
+        entity_id: binary_sensor.front_door_contact # ✏️
+        to: "on"
+        for: "00:10:00"
+    action:
+      - action: smartnest.show_message
+        data:
+          message: "{{ trigger.to_state.name }} مفتوح من 10 دقايق"
+
+  # 💡 Away: lights come on and off at random in the evening, so the house looks lived in.
+  - id: smartnest_presence_simulation
+    alias: "SmartNest · look lived-in while away"
+    mode: restart
+    trigger:
+      - trigger: sun
+        event: sunset
+    condition:
+      - condition: state
+        entity_id: input_select.house_mode
+        state: away
+    action:
+      - repeat:
+          count: 6
+          sequence:
+            - action: light.toggle
+              target:
+                entity_id: "{{ ['light.living_room', 'light.kitchen', 'light.bedroom'] | random }}" # ✏️
+            - delay:
+                minutes: "{{ range(15, 45) | random }}"
+      - action: light.turn_off
+        target:
+          entity_id: all
+
+  # 🌱 Garden: water at 06:00 unless it rained or rain is coming.
+  - id: smartnest_irrigation
+    alias: "SmartNest · smart irrigation"
+    trigger:
+      - trigger: time
+        at: "06:00:00"
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home
+        data:
+          type: daily
+        response_variable: fc
+      - condition: template
+        value_template: >-
+          {{ (fc['weather.forecast_home'].forecast[0].precipitation | default(0)) < 2
+             and states('weather.forecast_home') not in ['rainy', 'pouring'] }}
+      - action: switch.turn_on
+        target:
+          entity_id: switch.garden_valve # ✏️
+      - delay: "00:20:00"
+      - action: switch.turn_off
+        target:
+          entity_id: switch.garden_valve # ✏️
+
+  # 🔘 A wall button (Zigbee/Z-Wave): single press = evening, double = all off.
+  # ✏️ Press the button once and look in Settings → Devices → your button → Automations for its exact trigger,
+  #    then copy that trigger here.
