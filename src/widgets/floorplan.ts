@@ -10,11 +10,12 @@ import "../ui/icon";
 import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
-import { autoPlace } from "../autofill";
+import { autoPlace, isAreaName } from "../autofill";
 import { detectRooms } from "../plan-detect";
 import "../ui/entity-picker";
 
 type MapMode = "off" | "temp" | "humidity" | "co2";
+
 
 interface Drag {
   id: string;
@@ -61,6 +62,9 @@ export class SnFloorplan extends LitElement {
   @state() private tilt = false;
   @state() private robotRooms?: RoomChoice[];
   @state() private detecting = false;
+  /** Rooms still to name, one at a time, during the automatic setup. */
+  @state() private asking?: string[];
+  private askTotal = 0;
   private press?: { id: string; x: number; y: number; timer: number };
 
   static styles = [
@@ -1066,53 +1070,93 @@ export class SnFloorplan extends LitElement {
     });
   }
 
-  /** Traces the rooms off the plan image, names them (AI Task, when the house has one) and drops the devices in. */
-  private async detect() {
+  /**
+   * One button for everything: traces the rooms off the plan, names them (AI Task when the house has one, else asks
+   * the installer room by room), then puts every device in its room.
+   */
+  private async autoAdd() {
     const { ctx } = this;
     const { t, hass } = ctx;
     const floor = this.floor;
     if (!floor?.image || this.detecting) return;
+    if (!Object.keys(hass.areas ?? {}).length) return ctx.toast(t("auto_need_areas"));
     this.detecting = true;
+    let fresh: Room[];
     try {
-      const existing = floor.rooms ?? [];
-      const found = (await detectRooms(floor.image)).filter((f) => !existing.some((r) => inside(f.center, r.points)));
-      if (!found.length) return ctx.toast(t("detect_none"));
-      const rooms: Room[] = found.map((f, i) => ({ id: uid(), name: t("room_default", { n: existing.length + i + 1 }), points: f.points }));
-      const ai = Object.keys(hass.states).find((id) => id.startsWith("ai_task."));
-      if (ai)
-        try {
-          const res = await hass.callWS<{ rooms: { label: string; area: string; x: number; y: number }[] }>({
-            type: "smartnest/plan/read_rooms",
-            image: floor.image,
-            entity_id: ai,
-            areas: Object.values(hass.areas ?? {}).map((a) => a.name),
-          });
-          for (const l of res.rooms) {
-            const p: Pt = [l.x, l.y];
-            // The label's own room, else the nearest room centre: the model's positions are approximate.
-            let j = found.findIndex((f) => inside(p, f.points));
-            if (j < 0) {
-              const d = found.map((f) => Math.hypot(f.center[0] - p[0], f.center[1] - p[1]));
-              const k = d.indexOf(Math.min(...d));
-              if (d[k] < 15) j = k;
-            }
-            if (j >= 0) rooms[j].name = l.area || l.label;
-          }
-        } catch {
-          // No names, then: the installer picks each room's HA area from the list.
-        }
-      const placed = autoPlace(hass, { ...floor, rooms: [...existing, ...rooms] });
-      this.edit((_f, fl) => {
-        if (!fl) return;
-        fl.rooms = [...(fl.rooms ?? []), ...rooms];
-        fl.markers = [...fl.markers, ...placed];
-      });
-      ctx.toast(placed.length ? t("detect_done_placed", { n: rooms.length, m: placed.length }) : t("detect_done", { n: rooms.length }));
+      fresh = await this.findRooms(floor);
     } catch {
-      ctx.toast(t("detect_failed"));
+      return ctx.toast(t("detect_failed"));
     } finally {
       this.detecting = false;
     }
+    if (!fresh.length && !floor.rooms?.length) return ctx.toast(t("detect_none"));
+    // New rooms nobody could name (no AI, or it couldn't read them): ask what each one is.
+    // Rooms skipped before, or named by the AI after a room HA doesn't have, aren't asked about.
+    const unknown = fresh.filter((r, i) => r.name === t("room_default", { n: (floor.rooms?.length ?? 0) + i + 1 }) && !isAreaName(hass, r.name));
+    if (unknown.length) {
+      this.roomMode = true;
+      this.selected = undefined;
+      this.asking = unknown.map((r) => r.id);
+      this.askTotal = unknown.length;
+      this.selRoom = unknown[0].id;
+      return;
+    }
+    this.placeAll();
+  }
+
+  private nextQuestion() {
+    const rest = this.asking?.slice(1) ?? [];
+    this.asking = rest.length ? rest : undefined;
+    this.selRoom = rest[0];
+    if (!rest.length) this.placeAll();
+  }
+
+  private async placeAll() {
+    // Let the renamed rooms land in the draft first.
+    await new Promise((r) => setTimeout(r));
+    await this.updateComplete;
+    const floor = this.floor;
+    if (!floor) return;
+    const placed = autoPlace(this.ctx.hass, floor);
+    if (placed.length) this.edit((_f, fl) => fl && (fl.markers = [...fl.markers, ...placed]));
+    this.roomMode = false;
+    this.selRoom = undefined;
+    const { t } = this.ctx;
+    this.ctx.toast(placed.length ? t("detect_done_placed", { n: floor.rooms?.length ?? 0, m: placed.length }) : t("auto_nothing"));
+  }
+
+  /** Traces the rooms off the plan image and names them with AI Task when the house has one. Adds and returns them. */
+  private async findRooms(floor: Floor): Promise<Room[]> {
+    const { hass, t } = this.ctx;
+    const existing = floor.rooms ?? [];
+    const found = (await detectRooms(floor.image!)).filter((f) => !existing.some((r) => inside(f.center, r.points)));
+    if (!found.length) return [];
+    const rooms: Room[] = found.map((f, i) => ({ id: uid(), name: t("room_default", { n: existing.length + i + 1 }), points: f.points }));
+    const ai = Object.keys(hass.states).find((id) => id.startsWith("ai_task."));
+    if (ai)
+      try {
+        const res = await hass.callWS<{ rooms: { label: string; area: string; x: number; y: number }[] }>({
+          type: "smartnest/plan/read_rooms",
+          image: floor.image,
+          entity_id: ai,
+          areas: Object.values(hass.areas ?? {}).map((a) => a.name),
+        });
+        for (const l of res.rooms) {
+          const p: Pt = [l.x, l.y];
+          // The label's own room, else the nearest room centre: the model's positions are approximate.
+          let j = found.findIndex((f) => inside(p, f.points));
+          if (j < 0) {
+            const d = found.map((f) => Math.hypot(f.center[0] - p[0], f.center[1] - p[1]));
+            const k = d.indexOf(Math.min(...d));
+            if (d[k] < 15) j = k;
+          }
+          if (j >= 0) rooms[j].name = l.area || l.label;
+        }
+      } catch {
+        // No names, then: the installer is asked room by room.
+      }
+    this.edit((_f, fl) => fl && (fl.rooms = [...(fl.rooms ?? []), ...rooms]));
+    return rooms;
   }
 
   private renameRoom(room: Room) {
@@ -1214,6 +1258,30 @@ export class SnFloorplan extends LitElement {
     const areas = Object.values(this.ctx.hass.areas ?? {})
       .map((a) => a.name)
       .sort((a, b) => a.localeCompare(b));
+    if (this.asking?.length && room) {
+      const taken = new Set((this.floor?.rooms ?? []).map((r) => r.name));
+      return html`<div class="tools glass" @pointerdown=${stop}>
+        <span class="label">${t("which_room")} ${this.askTotal - this.asking.length + 1}/${this.askTotal}</span>
+        <select
+          aria-label=${t("which_room")}
+          style="width:auto;min-height:40px"
+          @change=${(e: any) => {
+            const name = e.target.value;
+            if (!name) return;
+            this.edit((_f, fl) => {
+              const r = fl?.rooms?.find((x) => x.id === room.id);
+              if (r) r.name = name;
+            });
+            this.nextQuestion();
+          }}
+        >
+          <option value="" selected>🏠 ${t("room_area")}</option>
+          ${areas.filter((a) => !taken.has(a)).map((a) => html`<option value=${a}>🏠 ${a}</option>`)}
+        </select>
+        <button class="btn pressable" @click=${() => this.nextQuestion()}>${t("skip_room")}</button>
+        <button class="btn pressable" @click=${() => ((this.asking = undefined), this.placeAll())}>${t("finish")}</button>
+      </div>`;
+    }
     if (room)
       return html`<div class="tools glass" @pointerdown=${stop}>
         <span class="label">${room.name}</span>
@@ -1272,7 +1340,7 @@ export class SnFloorplan extends LitElement {
       <button class="btn primary pressable" @click=${() => (this.drawing = [])}>
         <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("draw_room")}
       </button>
-      <button class="btn pressable" ?disabled=${this.detecting} @click=${() => this.detect()}>
+      <button class="btn pressable" ?disabled=${this.detecting} @click=${() => this.autoAdd()}>
         <sn-icon icon="auto-fix" style="--icon-size:20px"></sn-icon>${t(this.detecting ? "detecting" : "detect_rooms")}
       </button>
       ${this.floor?.rooms?.length
@@ -1385,6 +1453,9 @@ export class SnFloorplan extends LitElement {
         if (robot && !this.robotRooms) loadRobotRooms(this.ctx.hass, robot).then((r) => (this.robotRooms = r.rooms));
       }}>
         <sn-icon icon="rooms" style="--icon-size:20px"></sn-icon>${t("rooms")}
+      </button>
+      <button class="btn pressable" ?disabled=${!floor?.image || this.detecting} @click=${() => this.autoAdd()}>
+        <sn-icon icon="auto-fix" style="--icon-size:20px"></sn-icon>${t(this.detecting ? "detecting" : "auto_add")}
       </button>
       <button class="btn primary pressable" ?disabled=${!floor?.image} @click=${() => this.addDevice()}>
         <sn-icon icon="marker-plus" style="--icon-size:20px"></sn-icon>${t("add_device")}

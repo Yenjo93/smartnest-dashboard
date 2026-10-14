@@ -91,6 +91,9 @@ export function roomsWidgets(hass: Hass, otherLabel: string): Widget[] {
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
+/** Whether a drawn room is named like one of the HA areas, so its devices can be placed. */
+export const isAreaName = (hass: Hass, name: string) => Object.values(hass.areas ?? {}).some((a) => norm(a.name) === norm(name));
+
 /** Evenly spread points inside a room outline (a grid over its bounding box, keeping the ones inside). */
 function spots(points: Pt[], n: number): Pt[] {
   const xs = points.map((p) => p[0]);
