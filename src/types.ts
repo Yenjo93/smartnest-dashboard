@@ -131,7 +131,9 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "chores"
   | "air"
   | "boiler"
-  | "irrigation";
+  | "irrigation"
+  | "timeline"
+  | "internet";
 
 export interface Widget {
   id: string;

@@ -85,6 +85,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await family.async_load()
     hass.data[DOMAIN]["family"] = family
 
+    from .codes import GuestCodes
+
+    codes = GuestCodes(hass)
+    await codes.async_load()
+    hass.data[DOMAIN]["codes"] = codes
+
     from .home import HomeHelpers
 
     helpers = HomeHelpers(hass)
@@ -136,6 +142,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         family.async_stop()
     if helpers := data.get("home"):
         helpers.async_stop()
+    if codes := data.get("codes"):
+        codes.async_stop()
     return True
 
 

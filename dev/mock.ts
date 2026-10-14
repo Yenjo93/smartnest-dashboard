@@ -73,6 +73,8 @@ add(ent("sensor.water_heater_power", "1950", { friendly_name: "السخان", un
 add(ent("sensor.coffee_machine_power", "4.6", { friendly_name: "ماكينة القهوة", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.tv_power", "96", { friendly_name: "التلفزيون", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.fridge_power", "140", { friendly_name: "الثلاجة", unit_of_measurement: "W", device_class: "power" }));
+add(ent("switch.sara_tablet_internet", "on", { friendly_name: "تابلت سارة" }));
+add(ent("switch.mohammad_phone_internet", "on", { friendly_name: "جوال محمد" }));
 add(ent("sensor.washing_machine_power", "455", { friendly_name: "الغسالة استهلاك", unit_of_measurement: "W", device_class: "power" }));
 add(ent("sensor.home_abu_mohammad_distance", "7.4", { friendly_name: "Home Abu Mohammad Distance", unit_of_measurement: "km", device_class: "distance" }));
 add(ent("sensor.home_abu_mohammad_direction_of_travel", "towards", { friendly_name: "Home Abu Mohammad Direction of travel" }));
@@ -459,8 +461,24 @@ async function callWS(msg: Record<string, any>): Promise<any> {
     case "smartnest/automations/set":
       autoSummaries = msg.items;
       return null;
-    case "frigate/events/get":
-      throw { code: "not_found", message: "Frigate instance not found" };
+    case "frigate/events/get": {
+      // ?frigate=1 pretends Frigate is installed: a day of detections on two cameras.
+      if (!params.has("frigate")) throw { code: "not_found", message: "Frigate instance not found" };
+      const day0 = new Date();
+      day0.setHours(0, 0, 0, 0);
+      const base = msg.after ?? Math.floor(day0.getTime() / 1000);
+      const labels = ["person", "person", "car", "package", "cat"];
+      const evs = Array.from({ length: 26 }, (_, i) => ({
+        id: `ev${i}`,
+        camera: i % 3 ? "front_door" : "garden",
+        label: labels[i % labels.length],
+        sub_label: i === 25 ? ["أبو محمد", 0.92] : null,
+        start_time: i === 25 ? Date.now() / 1000 - 60 : base + 3600 * (6 + (i * 0.6)),
+        has_clip: true,
+        has_snapshot: true,
+      })).filter((e) => (!msg.cameras || msg.cameras.includes(e.camera)) && e.start_time >= (msg.after ?? 0) && (!msg.before || e.start_time < msg.before) && e.start_time <= Date.now() / 1000);
+      return JSON.stringify(evs);
+    }
     case "smartnest/message/send":
       currentMessage = { id: String(Date.now()), message: msg.message, title: isAdmin ? "Installer" : "Client" };
       pushMessage();
@@ -620,6 +638,17 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       configListeners.forEach((cb) => cb({ config: item.config }));
       return null;
     }
+    case "smartnest/codes/list":
+      return { codes: JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]"), zwave: true };
+    case "smartnest/codes/add": {
+      const codes = JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]");
+      const c = { id: Math.random().toString(36).slice(2), lock: msg.lock, name: msg.name, slot: 10 + codes.length, code: msg.code ?? String(100000 + Math.floor(Math.random() * 900000)), from: msg.from, until: msg.until, live: msg.from <= Date.now() / 1000 };
+      localStorage.setItem("smartnest-dev-codes", JSON.stringify([...codes, c]));
+      return c;
+    }
+    case "smartnest/codes/remove":
+      localStorage.setItem("smartnest-dev-codes", JSON.stringify(JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]").filter((c: any) => c.id !== msg.id)));
+      return null;
     case "smartnest/kv/get":
       return { value: JSON.parse(localStorage.getItem(`smartnest-dev-kv-${msg.key}`) ?? "null") };
     case "smartnest/kv/set":

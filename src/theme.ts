@@ -197,6 +197,7 @@ export const shared = css`
   input[type="number"],
   input[type="time"],
   input[type="date"],
+  input[type="datetime-local"],
   input[type="search"],
   input[type="tel"],
   textarea,

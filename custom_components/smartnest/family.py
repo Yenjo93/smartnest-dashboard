@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake", "boiler", "irrigation")
+KEYS = ("chores", "wake", "boiler", "irrigation", "internet")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
@@ -57,6 +57,7 @@ class Family:
     def _minute(self, now: datetime) -> None:
         self._boiler(now)
         self._irrigation(now)
+        self._internet(now)
         self._wake(now)
 
     # ---- water heater ----
@@ -90,6 +91,29 @@ class Family:
         if until and now.timestamp() >= until:
             self._switch(entity, False)
             self.hass.async_create_task(self.async_set("boiler", {**b, "until": None, "ready_at": None}))
+
+    # ---- kids' internet ----
+
+    def _internet(self, now: datetime) -> None:
+        """Bedtime cuts the kids' devices off, morning brings them back, and a pause ends by itself.
+        Router integrations (UniFi, FRITZ!Box, Omada, Deco…) expose a switch per device: on = internet allowed."""
+        data = self.data.get("internet") or {}
+        hm = now.strftime("%H:%M")
+        changed = False
+        for kid in data.get("kids", []):
+            switches = kid.get("switches") or []
+            if not switches:
+                continue
+            if kid.get("paused_until") and now.timestamp() >= kid["paused_until"]:
+                kid["paused_until"] = None
+                changed = True
+                self.hass.async_create_task(self.hass.services.async_call("homeassistant", "turn_on", {"entity_id": switches}))
+            if kid.get("schedule") and hm == kid.get("bedtime"):
+                self.hass.async_create_task(self.hass.services.async_call("homeassistant", "turn_off", {"entity_id": switches}))
+            if kid.get("schedule") and hm == kid.get("wake"):
+                self.hass.async_create_task(self.hass.services.async_call("homeassistant", "turn_on", {"entity_id": switches}))
+        if changed:
+            self.hass.async_create_task(self.async_set("internet", data))
 
     # ---- irrigation that skips rainy days ----
 

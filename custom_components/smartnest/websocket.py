@@ -26,6 +26,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
     from .ai import ws_ai_ask
     from .history import ws_history_list, ws_history_restore
     from . import issuer
+    from .codes import ws_codes_add, ws_codes_list, ws_codes_remove
     from .family import ws_fx_start, ws_fx_stop, ws_kv_get, ws_kv_set, ws_kv_subscribe
     from .plan_ai import ws_plan_read_rooms
     from .visitors import ws_list_visitors
@@ -41,6 +42,7 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_history_list, ws_history_restore,
         issuer.ws_status, issuer.ws_setup, issuer.ws_forget, issuer.ws_issue, issuer.ws_renew,
         issuer.ws_update, issuer.ws_remove, issuer.ws_import,
+        ws_codes_list, ws_codes_add, ws_codes_remove,
     ):
         websocket_api.async_register_command(hass, cmd)
 

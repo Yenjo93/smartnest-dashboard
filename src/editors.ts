@@ -301,6 +301,8 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "air", icon: "leaf" },
   { type: "boiler", icon: "water-boiler" },
   { type: "irrigation", icon: "sprinkler" },
+  { type: "timeline", icon: "history" },
+  { type: "internet", icon: "wifi" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

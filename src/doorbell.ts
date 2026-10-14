@@ -190,6 +190,8 @@ export class SnDoorbell extends LitElement {
   /** What the AI sees at the door: "a man with a parcel". */
   @state() private seen?: string;
   @state() private looking = false;
+  /** Someone Frigate recognised at the door. */
+  @state() private known?: string;
 
   connectedCallback() {
     super.connectedCallback();
@@ -206,8 +208,27 @@ export class SnDoorbell extends LitElement {
         1200
       );
     }
+    if (cam && this.ctx.allows("faces")) window.setTimeout(() => this.recognise(cam), 2500);
     if (!this.silent) chime();
     navigator.vibrate?.([120, 80, 120]);
+  }
+
+  /** Frigate's face recognition names people on its events (sub label): greet them. */
+  private async recognise(cam: string) {
+    try {
+      const raw = await this.ctx.hass.callWS<any>({
+        type: "frigate/events/get",
+        instance_id: "frigate",
+        cameras: [cam.split(".")[1]],
+        after: Math.floor(Date.now() / 1000) - 180,
+        limit: 5,
+      });
+      const events: { sub_label?: string | [string, number] | null }[] = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const hit = events.map((e) => (Array.isArray(e.sub_label) ? e.sub_label[0] : e.sub_label)).find(Boolean);
+      if (hit) this.known = hit;
+    } catch {
+      /* no Frigate */
+    }
   }
 
   disconnectedCallback() {
@@ -233,6 +254,7 @@ export class SnDoorbell extends LitElement {
               hour: "2-digit",
               minute: "2-digit",
             })}</span>
+            ${this.known ? html`<span class="seen">👋 ${this.ctx.t("face_hello", { name: this.known })}</span>` : nothing}
             ${this.looking
               ? html`<span class="seen shimmer">✨ ${t("ai_looking")}</span>`
               : this.seen

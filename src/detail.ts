@@ -10,6 +10,7 @@ import { hsToRgb, onColor, rgbCss, rgbHex } from "./color";
 import type { I18nKey } from "./i18n";
 import "./ui/icon";
 import { fxRow } from "./lightfx";
+import { guestCodesSheet } from "./codes";
 import { livingClass, livingStyles, playStateChange } from "./motion";
 import "./ui/vslider";
 import "./ui/color-wheel";
@@ -530,6 +531,16 @@ export class SnEntityDetail extends LitElement {
   }
 
   private renderLock(e: HassEntity) {
+    const { t } = this.ctx;
+    return html`${this.renderLockButton(e)}
+    ${this.ctx.isAdmin && this.ctx.allows("guest_codes")
+      ? html`<button class="btn pressable" style="margin-top:8px" @click=${() => guestCodesSheet(this.ctx, e.entity_id)}>
+          <sn-icon icon="key" style="--icon-size:18px"></sn-icon>${t("codes_title")}
+        </button>`
+      : nothing}`;
+  }
+
+  private renderLockButton(e: HassEntity) {
     const { t } = this.ctx;
     if (e.state === "unlocked" || e.state === "open")
       return html`<button class="btn primary pressable lock-btn" @click=${() => this.call("lock", "lock")}><sn-icon icon="lock"></sn-icon>${t("lock")}</button>`;

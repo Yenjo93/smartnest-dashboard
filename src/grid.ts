@@ -32,6 +32,8 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/internet";
+import "./widgets/timeline";
 import "./widgets/irrigation";
 import "./widgets/boiler";
 import "./widgets/air";
@@ -351,6 +353,10 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-boiler .ctx=${ctx} .widget=${w}></sn-w-boiler>`;
       case "irrigation":
         return html`<sn-w-irrigation .ctx=${ctx} .widget=${w}></sn-w-irrigation>`;
+      case "timeline":
+        return html`<sn-w-timeline .ctx=${ctx} .widget=${w}></sn-w-timeline>`;
+      case "internet":
+        return html`<sn-w-internet .ctx=${ctx} .widget=${w}></sn-w-internet>`;
       default:
         return nothing;
     }
