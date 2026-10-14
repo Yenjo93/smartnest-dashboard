@@ -894,7 +894,7 @@ const en = {
   revoked_text: "Your installer has stopped this license. Contact them to turn it back on.",
   lic_check: "Check now",
   lic_check_ok: "Up to date ✓",
-  lic_check_none: "Couldn't reach your installer (no heartbeat link?)",
+  lic_check_none: "Couldn't reach your installer, try again later",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1793,7 +1793,7 @@ const ar: Record<I18nKey, string> = {
   revoked_text: "اللي ركّبلك وقّف الترخيص. تواصل معه ليرجّعه.",
   lic_check: "تحقّق هلأ",
   lic_check_ok: "محدّث ✓",
-  lic_check_none: "ما قدرت أوصل للمركّب (في رابط نبض؟)",
+  lic_check_none: "ما قدرت أوصل للمركّب، جرّب كمان شوي",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2690,7 +2690,7 @@ const he: Record<I18nKey, string> = {
   revoked_text: "המתקין עצר את הרישיון. פנו אליו כדי להפעיל מחדש.",
   lic_check: "בדוק עכשיו",
   lic_check_ok: "מעודכן ✓",
-  lic_check_none: "לא הצלחתי להגיע למתקין (יש קישור דופק?)",
+  lic_check_none: "לא הצלחתי להגיע למתקין, נסו שוב מאוחר יותר",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

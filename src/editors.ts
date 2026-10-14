@@ -898,10 +898,6 @@ export function settingsSheet(
         c.allows("support")
           ? section(
               t("installer"),
-              html`<label class="field"
-                >${t("heartbeat_url")}<input type="url" class="ltr" placeholder="https://…/api/webhook/smartnest_…" .value=${s.installer.heartbeat_url ?? ""} @change=${(e: any) => set((d) => (d.settings.installer.heartbeat_url = e.target.value.trim() || undefined))} />
-                <span class="hint">${t("heartbeat_hint")}</span></label
-              >`,
               html`<label class="field">${t("installer_name")}<input type="text" .value=${s.installer.name ?? ""} placeholder="SmartNest" @change=${(e: any) => set((d) => (d.settings.installer.name = e.target.value.trim() || undefined))} /></label>`,
               html`<label class="field"
                 >${t("installer_phone")}<input type="tel" class="ltr" .value=${s.installer.phone ?? ""} placeholder="972501234567" @change=${(e: any) => set((d) => (d.settings.installer.phone = e.target.value.trim() || undefined))} />

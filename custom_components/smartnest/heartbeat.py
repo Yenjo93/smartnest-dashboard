@@ -1,6 +1,6 @@
-"""A short "all well?" every few hours from each client house to the installer's license page.
+"""A short "all well?" every few hours from each client house to the license desk (a built-in link, never shown).
 
-Only when the installer puts their heartbeat link in this house's settings. It carries the house's own license key,
+It carries the house's own license key,
 so the installer's side knows it's a genuine house of theirs, plus a few counts: nothing about the family.
 When the installer has renewed the house's key, the answer carries the new one and it's put in here by itself.
 """
@@ -17,7 +17,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
-from .const import DOMAIN, LICENSE_STORAGE_KEY
+import base64
+
+from .const import DOMAIN, HEARTBEAT_URL_B64, LICENSE_STORAGE_KEY
 from .license import verify
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,9 +48,7 @@ class Heartbeat:
     async def async_send(self) -> bool:
         data = self.hass.data.get(DOMAIN) or {}
         settings = (data.get("config") or {}).get("settings") or {}
-        url = ((settings.get("installer") or {}).get("heartbeat_url") or "").strip()
-        if not url.startswith("https://") and not url.startswith("http://"):
-            return False
+        url = base64.b64decode(HEARTBEAT_URL_B64).decode()
         from homeassistant.helpers.storage import Store
 
         key = ((await Store(self.hass, 1, LICENSE_STORAGE_KEY).async_load()) or {}).get("key")

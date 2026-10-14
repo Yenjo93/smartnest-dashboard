@@ -30,4 +30,6 @@ MAX_CONFIG_BYTES = 2 * 1024 * 1024
 
 # Public half of the installer's signing key (scripts/license.mjs). The private half never leaves the installer's computer.
 LICENSE_PUBLIC_KEY = "yvSxJrxdvcXiAJ4-3L-7PM_yJXQn98nKqWQL_-nKjE8"
+# Where every house reports to (the license desk). Built in and never shown in the dashboard; it only accepts genuine keys.
+HEARTBEAT_URL_B64 = "aHR0cHM6Ly9vbWFyLnNtYXJ0bmVzdC5wcm8vYXBpL3dlYmhvb2svc21hcnRuZXN0XzUwNzBhYzBkYjdkMmQxZDRkNjBlMzM1ZGYyMWU1ZmVj"
 LICENSE_STORAGE_KEY = "smartnest.license"

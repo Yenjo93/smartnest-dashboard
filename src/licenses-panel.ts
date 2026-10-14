@@ -450,7 +450,7 @@ export class SmartNestLicenses extends LitElement {
   private async block(h: House, on: boolean) {
     const reach = this.beats[h.install]
       ? "بيوصله مع النبض الجاي (خلال 3 ساعات)."
-      : "⚠️ هاد البيت ما بعتلك نبض أبداً (ما فيه رابط النبض)، فما رح يوصله لحد ما ينحط الرابط عنده.";
+      : "⚠️ هاد البيت لسا ما بعتلك نبض (يمكن على نسخة قديمة أو بدون إنترنت)، فبيوصله أول ما يتحدث ويتصل.";
     if (!confirm(on ? `توقّف ${h.name}؟ الداشبورد عنده بيتقفل.\n${reach}` : `ترجّع ${h.name}؟\n${reach}`)) return;
     try {
       await this.hass.callWS({ type: "smartnest/issuer/block", install: h.install, blocked: on });
@@ -671,7 +671,7 @@ export class SmartNestLicenses extends LitElement {
                         return html`<details class="card" open>
                           <summary>💓 نبض البيوت (تعرف المشاكل قبل ما يتصلوا)</summary>
                           <span class="muted" style="font-size:14px"
-                            >بكل بيت زبون: SmartNest ← ⚙️ ← المركّب ← "رابط النبض"، والصق هاد الرابط. البيت بيبعتلك كل 3 ساعات: شغّال، كم جهاز فاصل، وأي نسخة. ولما تجدّدله، المفتاح الجديد بيوصله لحاله بنفس الطريق.</span
+                            >هاد الرابط مبني جوّا SmartNest بكل البيوت (ومش مبيّن لا للزبون ولا للمركّب)، فما بدك تحطه بإيدك. كل بيت بيبعتلك كل 3 ساعات: شغّال، كم جهاز فاصل، وأي نسخة. ولما تجدّدله، المفتاح الجديد بيوصله لحاله بنفس الطريق.</span
                           >
                           <label class="field"
                             >عنوان HA تبعك من برا (دومين Cloudflare)

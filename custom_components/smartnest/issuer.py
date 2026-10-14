@@ -158,9 +158,9 @@ class Issuer:
             from homeassistant.components import webhook
 
             webhook.async_unregister(self.hass, self.webhook_id)
-        await self.key_store.async_remove()
+        # The link's id stays: it's built into every house, so putting the key back must bring back the same link.
+        await self.key_store.async_save({"webhook": self.webhook_id} if self.webhook_id else {})
         self.key = None
-        self.webhook_id = ""
 
     def sign(self, install: str, name: str, plan: str, days: int | None, trial: bool, reseller: str | None) -> tuple[str, dict[str, Any]]:
         assert self.key is not None
