@@ -2,7 +2,7 @@ import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
-import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKind, domainOf } from "../entities";
+import { toneStyle, entityIcon, entityName, isActive, runTap, stateLabel, tapKind, domainOf, seen, GUESS_MS } from "../entities";
 import { bindPress } from "../ui/press";
 import { shared } from "../theme";
 import { playUi } from "../sounds";
@@ -165,13 +165,16 @@ export class SnTile extends LitElement {
       this.dispatchEvent(new CustomEvent("sn-light-wave", { bubbles: true, composed: true, detail: { x: r.left + r.width / 2, y: r.top + r.height / 2, color: `rgb(${rgb.join(",")})` } }));
     }
     playUi(domainOf(id) === "lock" ? (e.state === "locked" ? "unlock" : "lock") : isActive(e) ? "off" : "on");
-    runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
+    runTap(this.ctx.hass, e).catch(() => (this.ctx.toast(this.ctx.t("error")), this.requestUpdate()));
+    // Show the tap at once, and the real state again if the device never follows.
+    this.requestUpdate();
+    window.setTimeout(() => this.requestUpdate(), GUESS_MS + 50);
   }
 
   render() {
     const { ctx } = this;
     const id = (this.widget.config.entity as string) ?? "";
-    const e = ctx.hass.states[id];
+    const e = seen(ctx.hass.states[id]);
     const on = isActive(e);
     const vertical = ctx.narrow || this.widget.h >= 3 || this.widget.w <= 2;
     return html`

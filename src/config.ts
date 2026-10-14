@@ -341,9 +341,34 @@ export function subscribeConfig(hass: Hass, cb: (config: any) => void) {
   return hass.connection.subscribeMessage<{ config: any }>((msg) => cb(msg.config), { type: "smartnest/config/subscribe" });
 }
 
+/**
+ * Phone photos are 4–12 MB and 4000+ px: far more than a tablet can draw smoothly. Shrinks them to 2560 px at most,
+ * as WebP, before upload (a plan stays sharp, and loads and pans much faster). Anything it can't read goes as it is.
+ */
+export async function shrinkImage(file: File, max = 2560): Promise<Blob> {
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size < 600_000) return file;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    const g = canvas.getContext("2d")!;
+    g.imageSmoothingQuality = "high";
+    g.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close?.();
+    const out = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.86));
+    return out && out.size < file.size && out.type === "image/webp" ? out : file;
+  } catch {
+    return file;
+  }
+}
+
 export async function uploadImage(hass: Hass, file: File): Promise<string> {
   const body = new FormData();
-  body.append("file", file);
+  const small = await shrinkImage(file);
+  body.append("file", small, small === file ? file.name : file.name.replace(/\.[^.]+$/, "") + ".webp");
   const res = await hass.fetchWithAuth("/api/smartnest/upload", { method: "POST", body });
   if (!res.ok) throw new Error(`upload ${res.status}`);
   const json = await res.json();

@@ -55,25 +55,33 @@ export class SnVSlider extends LitElement {
     .track.dragging {
       transform: scaleX(1.04);
     }
+    /* Only transforms move while dragging: drawn by the GPU, no layout, smooth at 120 Hz. */
     .fill {
       position: absolute;
-      inset: auto 0 0 0;
-      transition: height 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 400ms;
+      inset: 0;
+      transform-origin: bottom;
+      will-change: transform;
+      transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), background-color 400ms;
+    }
+    .rail {
+      position: absolute;
+      inset: 0;
+      will-change: transform;
+      transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
     }
     .dragging .fill,
-    .dragging .thumb {
+    .dragging .rail {
       transition: none;
     }
     .thumb {
       position: absolute;
+      top: -3px;
       left: 14px;
       right: 14px;
       height: 6px;
-      margin-bottom: -3px;
       border-radius: 3px;
       background: #fff;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-      transition: bottom 160ms cubic-bezier(0.22, 1, 0.36, 1);
     }
     .val {
       position: absolute;
@@ -104,8 +112,22 @@ export class SnVSlider extends LitElement {
   /** How far past either end the finger went (0..1), for the rubber-band stretch. */
   @state() private over = 0;
 
+  private rect?: DOMRect;
+  private frame = 0;
+  private next?: number;
+
+  /** Moves come faster than the screen draws: keep the last one and apply it once per frame. */
+  private moveTo(v: number) {
+    this.next = v;
+    if (!this.frame)
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        if (this.drag !== undefined && this.next !== undefined) this.set(this.next);
+      });
+  }
+
   private from(e: PointerEvent) {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const r = this.rect ?? (e.currentTarget as HTMLElement).getBoundingClientRect();
     const raw = (r.bottom - e.clientY) / r.height;
     this.over = raw > 1 ? Math.min(1, (raw - 1) * 2) : raw < 0 ? -Math.min(1, -raw * 2) : 0;
     return Math.round(Math.min(1, Math.max(0, raw)) * 100);
@@ -152,16 +174,21 @@ export class SnVSlider extends LitElement {
       aria-valuenow=${v}
       @pointerdown=${(e: PointerEvent) => {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        this.rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         this.set(this.from(e));
       }}
-      @pointermove=${(e: PointerEvent) => this.drag !== undefined && this.set(this.from(e))}
+      @pointermove=${(e: PointerEvent) => this.drag !== undefined && this.moveTo(this.from(e))}
       @pointerup=${(e: PointerEvent) => {
+        cancelAnimationFrame(this.frame);
+        this.frame = 0;
+        if (this.drag !== undefined) this.drag = this.from(e);
+        this.rect = undefined;
         const val = this.drag;
         this.settle(e.currentTarget as HTMLElement);
         this.set(undefined);
         if (val !== undefined) this.onCommit?.(val);
       }}
-      @pointercancel=${() => this.set(undefined)}
+      @pointercancel=${() => ((this.rect = undefined), this.set(undefined))}
       @keydown=${(e: KeyboardEvent) => {
         const step = e.key === "ArrowUp" ? 10 : e.key === "ArrowDown" ? -10 : 0;
         if (!step) return;
@@ -170,8 +197,8 @@ export class SnVSlider extends LitElement {
       }}
     >
       ${thumbMode
-        ? html`<div class="thumb" style="bottom:${v}%"></div>`
-        : html`<div class="fill" style="height:${v}%;background:${this.fill}"></div>`}
+        ? html`<div class="rail" style="transform:translateY(${100 - v}%)"><div class="thumb"></div></div>`
+        : html`<div class="fill" style="transform:scaleY(${v / 100});background:${this.fill}"></div>`}
       <span class="val ${thumbMode ? "on-track" : ""}">${text}</span>
       ${this.icon
         ? html`<sn-icon .icon=${this.icon} style="color:${iconOnFill ? this.onFill : thumbMode ? "#fff" : "var(--text-2)"}"></sn-icon>`

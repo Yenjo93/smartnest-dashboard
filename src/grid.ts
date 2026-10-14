@@ -5,7 +5,6 @@ import type { Ctx } from "./ctx";
 import type { Page, Widget } from "./types";
 import { COLS, WIDGET_SIZES, resolveLayout } from "./config";
 import { GAP, ROW_H, shared } from "./theme";
-import { widgetSettingsSheet } from "./editors";
 import { planFor, widgetFeature } from "./plans";
 import type { I18nKey } from "./i18n";
 import "./ui/icon";
@@ -66,6 +65,46 @@ interface Gesture {
 
 /** Narrow screens stack widgets: small ones go two per row, everything else spans the width. */
 const narrowSpan = (w: Widget) => (w.type === "tile" && w.w <= 4 ? 2 : 4);
+
+/**
+ * What a widget shows, so it only redraws when that changes. On a big house the states change many times a second;
+ * without this every card on the page redraws on every one of them.
+ *  - ids: the states it reads (it redraws when one of them changes)
+ *  - maxAge: for widgets that read across the house, redraw at most this often (ms)
+ */
+function watched(w: Widget, hass: Ctx["hass"]): { ids: string[]; maxAge: number } {
+  const c = w.config;
+  const one = (...ids: (string | undefined)[]) => ({ ids: ids.filter((x): x is string => !!x), maxAge: Infinity });
+  switch (w.type) {
+    case "tile":
+    case "camera":
+    case "gauge":
+    case "remote":
+    case "sensor":
+    case "ac":
+      return c.entity ? one(c.entity) : { ids: [], maxAge: 1000 };
+    case "gate":
+      return c.entity ? one(c.entity, c.camera) : { ids: [], maxAge: 1000 };
+    case "heading":
+    case "countdown":
+    case "verse":
+    case "radar":
+    case "board":
+    case "parcels":
+      return one();
+    case "schedule":
+      return one("sun.sun");
+    case "floorplan": {
+      // Its devices, the family's room sensors, the robot and the sun; anything else it shows catches up within 3 s.
+      const ids = new Set<string>(["sun.sun"]);
+      for (const f of c.floors ?? []) for (const m of f.markers ?? []) ids.add(m.entity);
+      for (const id in hass.states) if (/^(person|vacuum)\./.test(id) || /^sensor\..*_(area|room|location)$/.test(id)) ids.add(id);
+      return { ids: [...ids], maxAge: 3000 };
+    }
+    default:
+      return { ids: [], maxAge: 700 };
+  }
+}
 
 @customElement("sn-page-grid")
 export class SnPageGrid extends LitElement {
@@ -322,8 +361,34 @@ export class SnPageGrid extends LitElement {
     });
   }
 
+  private kept = new Map<string, { ctx: Ctx; deps: unknown[]; at: number }>();
+  private catchUp?: number;
+
+  /** The ctx a widget gets: the previous one (so it doesn't redraw) unless something it shows has changed. */
+  private ctxFor(w: Widget): Ctx {
+    const ctx = this.ctx;
+    const { ids, maxAge } = watched(w, ctx.hass);
+    const deps: unknown[] = [w, ctx.config, ctx.lang, ctx.dark, ctx.narrow, ctx.editing, ctx.isAdmin, ctx.plan, ...ids.map((id) => ctx.hass.states[id])];
+    const k = this.kept.get(w.id);
+    const same = !!k && k.deps.length === deps.length && k.deps.every((v, i) => v === deps[i]);
+    if (same && k!.ctx.hass === ctx.hass) return k!.ctx;
+    if (same && Date.now() - k!.at < maxAge) {
+      // Something else in the house changed: this widget catches up shortly, in one go with the others.
+      if (maxAge !== Infinity && !this.catchUp)
+        this.catchUp = window.setTimeout(() => ((this.catchUp = undefined), this.requestUpdate()), maxAge - (Date.now() - k!.at) + 20);
+      return k!.ctx;
+    }
+    this.kept.set(w.id, { ctx, deps, at: Date.now() });
+    return ctx;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.clearTimeout(this.catchUp);
+  }
+
   private renderWidget(w: Widget) {
-    const { ctx } = this;
+    const ctx = this.ctxFor(w);
     if (!ctx.allows(widgetFeature(w.type)))
       return html`<div class="glass" style="height:100%;border-radius:var(--r-lg);display:grid;place-items:center;align-content:center;gap:6px;color:var(--text-2);text-align:center;padding:12px;--icon-size:26px">
         <sn-icon icon="lock"></sn-icon>
@@ -459,7 +524,7 @@ export class SnPageGrid extends LitElement {
         ? html`<button class="badge del pressable" aria-label=${t("delete")} @click=${() => this.removeWidget(w)}>
               <sn-icon icon="minus"></sn-icon>
             </button>
-            <button class="badge cog pressable" aria-label=${t("widget_settings")} @click=${() => widgetSettingsSheet(this.ctx, this.page.id, w.id)}>
+            <button class="badge cog pressable" aria-label=${t("widget_settings")} @click=${() => import("./editors").then((m) => m.widgetSettingsSheet(this.ctx, this.page.id, w.id))}>
               <sn-icon icon="cog"></sn-icon>
             </button>`
         : nothing}

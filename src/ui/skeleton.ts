@@ -16,7 +16,17 @@ export class SnSkeleton extends LitElement {
       display: block;
       height: 14px;
       border-radius: 7px;
-      background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in srgb, var(--surface-2) 40%, var(--surface-solid)) 50%, var(--surface-2) 100%) 0 0 / 200% 100%;
+      background: var(--surface-2);
+      position: relative;
+      overflow: hidden;
+    }
+    /* The shine moves by transform (GPU) rather than background-position (a repaint every frame). */
+    i::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-solid) 60%, transparent), transparent);
+      transform: translateX(-100%);
       animation: shine 1.4s linear infinite;
     }
     i:first-child {
@@ -28,11 +38,11 @@ export class SnSkeleton extends LitElement {
     }
     @keyframes shine {
       to {
-        background-position: -200% 0;
+        transform: translateX(100%);
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      i {
+      i::after {
         animation: none;
       }
     }

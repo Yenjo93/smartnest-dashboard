@@ -936,6 +936,8 @@ const en = {
   hidden_show: "Show it again",
   hidden_this: "Hide from the dashboard",
   hidden_done: "Hidden. Bring it back in Settings → Hidden devices",
+  link_lost: "Reconnecting to the house…",
+  link_back: "Connected",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1876,6 +1878,8 @@ const ar: Record<I18nKey, string> = {
   hidden_show: "رجّعه",
   hidden_this: "احجبه من الداشبورد",
   hidden_done: "انحجب. بترجّعه من الإعدادات ← أجهزة مخفية",
+  link_lost: "عم يرجع يتصل بالبيت…",
+  link_back: "رجع الاتصال",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2814,6 +2818,8 @@ const he: Record<I18nKey, string> = {
   hidden_show: "הצג שוב",
   hidden_this: "הסתר מהדשבורד",
   hidden_done: "הוסתר. אפשר להחזיר בהגדרות ← מכשירים מוסתרים",
+  link_lost: "מתחבר מחדש לבית…",
+  link_back: "מחובר",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

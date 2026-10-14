@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { DashboardConfig, Floor, HassEntity, Marker, Room, Widget } from "../types";
 import { centroid, clipPath, inside, snap, type Pt } from "../geometry";
-import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, tapKind } from "../entities";
+import { toneStyle, domainOf, entityIcon, entityName, formatNumber, isActive, runTap, shortValue, tapKind, seen, GUESS_MS } from "../entities";
 import { findWidget, newFloor, uid, uploadImage } from "../config";
 import { shared } from "../theme";
 import { LOCALE } from "../i18n";
@@ -13,9 +13,7 @@ import { livingClass, livingStyles, playStateChange } from "../motion";
 import { loadRobotRooms, robotRoomFor, type RoomChoice } from "./vacuum";
 import { autoPlace, isAreaName } from "../autofill";
 import { fxRow } from "../lightfx";
-import "./plan-model";
 import "../ai-features";
-import { detectRooms } from "../plan-detect";
 import "../ui/entity-picker";
 
 type MapMode = "off" | "temp" | "humidity" | "co2";
@@ -738,8 +736,14 @@ export class SnFloorplan extends LitElement {
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.5) 45%, transparent 60%) 0 0 / 300% 100%,
-          color-mix(in srgb, #2bb673 12%, transparent);
+        background: color-mix(in srgb, #2bb673 12%, transparent);
+        overflow: hidden;
+      }
+      .clean::after {
+        content: "";
+        position: absolute;
+        inset: 0 -100%;
+        background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.5) 50%, transparent 60%);
         animation: shine 4s linear infinite;
         animation-play-state: var(--loops, running);
       }
@@ -751,10 +755,10 @@ export class SnFloorplan extends LitElement {
       }
       @keyframes shine {
         from {
-          background-position: 150% 0, 0 0;
+          transform: translateX(50%);
         }
         to {
-          background-position: -150% 0, 0 0;
+          transform: translateX(-50%);
         }
       }
       .stack {
@@ -932,7 +936,7 @@ export class SnFloorplan extends LitElement {
 
   /** A device as it was at the replay time; live otherwise. */
   private st(id: string): HassEntity | undefined {
-    const cur = this.ctx.hass.states[id];
+    const cur = seen(this.ctx.hass.states[id]);
     const r = this.replay;
     const rows = r?.data[id];
     if (!r || !cur || !rows?.length) return cur;
@@ -1175,7 +1179,9 @@ export class SnFloorplan extends LitElement {
     const e = this.ctx.hass.states[m.entity];
     if (!e || e.state === "unavailable" || tapKind(m.entity) === "sheet") return this.ctx.openEntity(m.entity, this.markerEl(m));
     navigator.vibrate?.(5);
-    runTap(this.ctx.hass, e).catch(() => this.ctx.toast(this.ctx.t("error")));
+    runTap(this.ctx.hass, e).catch(() => (this.ctx.toast(this.ctx.t("error")), this.requestUpdate()));
+    this.requestUpdate();
+    window.setTimeout(() => this.requestUpdate(), GUESS_MS + 50);
   }
 
   private stageSize() {
@@ -1667,6 +1673,7 @@ export class SnFloorplan extends LitElement {
   private async findRooms(floor: Floor): Promise<Room[]> {
     const { hass, t } = this.ctx;
     const existing = floor.rooms ?? [];
+    const { detectRooms } = await import("../plan-detect");
     const found = (await detectRooms(floor.image!)).filter((f) => !existing.some((r) => inside(f.center, r.points)));
     if (!found.length) return [];
     const rooms: Room[] = found.map((f, i) => ({ id: uid(), name: t("room_default", { n: existing.length + i + 1 }), points: f.points }));
@@ -2193,7 +2200,7 @@ export class SnFloorplan extends LitElement {
         @wheel=${(e: WheelEvent) => this.onWheel(e)}
       >
         ${this.model && !ctx.editing && floor?.rooms?.length
-          ? html`<sn-plan-model .ctx=${ctx} .floor=${floor} .ratio=${ratio}></sn-plan-model>`
+          ? (import("./plan-model"), html`<sn-plan-model .ctx=${ctx} .floor=${floor} .ratio=${ratio}></sn-plan-model>`)
           : this.stack && !ctx.editing
           ? this.renderStack()
           : floor?.image

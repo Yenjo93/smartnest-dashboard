@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx, SheetSpec } from "../ctx";
 import { shared } from "../theme";
 import "./icon";
+import { spring } from "./spring";
 
 /**
  * Renders the stack of sheets. On a phone they rise from the bottom; on wider screens they sit centred.
@@ -54,6 +55,8 @@ export class SnSheetHost extends LitElement {
         animation: none; /* driven by WAAPI from the tile */
       }
       header {
+        touch-action: none; /* the header drags the sheet down to close it */
+        cursor: grab;
         display: flex;
         align-items: center;
         gap: 12px;
@@ -81,14 +84,21 @@ export class SnSheetHost extends LitElement {
           max-height: 92vh;
           padding-bottom: env(safe-area-inset-bottom);
         }
-        .sheet::before {
+        /* The grab handle sits in the header, which is what drags. */
+        header {
+          position: relative;
+          padding-top: 24px;
+        }
+        header::before {
           content: "";
-          display: block;
+          position: absolute;
+          top: 8px;
+          left: 50%;
           width: 40px;
           height: 5px;
+          margin-left: -20px;
           border-radius: 3px;
           background: var(--surface-2);
-          margin: 8px auto 0;
         }
       }
       @keyframes fade {
@@ -161,6 +171,66 @@ export class SnSheetHost extends LitElement {
     });
   }
 
+  // ---- pull down to close ----
+  private pull?: { id: number; y: number; x: number; dy: number; lastY: number; lastT: number; v: number; on: boolean; sheet: HTMLElement; scrim: HTMLElement };
+
+  private onPullDown = (e: PointerEvent) => {
+    if (e.button !== 0 || (e.target as Element).closest("button, input, select, textarea, a")) return;
+    const sheet = (e.currentTarget as HTMLElement).closest(".sheet") as HTMLElement;
+    this.pull = { id: e.pointerId, y: e.clientY, x: e.clientX, dy: 0, lastY: e.clientY, lastT: performance.now(), v: 0, on: false, sheet, scrim: sheet.parentElement as HTMLElement };
+  };
+
+  private onPullMove = (e: PointerEvent) => {
+    const p = this.pull;
+    if (!p || e.pointerId !== p.id) return;
+    const dy = e.clientY - p.y;
+    if (!p.on) {
+      if (dy < -6 || Math.abs(e.clientX - p.x) > Math.abs(dy)) return void (this.pull = undefined);
+      if (dy < 8) return;
+      p.on = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    const now = performance.now();
+    p.v = (e.clientY - p.lastY) / Math.max(1, now - p.lastT);
+    p.lastY = e.clientY;
+    p.lastT = now;
+    p.dy = Math.max(0, dy);
+    p.sheet.style.transform = `translateY(${p.dy}px)`;
+    p.scrim.style.backgroundColor = `color-mix(in srgb, var(--scrim) ${Math.round(100 - Math.min(1, p.dy / 500) * 70)}%, transparent)`;
+  };
+
+  private onPullUp = (e: PointerEvent) => {
+    const p = this.pull;
+    this.pull = undefined;
+    if (!p?.on || e.pointerId !== p.id) return;
+    const h = p.sheet.offsetHeight;
+    const reset = () => {
+      p.sheet.style.transform = "";
+      p.scrim.style.backgroundColor = "";
+    };
+    if (p.dy > h * 0.28 || p.v > 0.55) {
+      navigator.vibrate?.(4);
+      const end = h + 40;
+      const ms = Math.max(140, Math.min(320, ((end - p.dy) / Math.max(p.v, 1.2)) | 0));
+      p.scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, fill: "forwards" });
+      p.sheet.animate([{ transform: `translateY(${p.dy}px)` }, { transform: `translateY(${end}px)` }], { duration: ms, easing: "cubic-bezier(0.2, 0.7, 0.4, 1)", fill: "forwards" }).finished.then(() => {
+        const top = this.sheets[this.sheets.length - 1];
+        top?.onClose?.();
+        this.ctx.closeSheet();
+        // The next sheet down (if any) reuses these elements: clear what the drag left on them.
+        requestAnimationFrame(() => {
+          reset();
+          p.sheet.getAnimations().forEach((a) => a.cancel());
+          p.scrim.getAnimations().forEach((a) => a.cancel());
+        });
+      });
+    } else {
+      const { frames, duration } = spring(p.dy, 0, p.v, (y) => ({ transform: `translateY(${y}px)` }));
+      reset();
+      p.sheet.animate(frames, { duration });
+    }
+  };
+
   private dismiss() {
     const top = this.sheets[this.sheets.length - 1];
     if (this.sheets.length === 1 && this.useOrigin(top)) {
@@ -216,7 +286,7 @@ export class SnSheetHost extends LitElement {
           @click=${(e: Event) => e.target === e.currentTarget && i === this.sheets.length - 1 && this.dismiss()}
         >
           <div class="sheet" role="dialog" aria-modal="true" aria-label=${s.title ?? ""}>
-            <header>
+            <header @pointerdown=${this.onPullDown} @pointermove=${this.onPullMove} @pointerup=${this.onPullUp} @pointercancel=${this.onPullUp}>
               <h2>${s.title ?? ""}</h2>
               <button class="icon-btn small pressable" aria-label=${this.ctx.t("close")} @click=${() => this.dismiss()}>
                 <sn-icon icon="close" style="--icon-size:20px"></sn-icon>

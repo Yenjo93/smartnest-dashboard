@@ -46,6 +46,8 @@ export interface Hass {
   hassUrl(path?: string): string;
   connection: {
     subscribeMessage<T = any>(cb: (msg: T) => void, msg: Record<string, any>): Promise<() => void>;
+    addEventListener?(event: "ready" | "disconnected" | "reconnect-error", cb: () => void): void;
+    removeEventListener?(event: "ready" | "disconnected" | "reconnect-error", cb: () => void): void;
   };
 }
 

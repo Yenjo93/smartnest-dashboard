@@ -6,6 +6,7 @@ import { LOCALE, type I18nKey } from "../i18n";
 import { relativeTime } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { watchVisible } from "../ui/visible";
 import { cameraDigest } from "../ai-features";
 
 interface FEvent {
@@ -37,6 +38,8 @@ export class SnFrigate extends LitElement {
   @state() private events?: FEvent[];
   @state() private missing = false;
   private timer?: number;
+  private seen = true;
+  private stopVis?: () => void;
 
   static styles = [
     shared,
@@ -129,11 +132,13 @@ export class SnFrigate extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.load();
-    this.timer = window.setInterval(() => this.load(), 30_000);
+    this.timer = window.setInterval(() => this.seen && this.load(), 30_000);
+    this.stopVis = watchVisible(this, (on) => (this.seen = on));
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.stopVis?.();
     window.clearInterval(this.timer);
   }
 

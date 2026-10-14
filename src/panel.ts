@@ -1,12 +1,11 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { keyed } from "lit/directives/keyed.js";
+import { repeat } from "lit/directives/repeat.js";
 import type { Ctx, SheetSpec } from "./ctx";
 import type { DashboardConfig, Hass, HassEntity, Lang, PanelInfo } from "./types";
 import { defaultConfig, loadConfig, normalizeConfig, saveConfig, subscribeConfig } from "./config";
 import { isRtl, translator } from "./i18n";
 import { fontFaceCss, shared, themeVars } from "./theme";
-import { addPageSheet, addWidgetSheet, pageSettingsSheet, settingsSheet } from "./editors";
 import "./ui/icon";
 import "./ui/sheet-host";
 import "./grid";
@@ -18,7 +17,6 @@ import "./cinematic";
 import "./morning";
 import "./message";
 import "./assistant";
-import "./licenses-panel";
 import { setVoice, voiceOn } from "./voice";
 import { tourDone, type TourStep } from "./tour";
 import { ambientColor, followLight, midnightVars, proVars, registerAnimatedVars, type Material } from "./pro";
@@ -48,7 +46,31 @@ import { applyChrome, guardNavigation, hashPin, readKiosk, writeKiosk } from "./
 import { playSound, setBrightness, setMotionWake, setScreen, thisTablet } from "./fully";
 import { buildChips, chipSheet, dashboardEntities } from "./chips";
 import { rolling } from "./ui/num";
+import { spring } from "./ui/spring";
 import { allows, type Plan } from "./plans";
+
+/** Settings, page and widget editors: loaded the first time they're opened. */
+const editors = () => import("./editors");
+
+const CACHE = "smartnest-cache-v1";
+type Cached = { config: DashboardConfig; lic: { licensee: string; plan: Plan; expires?: number; trial: boolean; reseller: string } };
+
+function readCache(): Cached | undefined {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE) ?? "null");
+    return c?.config?.pages ? c : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function dropCache() {
+  try {
+    localStorage.removeItem(CACHE);
+  } catch {
+    /* private window */
+  }
+}
 
 declare const __SN_VERSION__: string;
 export const VERSION = typeof __SN_VERSION__ === "string" ? __SN_VERSION__ : "dev";
@@ -828,6 +850,42 @@ export class SmartNestPanel extends LitElement {
           opacity: 0;
         }
       }
+      /* Connection to Home Assistant: a quiet pill at the top while it reconnects, instead of a frozen screen. */
+      .link {
+        position: fixed;
+        top: max(10px, env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 96;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow-lift);
+        font-size: 14px;
+        font-weight: 600;
+        animation: dock-in 420ms var(--spring);
+      }
+      .link.back {
+        color: var(--success);
+      }
+      .link i {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid var(--text-2);
+        border-top-color: transparent;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
       .toast {
         position: fixed;
         bottom: 96px;
@@ -932,12 +990,62 @@ export class SmartNestPanel extends LitElement {
     registerAnimatedVars();
     window.addEventListener("keydown", this.onSearchKey);
     this.addEventListener("sn-light-wave", this.onWave);
+    // Whatever scrolls the dashboard (the window in a browser, a container inside Home Assistant), listen to it.
+    window.addEventListener("scroll", this.onScroll, { capture: true, passive: true });
   }
+
+  private scrollRest?: number;
+  /** The link to Home Assistant: up, lost (reconnecting), or just back. */
+  @state() private link: "up" | "lost" | "back" = "up";
+  private linkConn?: Hass["connection"];
+  private linkTimer?: number;
+  private onLinkLost = () => {
+    window.clearTimeout(this.linkTimer);
+    // A blip under a second isn't worth showing.
+    this.linkTimer = window.setTimeout(() => (this.link = "lost"), 1000);
+  };
+  private onLinkReady = () => {
+    window.clearTimeout(this.linkTimer);
+    if (this.link === "up") return;
+    this.link = "back";
+    this.linkTimer = window.setTimeout(() => (this.link = "up"), 1800);
+  };
+
+  private watchLink() {
+    const c = this.hass?.connection;
+    if (!c || c === this.linkConn || !c.addEventListener) return;
+    this.linkConn?.removeEventListener?.("disconnected", this.onLinkLost);
+    this.linkConn?.removeEventListener?.("ready", this.onLinkReady);
+    c.addEventListener("disconnected", this.onLinkLost);
+    c.addEventListener("ready", this.onLinkReady);
+    this.linkConn = c;
+  }
+
+  /**
+   * While the page scrolls, the background loops pause and the glass blurs a little less: the GPU spends the
+   * frame on moving the page. Both come back a moment after the finger lets go; the change itself is barely visible.
+   */
+  private onScroll = () => {
+    const app = this.renderRoot.querySelector<HTMLElement>(".app");
+    if (!app || this.lite) return;
+    if (this.scrollRest === undefined) {
+      app.style.setProperty("--loops", "paused");
+      app.style.setProperty("--glass-blur", "16px");
+    }
+    window.clearTimeout(this.scrollRest);
+    this.scrollRest = window.setTimeout(() => {
+      this.scrollRest = undefined;
+      app.style.removeProperty("--loops");
+      app.style.removeProperty("--glass-blur");
+    }, 180);
+  };
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.clearInterval(this.renewTimer);
     window.clearInterval(this.licTimer);
+    window.removeEventListener("scroll", this.onScroll, { capture: true });
+    window.clearTimeout(this.scrollRest);
     document.removeEventListener("visibilitychange", this.recheckLicense);
     this.stopLight?.();
     window.removeEventListener("keydown", this.onSearchKey);
@@ -1042,6 +1150,13 @@ export class SmartNestPanel extends LitElement {
       document.head.appendChild(style);
     }
     const lang = pickLang(this.hass.language);
+    // Open at once on the last dashboard this screen showed; the fresh one from Home Assistant replaces it a moment later.
+    const cached = readCache();
+    if (cached && !this.config) {
+      this.config = normalizeConfig(cached.config, lang);
+      this.lic = cached.lic;
+      this.pageId = this.config.settings.default_page || this.config.pages[0]?.id || "";
+    }
     try {
       const raw = await loadConfig(this.hass);
       if (raw) this.config = normalizeConfig(raw, lang);
@@ -1084,6 +1199,8 @@ export class SmartNestPanel extends LitElement {
       this.watchLicense();
     } catch (err) {
       if ((err as any)?.code === "not_licensed") {
+        dropCache();
+        this.config = undefined;
         const st = await this.hass.callWS<{ instance_id: string; expired?: boolean; revoked?: boolean }>({ type: "smartnest/license/status" });
         this.license = { instance_id: st.instance_id, expired: st.expired, revoked: st.revoked };
         this.waitForRenewal();
@@ -1110,6 +1227,7 @@ export class SmartNestPanel extends LitElement {
 
   protected willUpdate(changed: Map<string, unknown>) {
     if (changed.has("hass") && this.hass && !this.initStarted) this.init();
+    if (changed.has("hass")) this.watchLink();
     if (changed.has("hass")) {
       this.watchDoorbell();
       this.watchScreen();
@@ -1382,9 +1500,11 @@ export class SmartNestPanel extends LitElement {
     };
     if (target && (Math.abs(s.dx) > 90 || Math.abs(velocity) > 0.45)) {
       navigator.vibrate?.(6);
+      // A fast flick leaves faster.
+      const out = Math.max(110, Math.min(200, 160 / Math.max(1, Math.abs(velocity) * 1.5)));
       main
         .animate([{ transform: `translateX(${pull}px)`, opacity: main.style.opacity || "1" }, { transform: `translateX(${Math.sign(s.dx) * main.offsetWidth * 0.35}px)`, opacity: 0 }], {
-          duration: 160,
+          duration: out,
           easing: "cubic-bezier(0.22, 1, 0.36, 1)",
           fill: "forwards",
         })
@@ -1394,7 +1514,9 @@ export class SmartNestPanel extends LitElement {
         });
     } else {
       reset();
-      main.animate([{ transform: `translateX(${pull}px)` }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+      // Back into place on a spring, carrying the finger's speed.
+      const { frames, duration } = spring(pull, 0, velocity * (target ? 1 : 0.3), (x) => ({ transform: `translateX(${x}px)` }));
+      main.animate(frames, { duration });
     }
   };
 
@@ -1417,13 +1539,45 @@ export class SmartNestPanel extends LitElement {
       .finished.finally(() => veil.remove());
   }
 
+  private cachedRef?: DashboardConfig;
+  /** The last few pages shown, kept built for an instant way back, each with the ctx it last had. */
+  private recent: string[] = [];
+  private parked = new Map<string, Ctx>();
+
+  private alivePages(ctx: Ctx, current: string) {
+    // Editing changes the pages under us: only the current one then. Weak tablets in fast mode keep fewer.
+    const keep = ctx.editing ? 0 : this.lite ? 1 : 2;
+    const last = this.recent[this.recent.length - 1];
+    if (last !== current) {
+      if (last) this.parked.set(last, this.lastCtx ?? ctx);
+      this.recent = [...this.recent.filter((id) => id !== current), current];
+    }
+    this.lastCtx = ctx;
+    this.recent = this.recent.slice(-(keep + 1)).filter((id) => ctx.config.pages.some((p) => p.id === id));
+    for (const id of [...this.parked.keys()]) if (!this.recent.includes(id) || id === current) this.parked.delete(id);
+    return this.recent.map((id) => ctx.config.pages.find((p) => p.id === id)!);
+  }
+  private lastCtx?: Ctx;
+
   protected updated() {
+    // Keep this screen's copy of the dashboard for the next instant open (only once it's licensed and loaded).
+    if (this.config && this.config !== this.cachedRef && !this.license && this.initStarted) {
+      this.cachedRef = this.config;
+      const snap = { config: this.config, lic: this.lic };
+      window.setTimeout(() => {
+        try {
+          localStorage.setItem(CACHE, JSON.stringify(snap));
+        } catch {
+          /* full or private: just no instant open */
+        }
+      }, 1000);
+    }
     const dark = this.dark;
     if (this.lastDark !== undefined && dark !== this.lastDark && this.current) this.playThemeFlip(dark);
     this.lastDark = dark;
     if (this.enterDir) {
       // New page slides in from the side it lives on; 260ms ease-out, opacity + transform only.
-      const main = this.renderRoot.querySelector("main");
+      const main = this.renderRoot.querySelector("main.current");
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
       const from = (isRtl(this.uiLang) ? -1 : 1) * this.enterDir * 48;
       const still = reduce || this.current?.settings.motion === "off";
@@ -1858,7 +2012,7 @@ export class SmartNestPanel extends LitElement {
   }
 
   private tabClick(ctx: Ctx, id: string) {
-    if (id === this.pageId && ctx.editing) return pageSettingsSheet(ctx, id, () => (this.pageId = this.current!.pages[0]?.id ?? ""));
+    if (id === this.pageId && ctx.editing) return void editors().then((m) => m.pageSettingsSheet(ctx, id, () => (this.pageId = this.current!.pages[0]?.id ?? "")));
     this.goToPage(id);
   }
 
@@ -1892,6 +2046,7 @@ export class SmartNestPanel extends LitElement {
   private applyLicense(r: LicStatus) {
     if (!r.licensed) {
       if (!this.license && r.instance_id) {
+        dropCache();
         this.license = { instance_id: r.instance_id, expired: r.expired, revoked: r.revoked };
         this.waitForRenewal();
       }
@@ -2030,16 +2185,16 @@ export class SmartNestPanel extends LitElement {
   private renderDock(ctx: Ctx) {
     const { t } = ctx;
     return html`<div class="dock glass">
-      <button class="btn primary pressable" @click=${() => addWidgetSheet(ctx, this.pageId)}>
+      <button class="btn primary pressable" @click=${() => editors().then((m) => m.addWidgetSheet(ctx, this.pageId))}>
         <sn-icon icon="plus" style="--icon-size:20px"></sn-icon>${t("add_widget")}
       </button>
-      <button class="btn pressable" @click=${() => pageSettingsSheet(ctx, this.pageId, () => (this.pageId = this.current!.pages[0]?.id ?? ""))}>
+      <button class="btn pressable" @click=${() => editors().then((m) => m.pageSettingsSheet(ctx, this.pageId, () => (this.pageId = this.current!.pages[0]?.id ?? "")))}>
         <sn-icon icon="pencil" style="--icon-size:20px"></sn-icon>${t("page_settings")}
       </button>
-      <button class="btn pressable" @click=${() => addPageSheet(ctx, (id) => (this.pageId = id))}>
+      <button class="btn pressable" @click=${() => editors().then((m) => m.addPageSheet(ctx, (id) => (this.pageId = id)))}>
         <sn-icon icon="dashboard" style="--icon-size:20px"></sn-icon>${t("add_page")}
       </button>
-      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => settingsSheet(ctx, { version: VERSION, license: this.lic, testDoorbell: () => this.ring(), checkLicense: () => this.checkLicense() })}>
+      <button class="icon-btn pressable" aria-label=${t("settings")} @click=${() => editors().then((m) => m.settingsSheet(ctx, { version: VERSION, license: this.lic, testDoorbell: () => this.ring(), checkLicense: () => this.checkLicense() }))}>
         <sn-icon icon="cog" style="--icon-size:20px"></sn-icon>
       </button>
     </div>`;
@@ -2076,19 +2231,31 @@ export class SmartNestPanel extends LitElement {
       ${this.renderWeather(ctx)}
       ${this.renderBar(ctx)}
       ${page
-        ? keyed(
-            page.id,
-            html`<main
-              @sn-cancel-swipe=${(e: Event) => {
-                this.swipe = undefined;
-                const m = e.currentTarget as HTMLElement;
-                m.style.transform = "";
-                m.style.opacity = "";
-              }}
-              @pointerdown=${this.onSwipeDown} @pointermove=${this.onSwipeMove} @pointerup=${this.onSwipeUp} @pointercancel=${this.onSwipeUp}>
-              ${this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
-              <sn-page-grid .ctx=${ctx} .page=${page}></sn-page-grid>
-            </main>`
+        ? repeat(
+            this.alivePages(ctx, page.id),
+            (p) => p.id,
+            (p) => {
+              // A page visited a moment ago stays built but asleep (hidden, not redrawn): going back to it is instant.
+              const cur = p.id === page.id;
+              return html`<main
+                class=${cur ? "current" : "parked"}
+                ?hidden=${!cur}
+                aria-hidden=${cur ? "false" : "true"}
+                @sn-cancel-swipe=${(e: Event) => {
+                  this.swipe = undefined;
+                  const m = e.currentTarget as HTMLElement;
+                  m.style.transform = "";
+                  m.style.opacity = "";
+                }}
+                @pointerdown=${cur ? this.onSwipeDown : null}
+                @pointermove=${cur ? this.onSwipeMove : null}
+                @pointerup=${cur ? this.onSwipeUp : null}
+                @pointercancel=${cur ? this.onSwipeUp : null}
+              >
+                ${cur && this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
+                <sn-page-grid .ctx=${cur ? ctx : this.parked.get(p.id) ?? ctx} .page=${p}></sn-page-grid>
+              </main>`;
+            }
           )
         : nothing}
       ${ctx.narrow && ctx.config.pages.length > 1 && !this.kids ? this.renderTabbar(ctx) : nothing}
@@ -2137,6 +2304,11 @@ export class SmartNestPanel extends LitElement {
               this.checkMorning();
             }}></sn-screensaver>` : nothing}
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
+      ${this.link !== "up"
+        ? html`<div class="link ${this.link}" role="status">
+            ${this.link === "back" ? html`<sn-icon icon="check" style="--icon-size:16px"></sn-icon>${ctx.t("link_back")}` : html`<i></i>${ctx.t("link_lost")}`}
+          </div>`
+        : nothing}
     </div>`;
   }
 }

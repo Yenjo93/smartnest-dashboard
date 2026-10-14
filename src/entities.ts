@@ -133,10 +133,37 @@ export function tapKind(entityId: string): TapKind {
   return "sheet";
 }
 
+// ---- instant feedback ----
+// A tapped light shows its new state at once; Home Assistant confirms (or not) a moment later. If the device doesn't
+// follow within a few seconds, or the call fails, the real state shows again.
+const guesses = new Map<string, { state: string; from: string; until: number }>();
+const FLIPS = ["light", "switch", "fan", "input_boolean", "siren", "humidifier"];
+
+/** The state to draw: the real one, or what a tap just asked for while Home Assistant catches up. */
+export function seen(e: HassEntity | undefined): HassEntity | undefined {
+  if (!e) return e;
+  const g = guesses.get(e.entity_id);
+  if (!g) return e;
+  if (e.last_updated !== g.from || Date.now() > g.until) {
+    guesses.delete(e.entity_id);
+    return e;
+  }
+  return { ...e, state: g.state };
+}
+
+export const GUESS_MS = 4000;
+
 export async function runTap(hass: Hass, e: HassEntity): Promise<void> {
   const id = e.entity_id;
   const d = domainOf(id);
   const target = { entity_id: id };
+  if (FLIPS.includes(d) && (e.state === "on" || e.state === "off")) {
+    guesses.set(id, { state: e.state === "on" ? "off" : "on", from: e.last_updated, until: Date.now() + GUESS_MS });
+    return hass.callService("homeassistant", "toggle", target).catch((err) => {
+      guesses.delete(id);
+      throw err;
+    });
+  }
   switch (d) {
     case "climate":
       return hass.callService("climate", e.state === "off" ? "turn_on" : "turn_off", target);

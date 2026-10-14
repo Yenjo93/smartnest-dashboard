@@ -53,7 +53,7 @@ function status(h: House): ["ok" | "soon" | "bad", string] {
  * The installer's license desk, as its own page in the sidebar. Home Assistant only shows it on the installer's
  * house: the integration registers it there because that's where the signing key was put. Admins only.
  */
-@customElement("smartnest-licenses")
+@customElement("sn-licenses-page")
 export class SmartNestLicenses extends LitElement {
   @property({ attribute: false }) hass!: Hass;
   @property({ type: Boolean, reflect: true }) narrow = false;

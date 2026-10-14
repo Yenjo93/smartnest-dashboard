@@ -6,6 +6,7 @@ import { entityName, stateLabel } from "../entities";
 import { snapshotUrl } from "./camera";
 import { shared } from "../theme";
 import "../ui/icon";
+import { watchVisible } from "../ui/visible";
 
 /** Gate or garage with its camera: see who's there, then hold to open. A tap alone never moves a gate. */
 @customElement("sn-w-gate")
@@ -15,6 +16,8 @@ export class SnGate extends LitElement {
   @state() private holding = false;
   @state() private bust = Date.now();
   private timer?: number;
+  private seen = true;
+  private stopVis?: () => void;
   private hold?: number;
 
   static styles = [
@@ -93,11 +96,13 @@ export class SnGate extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.timer = window.setInterval(() => (this.bust = Date.now()), 5000);
+    this.timer = window.setInterval(() => this.seen && (this.bust = Date.now()), 5000);
+    this.stopVis = watchVisible(this, (on) => (this.seen = on));
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.stopVis?.();
     window.clearInterval(this.timer);
     window.clearTimeout(this.hold);
   }

@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { LOCALE } from "../i18n";
 import { shared } from "../theme";
 import "../ui/icon";
+import { watchVisible } from "../ui/visible";
 
 interface Visit {
   url: string;
@@ -18,6 +19,8 @@ export class SnVisitors extends LitElement {
   @property({ attribute: false }) widget!: Widget;
   @state() private visits?: Visit[];
   private timer?: number;
+  private seen = true;
+  private stopVis?: () => void;
   private bellSeen?: string;
 
   static styles = [
@@ -116,11 +119,13 @@ export class SnVisitors extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.load();
-    this.timer = window.setInterval(() => this.load(), 120_000);
+    this.timer = window.setInterval(() => this.seen && this.load(), 120_000);
+    this.stopVis = watchVisible(this, (on) => (this.seen = on));
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.stopVis?.();
     window.clearInterval(this.timer);
   }
 

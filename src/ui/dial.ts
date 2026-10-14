@@ -102,8 +102,11 @@ export class SnDial extends LitElement {
   }
 
   /** Finger position to a target, snapped to the step, ignoring the gap at the bottom. */
+  private rect?: DOMRect;
+
   private fromPointer(e: PointerEvent) {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Measured once per drag: reading the layout on every move makes the browser stop and recalculate.
+    const r = this.rect ?? (e.currentTarget as HTMLElement).getBoundingClientRect();
     let deg = (Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * 180) / Math.PI;
     deg = (deg + 360) % 360;
     let rel = (deg - START + 360) % 360;
@@ -113,7 +116,8 @@ export class SnDial extends LitElement {
   }
 
   private set(v: number) {
-    if (this.drag !== undefined && v !== this.drag) navigator.vibrate?.(4);
+    if (v === this.drag) return; // stepped: most moves don't change the value, so nothing to redraw
+    if (this.drag !== undefined) navigator.vibrate?.(4);
     this.drag = v;
   }
 
@@ -141,14 +145,16 @@ export class SnDial extends LitElement {
       style="--glow:${color}"
       @pointerdown=${(e: PointerEvent) => {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        this.rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         this.drag = this.fromPointer(e);
       }}
       @pointermove=${(e: PointerEvent) => this.drag !== undefined && this.set(this.fromPointer(e))}
       @pointerup=${() => {
+        this.rect = undefined;
         if (this.drag !== undefined && this.drag !== this.value) this.onCommit?.(this.drag);
         this.drag = undefined;
       }}
-      @pointercancel=${() => (this.drag = undefined)}
+      @pointercancel=${() => ((this.rect = undefined), (this.drag = undefined))}
       @keydown=${(e: KeyboardEvent) => {
         const d = e.key === "ArrowUp" || e.key === "ArrowRight" ? this.step : e.key === "ArrowDown" || e.key === "ArrowLeft" ? -this.step : 0;
         if (!d) return;

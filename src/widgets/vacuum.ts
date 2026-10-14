@@ -7,6 +7,7 @@ import { hasKey, type I18nKey } from "../i18n";
 import { entityName, formatNumber, ltr, stateLabel } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { watchVisible } from "../ui/visible";
 
 // Roborock part lifetimes in hours (the integration reports time left, not a percentage).
 export const PARTS: { key: string; label: I18nKey; life: number }[] = [
@@ -110,6 +111,8 @@ export class SnVacuum extends LitElement {
   @state() private passes = 1;
   @state() private bust = Date.now();
   private timer?: number;
+  private seen = true;
+  private stopVis?: () => void;
 
   static styles = [
     shared,
@@ -373,11 +376,13 @@ export class SnVacuum extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.loadRooms();
-    this.timer = window.setInterval(() => (this.bust = Date.now()), 5000);
+    this.timer = window.setInterval(() => this.seen && (this.bust = Date.now()), 5000);
+    this.stopVis = watchVisible(this, (on) => (this.seen = on));
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.stopVis?.();
     window.clearInterval(this.timer);
   }
 

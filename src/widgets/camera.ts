@@ -5,6 +5,7 @@ import type { Hass, Widget } from "../types";
 import { entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { preload, watchVisible } from "../ui/visible";
 
 export function snapshotUrl(hass: Hass, entityId: string, bust: number): string | undefined {
   const pic = hass.states[entityId]?.attributes.entity_picture as string | undefined;
@@ -27,7 +28,11 @@ export class SnCamera extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
   @state() private bust = Date.now();
+  /** The frame on screen: a new one replaces it only once it has fully loaded. */
+  @state() private shown?: string;
   private timer?: number;
+  private visible = true;
+  private stopVis?: () => void;
 
   static styles = [
     shared,
@@ -81,17 +86,34 @@ export class SnCamera extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.timer = window.setInterval(() => (this.bust = Date.now()), 10_000);
+    // Refresh only while someone can see it; coming back into view brings a fresh frame at once.
+    this.timer = window.setInterval(() => this.visible && (this.bust = Date.now()), 10_000);
+    this.stopVis = watchVisible(this, (on) => {
+      this.visible = on;
+      if (on && Date.now() - this.bust > 10_000) this.bust = Date.now();
+    });
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     window.clearInterval(this.timer);
+    this.stopVis?.();
+  }
+
+  private loading?: string;
+
+  protected updated() {
+    const id = this.widget.config.entity as string;
+    const url = id ? snapshotUrl(this.ctx.hass, id, this.bust) : undefined;
+    if (!url || url === this.shown || url === this.loading) return;
+    this.loading = url;
+    if (!this.shown) this.shown = url;
+    else preload(url).then((u) => this.loading === u && (this.shown = u), () => undefined);
   }
 
   render() {
     const { ctx } = this;
     const id = this.widget.config.entity as string;
-    const url = id ? snapshotUrl(ctx.hass, id, this.bust) : undefined;
+    const url = this.shown;
     return html`
       <button class="cam pressable" @click=${(e: Event) => !ctx.editing && id && ctx.openEntity(id, e.currentTarget as Element)}>
         ${url ? html`<img src=${url} alt="" draggable="false" />` : html`<span class="placeholder"><sn-icon icon="cctv"></sn-icon></span>`}
