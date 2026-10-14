@@ -41,6 +41,8 @@ export class SnDoorbell extends LitElement {
   /** The wall tablet already rang through its own speaker. */
   @property({ type: Boolean }) silent = false;
   @state() private confirm = false;
+  /** Shrunk to a small floating window in the corner: watch the door and keep using the dashboard. */
+  @state() private mini = false;
   private timer?: number;
 
   static styles = [
@@ -57,6 +59,45 @@ export class SnDoorbell extends LitElement {
         -webkit-backdrop-filter: blur(14px);
         backdrop-filter: blur(14px);
         animation: fade 300ms var(--ease-out);
+      }
+      .pip {
+        position: fixed;
+        z-index: 80;
+        bottom: 96px;
+        inset-inline-end: 16px;
+        width: min(320px, calc(100vw - 32px));
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        background: #0d1114;
+        box-shadow: var(--shadow-lift), 0 0 0 2px var(--accent);
+        animation: pop 420ms var(--spring);
+        cursor: pointer;
+      }
+      .pip img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        display: block;
+      }
+      .pip .bar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px;
+        background: var(--surface-solid);
+      }
+      .pip .bar span {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 600;
+        padding-inline-start: 6px;
+      }
+      .shrink {
+        position: absolute;
+        top: 12px;
+        inset-inline-end: 12px;
+        background: rgba(21, 26, 30, 0.6);
+        color: #fff;
       }
       .card {
         width: min(760px, 100%);
@@ -247,9 +288,27 @@ export class SnDoorbell extends LitElement {
     const cam = d.camera_entity;
     const url = cam ? liveUrl(ctx.hass, cam) ?? snapshotUrl(ctx.hass, cam, Date.now()) : undefined;
     const lock = d.lock_entity ? ctx.hass.states[d.lock_entity] : undefined;
+    if (this.mini)
+      return html`<div class="pip" role="alertdialog" aria-label=${t("someone_at_door")} @click=${() => (this.mini = false)}>
+        ${url ? html`<img src=${url} alt="" />` : nothing}
+        <div class="bar">
+          <sn-icon icon="bell-ring" style="--icon-size:18px;color:var(--accent-text)"></sn-icon>
+          <span>${t("someone_at_door")}</span>
+          <button class="icon-btn small pressable" aria-label=${t("dismiss")} @click=${(e: Event) => (e.stopPropagation(), this.onDismiss())}>
+            <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+          </button>
+        </div>
+      </div>`;
     return html`<div class="scrim" @click=${(e: Event) => e.target === e.currentTarget && this.onDismiss()}>
       <div class="card" role="alertdialog" aria-label=${t("someone_at_door")}>
-        ${url ? html`<div class="video"><img src=${url} alt="" /><span class="live">${t("streaming")}</span></div>` : nothing}
+        ${url
+          ? html`<div class="video">
+              <img src=${url} alt="" /><span class="live">${t("streaming")}</span>
+              <button class="icon-btn small pressable shrink" aria-label=${t("door_mini")} title=${t("door_mini")} @click=${() => (this.mini = true)}>
+                <sn-icon icon="picture-in-picture" style="--icon-size:18px"></sn-icon>
+              </button>
+            </div>`
+          : nothing}
         <div class="foot">
           <span class="bell"><sn-icon icon="bell-ring"></sn-icon></span>
           <span class="title">

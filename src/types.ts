@@ -195,7 +195,8 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "batteries"
   | "lights"
   | "covers"
-  | "prayer";
+  | "prayer"
+  | "folder";
 
 export interface Widget {
   id: string;

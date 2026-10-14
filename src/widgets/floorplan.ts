@@ -16,6 +16,7 @@ import { fxRow } from "../lightfx";
 import "../ai-features";
 import "../ui/entity-picker";
 import { haptic } from "../ui/haptic";
+import { saveAsScene } from "../scene-save";
 
 type MapMode = "off" | "temp" | "humidity" | "co2" | "power";
 
@@ -1339,6 +1340,11 @@ export class SnFloorplan extends LitElement {
             ? fxRow(c, lights)
             : nothing}
           <sn-ai-scene .ctx=${c} .lights=${lights}></sn-ai-scene>
+          ${c.isAdmin
+            ? html`<button class="btn pressable" @click=${() => saveAsScene(c, ids, room.name).catch(() => c.toast(c.t("error")))}>
+                <sn-icon icon="content-save" style="--icon-size:20px"></sn-icon>${c.t("scene_keep")}
+              </button>`
+            : nothing}
           ${ids.map((id) => {
             const e = c.hass.states[id];
             return html`<button

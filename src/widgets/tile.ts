@@ -11,6 +11,7 @@ import { rolling } from "../ui/num";
 import { livingClass, livingStyles, playStateChange } from "../motion";
 import { openRadial } from "../ui/radial";
 import { haptic } from "../ui/haptic";
+import { minutesLeft, onTimers } from "../live-timers";
 
 const QUICK = ["light", "cover", "switch", "fan", "input_boolean", "climate", "media_player"];
 
@@ -180,6 +181,22 @@ export class SnTile extends LitElement {
           display: none;
         }
       }
+      /* A live countdown: "off in 30 min", or the washer's time left. */
+      .left {
+        position: absolute;
+        top: 8px;
+        inset-inline-end: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--tone, var(--accent)) 22%, transparent);
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 700;
+        --icon-size: 13px;
+      }
       .tile.armed {
         transform: scale(0.97);
         transition: transform 160ms var(--ease-out);
@@ -203,6 +220,20 @@ export class SnTile extends LitElement {
         el.removeEventListener("pointercancel", this.slideUp);
       };
     }
+  }
+
+  private leftTick?: number;
+  private offTimers?: () => void;
+
+  private renderLeft(id: string, on: boolean) {
+    if (!on) return "";
+    const l = minutesLeft(this.ctx.hass, id);
+    // Keep the countdown moving while it shows (the tile otherwise only redraws when its device changes).
+    if (l && !this.leftTick) this.leftTick = window.setInterval(() => this.requestUpdate(), 30_000);
+    if (!l && this.leftTick) (window.clearInterval(this.leftTick), (this.leftTick = undefined));
+    if (!l) return "";
+    const txt = l.left >= 60 ? `${Math.floor(l.left / 60)}:${String(l.left % 60).padStart(2, "0")}` : this.ctx.t("min_short", { n: l.left });
+    return html`<span class="left ltr"><sn-icon icon=${l.kind === "timer" ? "timer-outline" : "progress-clock"}></sn-icon>${txt}</span>`;
   }
 
   private long(el: HTMLElement) {
@@ -287,11 +318,16 @@ export class SnTile extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.offTimers = onTimers(() => this.requestUpdate());
     if (this.hasUpdated) this.bind(); // re-attached after a drag reorder
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.clearInterval(this.leftTick);
+    this.leftTick = undefined;
+    this.offTimers?.();
+    this.offTimers = undefined;
     this.unbind?.();
     this.unbind = undefined;
   }
@@ -333,6 +369,7 @@ export class SnTile extends LitElement {
           ? html`<div class="dim" style="transform:scaleX(${this.dim / 100});--from:${this.ctx.rtl ? "right" : "left"}"></div><b class="dimv ltr">${this.dim}%</b>`
           : ""}
         ${on ? html`<span class="ring" aria-hidden="true"><i></i></span>` : ""}
+        ${this.renderLeft(id, on)}
         <span class="ic"><sn-icon class=${livingClass(e)} .icon=${entityIcon(e, id)}></sn-icon></span>
         <span class="text">
           <span class="name">${entityName(ctx.hass, ctx.config, id)}</span>

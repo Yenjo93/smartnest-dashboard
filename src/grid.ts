@@ -31,6 +31,7 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/folder";
 import "./widgets/prayer";
 import "./widgets/group";
 import "./widgets/batteries";
@@ -95,6 +96,8 @@ function watched(w: Widget, hass: Ctx["hass"]): { ids: string[]; maxAge: number 
       return one();
     case "schedule":
       return one("sun.sun");
+    case "folder":
+      return one(...(c.entities ?? []));
     case "floorplan": {
       // Its devices, the family's room sensors, the robot and the sun; anything else it shows catches up within 3 s.
       const ids = new Set<string>(["sun.sun"]);
@@ -510,6 +513,8 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="cover"></sn-w-group>`;
       case "prayer":
         return html`<sn-w-prayer .ctx=${ctx} .widget=${w}></sn-w-prayer>`;
+      case "folder":
+        return html`<sn-w-folder .ctx=${ctx} .widget=${w}></sn-w-folder>`;
       default:
         return nothing;
     }

@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board", "later", "warranty")
+KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board", "later", "warranty", "ac_week")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
@@ -60,6 +60,36 @@ class Family:
         self._internet(now)
         self._later(now)
         self._wake(now)
+        self._ac_week(now)
+
+    # ---- the AC's week ----
+
+    def _ac_week(self, now: datetime) -> None:
+        """
+        Each AC has a week of hours drawn on a grid (7 bitmasks, Sunday first, bit n = hour n). On the hour, an hour
+        that starts a block turns it on in its mode and temperature; an hour that ends one turns it off. In between
+        the family is free to change it by hand.
+        """
+        if now.minute != 0:
+            return
+        day = (now.weekday() + 1) % 7  # Sunday = 0
+        for s in (self.data.get("ac_week") or {}).get("plans", []):
+            entity = s.get("entity")
+            week = s.get("hours") or []
+            if not entity or not s.get("on", True) or len(week) != 7:
+                continue
+            want = bool(int(week[day]) >> now.hour & 1)
+            prev_day, prev_hour = (day, now.hour - 1) if now.hour else ((day - 1) % 7, 23)
+            was = bool(int(week[prev_day]) >> prev_hour & 1)
+            if want and not was:
+                data: dict[str, Any] = {"entity_id": entity, "hvac_mode": s.get("mode") or "cool"}
+                self.hass.async_create_task(self.hass.services.async_call("climate", "set_hvac_mode", data))
+                if s.get("temp"):
+                    self.hass.async_create_task(
+                        self.hass.services.async_call("climate", "set_temperature", {"entity_id": entity, "temperature": float(s["temp"])})
+                    )
+            elif was and not want:
+                self.hass.async_create_task(self.hass.services.async_call("climate", "turn_off", {"entity_id": entity}))
 
     # ---- water heater ----
 

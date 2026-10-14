@@ -8,6 +8,7 @@ import { shared } from "../theme";
 import "../ui/icon";
 import "../ui/dial";
 import "../ui/num";
+import { acWeekSheet } from "../ac-week";
 
 const MODE_ICON: Record<string, string> = { off: "power", cool: "snowflake", heat: "fire", fan_only: "fan", dry: "water-percent", auto: "thermostat-auto", heat_cool: "thermostat-auto" };
 
@@ -53,9 +54,11 @@ export class SnAc extends LitElement {
         display: grid;
         place-items: center;
         min-height: 0;
+        container-type: size;
       }
+      /* As big as the card allows, in both directions. */
       sn-dial {
-        width: min(100%, 220px);
+        width: min(100cqw, 100cqh, 220px);
       }
       .big {
         display: flex;
@@ -141,6 +144,16 @@ export class SnAc extends LitElement {
         <sn-icon icon=${MODE_ICON[e.state] ?? "thermostat"} style="--icon-size:20px;color:${on ? "var(--accent-text)" : "var(--text-2)"}"></sn-icon>
         <b>${entityName(hass, config, id)}</b>
         ${now !== undefined ? html`<span>${t("current_temp")} <sn-num .value=${ltr(`${formatNumber(now, lang)}°`)}></sn-num></span>` : nothing}
+        ${ctx.allows("ac_week")
+          ? html`<button
+              class="icon-btn small pressable"
+              aria-label=${t("acw_title")}
+              title=${t("acw_title")}
+              @click=${(e: Event) => (e.stopPropagation(), acWeekSheet(ctx, id, `${t("acw_title")} · ${entityName(hass, config, id)}`))}
+            >
+              <sn-icon icon="calendar" style="--icon-size:18px"></sn-icon>
+            </button>`
+          : nothing}
       </div>
       <div class="mid">
         ${!on || target === undefined

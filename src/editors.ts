@@ -374,6 +374,13 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
             >${t("bat_low_at")}
             <input type="number" min="5" max="60" .value=${String(w.config.low ?? 20)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.low = Number(e.target.value) || 20))} />
           </label>`;
+        case "folder":
+          return col(
+            titleField(c, widgetId, w.config.title),
+            multiField(c, t("widget_folder"), w.config.entities, { domains: ["light", "switch", "fan", "cover", "climate", "lock", "media_player", "input_boolean", "scene", "script"] }, (ids) =>
+              editWidget(c, widgetId, (x) => (x.config.entities = ids))
+            )
+          );
         case "scenes":
           return col(
             titleField(c, widgetId, w.config.title),
@@ -492,6 +499,7 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "lights", icon: "lightbulb-group" },
   { type: "covers", icon: "blinds" },
   { type: "prayer", icon: "mosque" },
+  { type: "folder", icon: "folder" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

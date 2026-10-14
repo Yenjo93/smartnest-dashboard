@@ -29,6 +29,11 @@ import { setStill } from "./motion";
 import "./flair";
 import "./rainglass";
 import "./occasion";
+import { watchNotes, type HaNote } from "./notifs";
+import { nowPlaying } from "./miniplayer";
+import { refreshTimers } from "./live-timers";
+import { dismissNudge, findNudge, nudgeDismissed, type Nudge } from "./nudges";
+import "./miniplayer";
 import { dayAccent, fontStack, occasionToday } from "./look";
 import { monogram, seasonNow } from "./flair";
 import { snapshotUrl } from "./widgets/camera";
@@ -1020,6 +1025,46 @@ export class SmartNestPanel extends LitElement {
           transform: rotate(360deg);
         }
       }
+      .bell {
+        position: relative;
+      }
+      /* Where the bar is tight, the bell shows only when there's something in it. */
+      @media (max-width: 1100px) {
+        .bell.quiet {
+          display: none;
+        }
+      }
+      .nudge {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px 10px 16px;
+        margin-bottom: 16px;
+        border-radius: var(--r-lg);
+        animation: dock-in 420ms var(--spring);
+      }
+      .nudge span {
+        flex: 1;
+        font-weight: 500;
+      }
+      .nudge .btn {
+        min-height: 38px;
+      }
+      .bell .badge {
+        position: absolute;
+        top: -2px;
+        inset-inline-end: -2px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 9px;
+        background: var(--alert);
+        color: #fff;
+        font-size: 11px;
+        line-height: 18px;
+        text-align: center;
+        box-shadow: 0 0 0 2px var(--surface-solid);
+      }
       .undo {
         position: fixed;
         bottom: 96px;
@@ -1171,6 +1216,8 @@ export class SmartNestPanel extends LitElement {
   }
 
   private scrollRest?: number;
+  @state() private notes: HaNote[] = [];
+  private unsubNotes?: Promise<() => void>;
   @state() private undo?: { label: string; until: number };
   private undoTimer?: number;
 
@@ -1192,6 +1239,31 @@ export class SmartNestPanel extends LitElement {
     window.clearTimeout(this.undoTimer);
     this.undo = { label, until: Date.now() + 6000 };
     this.undoTimer = window.setTimeout(() => (this.undo = undefined), 6000);
+  }
+
+  /** While music plays somewhere, a small player floats at the bottom (unless this page already has that player on it). */
+  private renderMiniPlayer(ctx: Ctx) {
+    if (!ctx.allows("mini_player") || ctx.editing || this.simple || this.kids || this.sheets.length || this.sleeping) return nothing;
+    const p = nowPlaying(ctx);
+    if (!p) return nothing;
+    const page = ctx.config.pages.find((x) => x.id === this.pageId);
+    if (page?.widgets.some((w) => w.type === "media" && w.config.entity === p.entity_id)) return nothing;
+    return html`<sn-miniplayer .ctx=${ctx} .player=${p}></sn-miniplayer>`;
+  }
+
+  /** One gentle suggestion at the top of the page, when the house notices something wasteful. */
+  private renderNudge(ctx: Ctx) {
+    if (!this.pro || !ctx.allows("nudges") || ctx.editing || this.kids || this.simple) return nothing;
+    const n = this.nudge;
+    if (!n || nudgeDismissed(n.key)) return nothing;
+    return html`<div class="nudge glass" role="status">
+      <sn-icon .icon=${n.icon} style="--icon-size:22px;color:var(--accent-text)"></sn-icon>
+      <span>${n.text}</span>
+      <button class="btn primary pressable" @click=${() => (n.ids.length ? ctx.undoable(n.ids, n.action, n.run) : n.run().catch(() => this.toast(ctx.t("error"))))}>${n.action}</button>
+      <button class="icon-btn small pressable" aria-label=${ctx.t("nudge_later")} title=${ctx.t("nudge_later")} @click=${() => (dismissNudge(n.key), this.checkNudge())}>
+        <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+      </button>
+    </div>`;
   }
 
   private renderUndo() {
@@ -1275,6 +1347,8 @@ export class SmartNestPanel extends LitElement {
     this.unsub = undefined;
     this.unsubMsg?.then((u) => u()).catch(() => undefined);
     this.unsubMsg = undefined;
+    this.unsubNotes?.then((u) => u()).catch(() => undefined);
+    this.unsubNotes = undefined;
     this.initStarted = false;
   }
 
@@ -1298,6 +1372,14 @@ export class SmartNestPanel extends LitElement {
     this.checkMorning();
     this.checkOverload();
     this.shiftPixels();
+    if (this.hass && allows(this.lic.plan, "live_timers")) refreshTimers(this.hass);
+    this.checkNudge();
+  }
+
+  /** Looked for every 10 s (not on every state change: it reads the whole house). */
+  @state() private nudge?: Nudge;
+  private checkNudge() {
+    this.nudge = this.pro && this.current && this.hass && allows(this.lic.plan, "nudges") ? findNudge(this.makeCtx(), nudgeDismissed) : undefined;
   }
 
   private burnStep = 0;
@@ -1425,6 +1507,7 @@ export class SmartNestPanel extends LitElement {
         },
         { type: "smartnest/message/subscribe" }
       );
+      this.unsubNotes ??= watchNotes(this.hass, (n) => (this.notes = n)).catch(() => () => undefined);
       this.unsub = subscribeConfig(this.hass, (cfg) => {
         // Another screen saved. Take it, unless we're mid-edit here.
         if (!this.draft && cfg) this.config = normalizeConfig(cfg, lang);
@@ -2000,6 +2083,17 @@ export class SmartNestPanel extends LitElement {
               <sn-icon icon="airplane" style="--icon-size:20px"></sn-icon>
             </button>`
           : nothing}
+        ${!this.kids && ctx.allows("notif_center") && !ctx.editing
+          ? html`<button
+              class="icon-btn pressable bell ${this.notes.length ? "" : "quiet"}"
+              aria-label=${t("notifications")}
+              title=${t("notifications")}
+              @click=${() => ctx.showSheet({ title: t("notifications"), render: (c) => html`<sn-notifs .ctx=${c} .notes=${this.notes}></sn-notifs>` })}
+            >
+              <sn-icon icon="bell" style="--icon-size:20px"></sn-icon>
+              ${this.notes.length ? html`<b class="badge">${this.notes.length}</b>` : nothing}
+            </button>`
+          : nothing}
         ${!this.kids && ctx.allows("search") && !ctx.editing
           ? html`<button class="icon-btn pressable" aria-label=${t("search")} title="${t("search")} (⌘K)" @click=${() => (this.searching = true)}>
               <sn-icon icon="magnify" style="--icon-size:20px"></sn-icon>
@@ -2538,6 +2632,7 @@ export class SmartNestPanel extends LitElement {
                 @pointercancel=${cur ? this.onSwipeUp : null}
               >
                 ${cur && this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
+                ${cur ? this.renderNudge(ctx) : nothing}
                 <sn-page-grid .ctx=${cur ? ctx : this.parked.get(p.id) ?? ctx} .page=${p}></sn-page-grid>
               </main>`;
             }
@@ -2590,6 +2685,7 @@ export class SmartNestPanel extends LitElement {
             }}></sn-screensaver>` : nothing}
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
       ${this.renderUndo()}
+      ${this.renderMiniPlayer(ctx)}
       ${this.link !== "up"
         ? html`<div class="link ${this.link}" role="status">
             ${this.link === "back" ? html`<sn-icon icon="check" style="--icon-size:16px"></sn-icon>${ctx.t("link_back")}` : html`<i></i>${ctx.t("link_lost")}`}

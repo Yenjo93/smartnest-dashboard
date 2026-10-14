@@ -5,6 +5,7 @@ import type { Widget } from "../types";
 import { areaOf, entityIcon, entityName, formatNumber, isActive, ltr } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { saveAsScene } from "../scene-save";
 import { haptic } from "../ui/haptic";
 
 
@@ -188,6 +189,11 @@ export class SnGroup extends LitElement {
           <b>${title}</b>
           <span>${domain === "light" ? t("lights_on_n", { n: active.length, of: ids.length }) : t("covers_open_n", { n: active.length, of: ids.length })}</span>
         </div>
+        ${ctx.isAdmin
+          ? html`<button class="icon-btn small pressable" aria-label=${t("scene_keep")} title=${t("scene_keep")} @click=${() => saveAsScene(ctx, ids, title).catch(() => ctx.toast(t("error")))}>
+              <sn-icon icon="content-save" style="--icon-size:18px"></sn-icon>
+            </button>`
+          : nothing}
         ${domain === "light"
           ? active.length
             ? html`<button class="btn pressable" @click=${() => this.call("turn_off", active)}>${t("all_off")}</button>`

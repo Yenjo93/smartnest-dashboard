@@ -33,6 +33,7 @@ export const WIDGET_SIZES: Record<WidgetType, { w: number; h: number; minW: numb
   schedule: { w: 12, h: 6, minW: 6, minH: 4 },
   media: { w: 6, h: 5, minW: 4, minH: 4 },
   remote: { w: 4, h: 8, minW: 3, minH: 6 },
+  folder: { w: 3, h: 3, minW: 2, minH: 2 },
   prayer: { w: 4, h: 6, minW: 3, minH: 5 },
   covers: { w: 4, h: 6, minW: 3, minH: 4 },
   lights: { w: 4, h: 6, minW: 3, minH: 4 },

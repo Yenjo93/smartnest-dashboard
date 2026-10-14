@@ -3,6 +3,7 @@ import { customElement, property } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import { domainOf, entityName } from "../entities";
 import { haptic } from "./haptic";
+import { refreshTimers } from "../live-timers";
 import "./icon";
 
 interface Item {
@@ -128,7 +129,7 @@ export class SnRadial extends LitElement {
     const timer = (m: number) => () =>
       hass
         .callWS({ type: "smartnest/timer/set", entity_id: id, minutes: m })
-        .then(() => ctx.toast(t("radial_timer_set", { n: m })), () => ctx.toast(t("error")));
+        .then(() => (ctx.toast(t("radial_timer_set", { n: m })), refreshTimers(hass, true)), () => ctx.toast(t("error")));
     const out: Item[] = [];
     if (d === "light") {
       const modes: string[] = e?.attributes.supported_color_modes ?? [];

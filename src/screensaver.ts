@@ -106,6 +106,9 @@ export class SnScreensaver extends LitElement {
         font-weight: 600;
         --icon-size: 20px;
       }
+      .now span[role="button"] {
+        cursor: pointer;
+      }
       .now span.warn {
         background: rgba(242, 107, 104, 0.25);
       }
@@ -309,16 +312,40 @@ export class SnScreensaver extends LitElement {
   private renderNow() {
     const { hass, t } = this.ctx;
     const all = Object.values(hass.states).filter((e) => !hass.entities?.[e.entity_id]?.entity_category && !hass.entities?.[e.entity_id]?.hidden);
-    const lights = all.filter((e) => e.entity_id.startsWith("light.") && e.state === "on").length;
+    const lightsOn = all.filter((e) => e.entity_id.startsWith("light.") && e.state === "on").map((e) => e.entity_id);
+    const lights = lightsOn.length;
     const acs = all.filter((e) => e.entity_id.startsWith("climate.") && !["off", "unavailable"].includes(e.state)).length;
     const open = all.filter((e) => e.entity_id.startsWith("binary_sensor.") && ["door", "window", "garage_door", "opening"].includes(e.attributes.device_class) && e.state === "on").length;
-    const unlocked = all.filter((e) => e.entity_id.startsWith("lock.") && e.state === "unlocked").length;
+    const unlockedIds = all.filter((e) => e.entity_id.startsWith("lock.") && e.state === "unlocked").map((e) => e.entity_id);
+    const unlocked = unlockedIds.length;
+    // From bed or the sofa: put the lights out or lock up without waking the dashboard.
+    const act = (e: Event, run: () => void) => {
+      e.stopPropagation();
+      run();
+    };
     if (!lights && !acs && !open && !unlocked) return nothing;
-    return html`<div class="now" aria-hidden="true">
-      ${lights ? html`<span><sn-icon icon="lightbulb"></sn-icon>${lights}</span>` : nothing}
+    return html`<div class="now">
+      ${lights
+        ? html`<span
+            role="button"
+            tabindex="0"
+            title=${t("ss_lights_off")}
+            @click=${(e: Event) =>
+              act(e, () => this.ctx.undoable(lightsOn, t("ss_lights_off"), () => hass.callService("light", "turn_off", { entity_id: lightsOn })))}
+            ><sn-icon icon="lightbulb"></sn-icon>${lights} · ${t("ss_lights_off")}</span
+          >`
+        : nothing}
       ${acs ? html`<span><sn-icon icon="snowflake"></sn-icon>${acs}</span>` : nothing}
       ${open ? html`<span class="warn"><sn-icon icon="door-open"></sn-icon>${t("ss_open", { n: open })}</span>` : nothing}
-      ${unlocked ? html`<span class="warn"><sn-icon icon="lock-open"></sn-icon>${t("ss_unlocked", { n: unlocked })}</span>` : nothing}
+      ${unlocked
+        ? html`<span
+            class="warn"
+            role="button"
+            tabindex="0"
+            @click=${(e: Event) => act(e, () => hass.callService("lock", "lock", { entity_id: unlockedIds }).catch(() => this.ctx.toast(t("error"))))}
+            ><sn-icon icon="lock-open"></sn-icon>${t("ss_unlocked", { n: unlocked })} · ${t("ss_lock")}</span
+          >`
+        : nothing}
     </div>`;
   }
 

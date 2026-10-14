@@ -14,6 +14,22 @@ export function wallCameras(ctx: Ctx): string[] {
 }
 
 /**
+ * Whether something is moving in front of a camera right now: a motion, person or occupancy sensor on the same
+ * device (most cameras expose one), or one whose name follows the camera's.
+ */
+export function cameraMotion(hass: Ctx["hass"], cam: string): boolean {
+  const dev = hass.entities?.[cam]?.device_id;
+  const slug = cam.split(".")[1].replace(/_(camera|cam|stream|main|sub|high|low)$/g, "");
+  return Object.values(hass.states).some(
+    (e) =>
+      e.entity_id.startsWith("binary_sensor.") &&
+      e.state === "on" &&
+      ["motion", "occupancy", "presence", "moving"].includes(e.attributes.device_class) &&
+      ((dev && hass.entities?.[e.entity_id]?.device_id === dev) || e.entity_id.split(".")[1].startsWith(slug))
+  );
+}
+
+/**
  * Every camera at once, full-screen. Stills refresh every 2s (live streams for ten cameras would choke a
  * wall tablet); tap one and it fills the screen with the live stream.
  */
@@ -58,6 +74,23 @@ export class SnCamwall extends LitElement {
         gap: 8px;
         padding: 0 8px 8px;
         min-height: 0;
+      }
+      /* Something moving: that camera takes a bigger place, outlined, until it's quiet again. */
+      .cam.moving {
+        grid-column: span 2;
+        grid-row: span 2;
+        box-shadow: 0 0 0 3px var(--alert);
+      }
+      .cam .mv {
+        position: absolute;
+        top: 10px;
+        inset-inline-start: 10px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--alert);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
       }
       .cam {
         position: relative;
@@ -162,7 +195,10 @@ export class SnCamwall extends LitElement {
 
   render() {
     const { ctx } = this;
-    const cams = wallCameras(ctx);
+    // Cameras that see movement come first and bigger.
+    const all = wallCameras(ctx);
+    const moving = new Set(all.length > 1 ? all.filter((id) => cameraMotion(ctx.hass, id)) : []);
+    const cams = [...all.filter((id) => moving.has(id)), ...all.filter((id) => !moving.has(id))];
     // Squarest grid that fits them all.
     const cols = Math.ceil(Math.sqrt(cams.length));
     const rows = Math.ceil(cams.length / cols);
@@ -174,9 +210,10 @@ export class SnCamwall extends LitElement {
           <sn-icon icon=${this.big ? "arrow-left" : "close"}></sn-icon>
         </button>
       </div>
-      <div class="grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
+      <div class="grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows + (moving.size && cols > 1 ? moving.size : 0)},1fr);grid-auto-flow:dense">
         ${cams.map(
-          (id, i) => html`<button class="cam pressable" style="animation-delay:${Math.min(i, 8) * 40}ms" @click=${() => (this.big = id)}>
+          (id, i) => html`<button class="cam pressable ${moving.has(id) && cols > 1 ? "moving" : ""}" style="animation-delay:${Math.min(i, 8) * 40}ms" @click=${() => (this.big = id)}>
+            ${moving.has(id) ? html`<b class="mv">${ctx.t("cam_motion")}</b>` : nothing}
             ${snapshotUrl(ctx.hass, id, this.bust) ? html`<img src=${snapshotUrl(ctx.hass, id, this.bust)!} alt="" />` : nothing}
             <span>${entityName(ctx.hass, ctx.config, id)}</span>
           </button>`
