@@ -255,5 +255,5 @@ export class SnAutobuild extends LitElement {
   }
 }
 
-export const autobuildSheet = (ctx: Ctx) => ctx.showSheet({ title: ctx.t("ab_title"), render: (c) => html`<sn-autobuild .ctx=${c}></sn-autobuild>` });
+export const autobuildSheet = (ctx: Ctx) => ctx.showSheet({ still: true, title: ctx.t("ab_title"), render: (c) => html`<sn-autobuild .ctx=${c}></sn-autobuild>` });
 

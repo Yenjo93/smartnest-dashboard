@@ -6,6 +6,7 @@ import "./entity-picker";
 /** Opens the device list (with search) and hands back the chosen one: for widgets that pick their device in place. */
 export function pickEntity(ctx: Ctx, title: string, filter: EntityFilter, onPick: (id: string) => void) {
   ctx.showSheet({
+    still: true,
     title,
     render: (c) => html`<sn-entity-picker
       .ctx=${c}

@@ -896,7 +896,7 @@ const en = {
   lic_check_ok: "Up to date ✓",
   lic_check_none: "Couldn't reach your installer, try again later",
   boiler_pick: "Water heater device",
-  boiler_tap_pick: "Tap to choose the water heater",
+  boiler_tap_pick: "Choose the water heater: ✏️ → widget settings",
   air_purifier: "Purifier / humidifier",
   air_sensors: "Sensors",
   auto_all: "Nothing chosen: finds them by itself.",
@@ -927,6 +927,9 @@ const en = {
   area_all: "Whole house",
   widget_title: "Title",
   bat_low_at: "Low below %",
+  picker_more: "Show {n} more",
+  picker_show_extra: "Also show {n} technical entities",
+  irr_pick: "Choose the valve: ✏️ → widget settings",
 };
 
 export type I18nKey = keyof typeof en;
@@ -1827,7 +1830,7 @@ const ar: Record<I18nKey, string> = {
   lic_check_ok: "محدّث ✓",
   lic_check_none: "ما قدرت أوصل للمركّب، جرّب كمان شوي",
   boiler_pick: "جهاز السخان",
-  boiler_tap_pick: "اكبس لتختار السخان",
+  boiler_tap_pick: "اختار السخان من ✏️ ← إعدادات العنصر",
   air_purifier: "منقّي الهوا / مرطّب",
   air_sensors: "الحساسات",
   auto_all: "إذا ما اخترت: بيلاقيهم لحاله.",
@@ -1858,6 +1861,9 @@ const ar: Record<I18nKey, string> = {
   area_all: "كل البيت",
   widget_title: "العنوان",
   bat_low_at: "ضعيفة تحت %",
+  picker_more: "اعرض كمان {n}",
+  picker_show_extra: "اعرض كمان {n} عناصر تقنية",
+  irr_pick: "اختار المحبس من ✏️ ← إعدادات العنصر",
 };
 
 const he: Record<I18nKey, string> = {
@@ -2756,7 +2762,7 @@ const he: Record<I18nKey, string> = {
   lic_check_ok: "מעודכן ✓",
   lic_check_none: "לא הצלחתי להגיע למתקין, נסו שוב מאוחר יותר",
   boiler_pick: "מכשיר הדוד",
-  boiler_tap_pick: "הקישו לבחירת הדוד",
+  boiler_tap_pick: "בחרו את הדוד: ✏️ ← הגדרות הרכיב",
   air_purifier: "מטהר / מכשיר אדים",
   air_sensors: "חיישנים",
   auto_all: "לא נבחר כלום: ימצא לבד.",
@@ -2787,6 +2793,9 @@ const he: Record<I18nKey, string> = {
   area_all: "כל הבית",
   widget_title: "כותרת",
   bat_low_at: "חלשה מתחת ל-%",
+  picker_more: "הצג עוד {n}",
+  picker_show_extra: "הצג גם {n} ישויות טכניות",
+  irr_pick: "בחרו את הברז: ✏️ ← הגדרות הרכיב",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

@@ -2,15 +2,10 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
-import { entityIcon, entityName, formatNumber, isActive, ltr } from "../entities";
+import { areaOf, entityIcon, entityName, formatNumber, isActive, ltr } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
 
-/** Which room a device is in: its own area, else its device's. */
-export function areaOf(hass: Ctx["hass"], id: string): string | undefined {
-  const reg = hass.entities?.[id];
-  return reg?.area_id ?? (reg?.device_id ? hass.devices?.[reg.device_id]?.area_id ?? undefined : undefined);
-}
 
 function members(ctx: Ctx, domain: "light" | "cover", w: Widget): string[] {
   const { hass } = ctx;

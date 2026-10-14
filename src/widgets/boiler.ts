@@ -8,7 +8,6 @@ import { LOCALE } from "../i18n";
 import { loadKv, saveKv, watchKv } from "../kv";
 import { shared } from "../theme";
 import "../ui/icon";
-import { pickEntity } from "../ui/pick";
 
 interface Plan {
   id: string;
@@ -171,16 +170,6 @@ export class SnBoiler extends LitElement {
     if (this.loaded && chosen && this.b.entity !== chosen) this.save({ ...this.b, entity: chosen });
   }
 
-  private choose() {
-    const { ctx } = this;
-    if (!ctx.isAdmin) return;
-    pickEntity(ctx, ctx.t("boiler_pick"), BOILER_FILTER, (id) => {
-      ctx.update((d) => {
-        for (const p of d.pages) for (const w of p.widgets) if (w.id === this.widget.id) w.config.entity = id;
-      });
-      this.save({ ...this.b, entity: id });
-    });
-  }
 
   private power(on: boolean, minutes?: number) {
     const id = this.entity;
@@ -204,8 +193,8 @@ export class SnBoiler extends LitElement {
     return html`<div class="card glass">
       <div class="head">
         <span class="tank ${on ? "on" : ""}" style="--fill:${fill}%"><i></i></span>
-        <div style="flex:1;cursor:${ctx.isAdmin ? "pointer" : "default"}" @click=${() => this.choose()} title=${ctx.isAdmin ? t("boiler_pick") : ""}>
-          <b>${id ? entityName(hass, config, id) : t("widget_boiler")}${ctx.isAdmin ? html` <sn-icon icon="pencil" style="--icon-size:14px;opacity:.5"></sn-icon>` : nothing}</b>
+        <div style="flex:1">
+          <b>${id ? entityName(hass, config, id) : t("widget_boiler")}</b>
           <span
             >${!id
               ? t(ctx.isAdmin ? "boiler_tap_pick" : "no_entities")

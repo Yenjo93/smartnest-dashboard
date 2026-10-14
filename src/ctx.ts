@@ -10,6 +10,11 @@ export interface SheetSpec {
   origin?: Element;
   /** Called when the sheet is dismissed by the scrim, Esc, or the close button. */
   onClose?: () => void;
+  /**
+   * Settings and pickers: redrawn when the dashboard's setup changes, not on every device update in the house.
+   * On a big house the states change many times a second, and redrawing a long settings sheet each time is slow.
+   */
+  still?: boolean;
 }
 
 /** Everything a component needs, handed down as one object. A new object is made on every change. */

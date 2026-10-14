@@ -236,3 +236,9 @@ export function listEntities(hass: Hass, config: DashboardConfig, filter: Entity
     .map((e) => ({ id: e.entity_id, name: entityName(hass, config, e.entity_id), entity: e }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** Which room a device is in: its own area, else its device's. */
+export function areaOf(hass: Hass, id: string): string | undefined {
+  const reg = hass.entities?.[id];
+  return reg?.area_id ?? (reg?.device_id ? hass.devices?.[reg.device_id]?.area_id ?? undefined : undefined);
+}

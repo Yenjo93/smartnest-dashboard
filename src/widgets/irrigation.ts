@@ -143,7 +143,6 @@ export class SnIrrigation extends LitElement {
     const id = this.widget.config.entity ?? ir.entity ?? guess(Object.keys(hass.states));
     const e = id ? hass.states[id] : undefined;
     const running = isActive(e) || e?.state === "open";
-    const candidates = Object.keys(hass.states).filter((x) => /^(valve|switch|input_boolean)\./.test(x));
     return html`<div class="card glass">
       <div class="head">
         <span class="drop ${running ? "on" : ""}"><sn-icon icon="sprinkler" style="--icon-size:24px"></sn-icon></span>
@@ -153,18 +152,7 @@ export class SnIrrigation extends LitElement {
         </div>
         <div class="seg">${[true, false].map((v) => html`<button aria-pressed=${ir.on === v} @click=${() => this.save({ on: v })}>${t(v ? "on" : "off")}</button>`)}</div>
       </div>
-      <select
-        @change=${(ev: any) => {
-          const v = ev.target.value;
-          ctx.update((d) => {
-            for (const p of d.pages) for (const w of p.widgets) if (w.id === this.widget.id) w.config.entity = v || undefined;
-          });
-          this.save({ entity: v });
-        }}
-      >
-        ${!id ? html`<option value="">–</option>` : nothing}
-        ${candidates.map((x) => html`<option value=${x} ?selected=${x === id}>${entityName(hass, config, x)}</option>`)}
-      </select>
+      ${!id ? html`<span class="muted" style="font-size:14px">${t(ctx.isAdmin ? "irr_pick" : "no_entities")}</span>` : nothing}
       <div class="row">
         <input type="time" style="width:auto" .value=${ir.at} @change=${(ev: any) => this.save({ at: ev.target.value })} />
         <input type="number" min="1" max="120" style="width:80px" .value=${String(ir.minutes)} @change=${(ev: any) => this.save({ minutes: Number(ev.target.value) || 15 })} />

@@ -193,6 +193,20 @@ export class SnSheetHost extends LitElement {
     }
   }
 
+  private still = new WeakMap<SheetSpec, { key: unknown[]; tpl: unknown }>();
+
+  /** A still sheet keeps its last drawing until something it shows from the setup changes. */
+  private body(s: SheetSpec) {
+    if (!s.still) return s.render(this.ctx);
+    const { ctx } = this;
+    const key = [ctx.config, ctx.lang, ctx.dark, ctx.editing, ctx.isAdmin];
+    const kept = this.still.get(s);
+    if (kept && kept.key.every((v, i) => v === key[i])) return kept.tpl;
+    const tpl = s.render(ctx);
+    this.still.set(s, { key, tpl });
+    return tpl;
+  }
+
   render() {
     if (!this.sheets.length) return nothing;
     return this.sheets.map(
@@ -208,7 +222,7 @@ export class SnSheetHost extends LitElement {
                 <sn-icon icon="close" style="--icon-size:20px"></sn-icon>
               </button>
             </header>
-            <div class="body">${s.render(this.ctx)}</div>
+            <div class="body">${this.body(s)}</div>
           </div>
         </div>
       `

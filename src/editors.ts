@@ -49,6 +49,7 @@ export function entityField(
         style="flex:1;justify-content:flex-start;border-radius:var(--r-sm)"
         @click=${() =>
           ctx.showSheet({
+            still: true,
             title: label,
             render: (c) => html`<sn-entity-picker
               .ctx=${c}
@@ -89,6 +90,7 @@ export function multiField(ctx: Ctx, label: string, value: string[] | undefined,
         style="min-height:36px;font-size:14px"
         @click=${() =>
           ctx.showSheet({
+            still: true,
             title: label,
             render: (c) => html`<sn-entity-picker
               .ctx=${c}
@@ -151,6 +153,7 @@ function editWidget(ctx: Ctx, widgetId: string, fn: (w: Widget, d: DashboardConf
 
 export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string) {
   ctx.showSheet({
+    still: true,
     title: ctx.t("widget_settings"),
     render: (c) => {
       const w = findWidget(c.config, widgetId);
@@ -483,6 +486,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
     return id;
   };
   ctx.showSheet({
+    still: true,
     title: ctx.t("add_widget"),
     render: (c) => html`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
       ${WIDGET_CHOICES.map(
@@ -492,6 +496,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
           @click=${() => {
             if (["tile", "camera", "vacuum", "gauge", "gate", "media", "remote"].includes(choice.type)) {
               c.showSheet({
+                still: true,
                 title: c.t("choose_entity"),
                 render: (c2) => html`<sn-entity-picker
                   .ctx=${c2}
@@ -534,6 +539,7 @@ export function addWidgetSheet(ctx: Ctx, pageId: string) {
 
 export function addPageSheet(ctx: Ctx, onCreated: (pageId: string) => void) {
   ctx.showSheet({
+    still: true,
     title: ctx.t("add_page"),
     render: (c) => section(
       c.t("choose_template"),
@@ -567,6 +573,7 @@ export function pageSettingsSheet(ctx: Ctx, pageId: string, onDeleted: () => voi
       if (idx >= 0) fn(d, idx);
     });
   ctx.showSheet({
+    still: true,
     title: ctx.t("page_settings"),
     render: (c) => {
       const idx = c.config.pages.findIndex((p) => p.id === pageId);
@@ -663,6 +670,7 @@ export function settingsSheet(
   opts: { version: string; license?: { licensee: string; plan: string; expires?: number; trial: boolean; reseller: string }; testDoorbell: () => void; checkLicense?: () => Promise<string> }
 ) {
   ctx.showSheet({
+    still: true,
     title: ctx.t("settings"),
     render: (c) => {
       const s = c.config.settings;
