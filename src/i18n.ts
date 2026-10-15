@@ -1092,6 +1092,9 @@ const en = {
   plan_mode_window: "Windows",
   plan_window_hint: "Tap a wall to add a window. Tap a window to link its sensor or motor, so the plan shows it open.",
   plan_link_none: "Not linked to a device",
+  move_room: "Room (page)",
+  move_room_hint: "Pick a room and the card moves to the end of its page. On a room page, the device moves to that room in Home Assistant too.",
+  moved_to: "Moved to {page}",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2188,6 +2191,9 @@ const ar: Record<I18nKey, string> = {
   plan_mode_window: "شبابيك",
   plan_window_hint: "اكبس على حيط لتحط شباك. اكبس على الشباك لتربطه بحساسه أو موتوره، فبيبين على المخطط إذا مفتوح.",
   plan_link_none: "مش مربوط بجهاز",
+  move_room: "الغرفة (الصفحة)",
+  move_room_hint: "اختار الغرفة والكرت بينتقل لآخر صفحتها. إذا كانت صفحة غرفة، الجهاز بينتقل لهالغرفة بـ Home Assistant كمان.",
+  moved_to: "انتقل لـ {page}",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3282,6 +3288,9 @@ const he: Record<I18nKey, string> = {
   plan_mode_window: "חלונות",
   plan_window_hint: "הקישו על קיר כדי להוסיף חלון. הקישו על חלון כדי לקשר חיישן או מנוע.",
   plan_link_none: "לא מקושר למכשיר",
+  move_room: "חדר (עמוד)",
+  move_room_hint: "בחרו חדר והכרטיס עובר לסוף העמוד שלו. בעמוד חדר, המכשיר עובר לחדר הזה גם ב-Home Assistant.",
+  moved_to: "הועבר ל{page}",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

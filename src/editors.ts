@@ -2,7 +2,7 @@ import { FONTS } from "./look";
 import { html, nothing, type TemplateResult } from "lit";
 import { unsafeStatic, html as staticHtml } from "lit/static-html.js";
 import type { Ctx } from "./ctx";
-import type { DashboardConfig, Lang, ThemeMode, Widget, WidgetType } from "./types";
+import type { DashboardConfig, Lang, Page, ThemeMode, Widget, WidgetType } from "./types";
 import { domainOf, entityIcon, entityName, type EntityFilter } from "./entities";
 import { dashboardEntities } from "./chips";
 import { DEFAULT_ACCENT, TEMPLATES, WIDGET_SIZES, findWidget, newFloor, newWidget, nextRow, pageFromTemplate, resolveLayout } from "./config";
@@ -191,6 +191,50 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
     render: (c) => {
       const w = findWidget(c.config, widgetId);
       if (!w) return html``;
+      return col(widgetBody(c, w, widgetId), w.type === "floorplan" ? nothing : moveToRoom(c, w));
+    },
+  });
+}
+
+/**
+ * "Room": the card jumps to another page (a room's page, made by "set up the dashboard for me", or any other), placed
+ * at its end, instead of being dragged across pages. When that page is a Home Assistant area's page, the device's
+ * area in Home Assistant follows, so everything that goes by rooms (glow, nudges, the auto-built pages) agrees.
+ */
+function moveToRoom(c: Ctx, w: Widget) {
+  const t = c.t;
+  const here = c.config.pages.find((p) => p.widgets.some((x) => x.id === w.id));
+  const areaOfPage = (p: Page) => p.widgets.find((x) => x.type === "room" && x.config.area)?.config.area as string | undefined;
+  return html`<label class="field"
+    >${t("move_room")}
+    <select
+      @change=${async (e: any) => {
+        const to = c.config.pages.find((p) => p.id === e.target.value);
+        if (!to || to.id === here?.id) return;
+        c.update((d) => {
+          const from = d.pages.find((p) => p.widgets.some((x) => x.id === w.id));
+          const dest = d.pages.find((p) => p.id === to.id);
+          const card = from?.widgets.find((x) => x.id === w.id);
+          if (!from || !dest || !card) return;
+          from.widgets = resolveLayout(from.widgets.filter((x) => x.id !== w.id));
+          const bottom = dest.widgets.reduce((m, x) => Math.max(m, x.y + x.h), 0);
+          dest.widgets = resolveLayout([...dest.widgets, { ...card, x: 0, y: bottom }]);
+        });
+        const area = areaOfPage(to);
+        const id = w.config.entity as string | undefined;
+        if (area && id && c.hass.entities?.[id] && (c.hass.entities[id].area_id ?? undefined) !== area)
+          await c.hass.callWS({ type: "config/entity_registry/update", entity_id: id, area_id: area }).catch(() => undefined);
+        c.toast(t("moved_to", { page: to.title }));
+        c.closeSheet();
+      }}
+    >
+      ${c.config.pages.map((p) => html`<option value=${p.id} ?selected=${p.id === here?.id}>${p.title}</option>`)}
+    </select>
+    <span class="hint">${t("move_room_hint")}</span>
+  </label>`;
+}
+
+function widgetBody(c: Ctx, w: Widget, widgetId: string) {
       const t = c.t;
       switch (w.type) {
         case "tile":
@@ -449,8 +493,6 @@ export function widgetSettingsSheet(ctx: Ctx, _pageId: string, widgetId: string)
         default:
           return html`<p class="muted">${t(`widget_${w.type}` as I18nKey)}</p>`;
       }
-    },
-  });
 }
 
 const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
