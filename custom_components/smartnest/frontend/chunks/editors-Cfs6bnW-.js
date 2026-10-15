@@ -1,4 +1,4 @@
-import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e as l,l as o,s as r,A as c,L as p,u as d,a as g,d as u,c as m,f as h,g as y,h as f,P as $,j as b,k as v,m as _,o as x,w,p as k,q as z,v as S,x as j,y as N,T as O,z as D,B as M,C,W as I,D as W,E as A,F as P,G as q,H as B,I as T,J as R,K as F,M as E,N as L,O as U,Q as H,R as J,S as V,U as G,V as K,X as Q,Y as X,Z as Y,_ as Z,$ as ee,a0 as te,a1 as se,a2 as ae,a3 as ie,a4 as ne,a5 as le,a6 as oe}from"./app-2h68TQ5a.js";var re=Object.defineProperty,ce=Object.getOwnPropertyDescriptor,pe=(e,t,s,a)=>{for(var i,n=a>1?void 0:a?ce(t,s):t,l=e.length-1;l>=0;l--)(i=e[l])&&(n=(a?i(t,s,n):i(n))||n);return a&&n&&re(t,s,n),n};const de=(e,t)=>n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
+import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e as l,l as o,s as r,A as c,L as p,u as d,a as g,d as u,c as m,f as h,g as y,h as f,P as $,j as b,k as v,m as _,o as x,w,p as k,q as z,v as S,x as j,y as N,T as O,z as D,B as M,C,W as I,D as W,E as A,F as P,G as B,H as T,I as q,J as R,K as F,M as E,N as L,O as U,Q as H,R as J,S as V,U as G,V as K,X as Q,Y as X,Z as Y,_ as Z,$ as ee,a0 as te,a1 as se,a2 as ae,a3 as ie,a4 as ne,a5 as le,a6 as oe}from"./app-CLTQWd-2.js";var re=Object.defineProperty,ce=Object.getOwnPropertyDescriptor,pe=(e,t,s,a)=>{for(var i,n=a>1?void 0:a?ce(t,s):t,l=e.length-1;l>=0;l--)(i=e[l])&&(n=(a?i(t,s,n):i(n))||n);return a&&n&&re(t,s,n),n};const de=(e,t)=>n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
   <div style="font-weight:700">${e}</div>
   ${t}
 </section>`;let ge=class extends i{createRenderRoot(){return this}async connectedCallback(){super.connectedCallback();const{hass:e}=this.ctx,t=Object.values(e.states).filter((e=>e.entity_id.startsWith("sensor.")&&"battery"===e.attributes.device_class&&!Number.isNaN(Number(e.state)))).map((e=>e.entity_id)).slice(0,60);if(!t.length)return void(this.rows=[]);let s={};try{s=await e.callWS({type:"recorder/statistics_during_period",start_time:new Date(Date.now()-2592e6).toISOString(),statistic_ids:t,period:"day",types:["mean"]})}catch{return void(this.rows=[])}const a=[];for(const i of t){const t=(s[i]??[]).map((e=>["number"==typeof e.start?e.start>1e12?e.start:1e3*e.start:Date.parse(e.start),e.mean??NaN])).filter((([,e])=>!Number.isNaN(e)));if(t.length<7)continue;const n=t.length,l=t.map((([e])=>e/864e5)),o=t.map((([,e])=>e)),r=l.reduce(((e,t)=>e+t),0)/n,c=o.reduce(((e,t)=>e+t),0)/n,p=l.reduce(((e,t,s)=>e+(t-r)*(o[s]-c)),0)/(l.reduce(((e,t)=>e+(t-r)**2),0)||1),d=Number(e.states[i].state);p>=-.05||d<=10||a.push({id:i,level:d,days:Math.round((d-10)/-p)})}this.rows=a.sort(((e,t)=>e.days-t.days)).slice(0,10)}render(){const{t:e,hass:t,config:s}=this.ctx;return this.rows?de(e("bat_title"),this.rows.length?n`<div style="display:grid;gap:4px;font-size:14px">
@@ -211,10 +211,10 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
       </button>
     </div>
     ${o.length?c:n`<span class="hint">${e.t("auto_all")}</span>`}
-  </div>`}function qe(e,t,s){return n`<label class="field"
+  </div>`}function Be(e,t,s){return n`<label class="field"
     >${e.t("widget_title")}
     <input type="text" .value=${s??""} @change=${s=>Re(e,t,(e=>e.config.title=s.target.value.trim()||void 0))} />
-  </label>`}function Be(e,t){return n`<label class="field"
+  </label>`}function Te(e,t){return n`<label class="field"
     >${e.t("display_name")}
     <input
       type="text"
@@ -223,7 +223,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
       @change=${s=>e.update((e=>{const a=s.target.value.trim();a?e.names[t]=a:delete e.names[t]}))}
     />
     <span class="hint">${e.t("display_name_hint")}</span>
-  </label>`}const Te={camera:{domains:["camera"]},vacuum:{domains:["vacuum"]},todo:{domains:["todo"]},gauge:{domains:["sensor"]},gate:{domains:["cover"]},media:{domains:["media_player"]},remote:{domains:["remote","media_player"]}};function Re(e,t,s){e.update((e=>{const a=Y(e,t);a&&s(a,e)}))}function Fe(e,t,s){e.showSheet({still:!0,title:e.t("widget_settings"),render:e=>{const t=Y(e.config,s);if(!t)return n``;const a=e.t;switch(t.type){case"tile":case"camera":case"vacuum":case"media":case"remote":return Ce(Ae(e,a("entity"),t.config.entity,Te[t.type]??{},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Be(e,t.config.entity):c);case"gauge":return Ce(Ae(e,a("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),n`<div class="row" style="display:flex;gap:8px">
+  </label>`}const qe={camera:{domains:["camera"]},vacuum:{domains:["vacuum"]},todo:{domains:["todo"]},gauge:{domains:["sensor"]},gate:{domains:["cover"]},media:{domains:["media_player"]},remote:{domains:["remote","media_player"]}};function Re(e,t,s){e.update((e=>{const a=Y(e,t);a&&s(a,e)}))}function Fe(e,t,s){e.showSheet({still:!0,title:e.t("widget_settings"),render:e=>{const t=Y(e.config,s);if(!t)return n``;const a=e.t;switch(t.type){case"tile":case"camera":case"vacuum":case"media":case"remote":return Ce(Ae(e,a("entity"),t.config.entity,qe[t.type]??{},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Te(e,t.config.entity):c);case"gauge":return Ce(Ae(e,a("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),n`<div class="row" style="display:flex;gap:8px">
               ${["min","max","low"].map((i=>n`<label class="field" style="flex:1"
                   >${"low"===i?a("gauge_low")+" %":i}
                   <input type="number" .value=${String(t.config[i]??("max"===i?100:"low"===i?20:0))} @change=${t=>Re(e,s,(e=>e.config[i]=Number(t.target.value)))} />
@@ -277,10 +277,10 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
                 accept="image/*"
                 @change=${async t=>{const i=t.target.files?.[0];if(i)try{const t=await d(e.hass,i);Re(e,s,(e=>e.config.photo=t))}catch{e.toast(a("error"))}}}
               />
-            </label>`)}case"water":{const i=Z(e.hass),n=(n,l,o)=>Ae(e,a(l),t.config[n]??i[n],o,(t=>Re(e,s,(e=>e.config[n]=t))),!0);return Ce(n("usage","water_usage",{domains:["sensor"],deviceClasses:["water"]}),n("tank","water_tank",{domains:["sensor"]}),n("valve","water_valve",{domains:["valve","switch"]}))}case"ac":return Ae(e,a("entity"),t.config.entity,{domains:["climate"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"sensor":return Ce(Ae(e,a("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Be(e,t.config.entity):c);case"batteries":return n`<label class="field"
+            </label>`)}case"water":{const i=Z(e.hass),n=(n,l,o)=>Ae(e,a(l),t.config[n]??i[n],o,(t=>Re(e,s,(e=>e.config[n]=t))),!0);return Ce(n("usage","water_usage",{domains:["sensor"],deviceClasses:["water"]}),n("tank","water_tank",{domains:["sensor"]}),n("valve","water_valve",{domains:["valve","switch"]}))}case"ac":return Ae(e,a("entity"),t.config.entity,{domains:["climate"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"sensor":return Ce(Ae(e,a("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Te(e,t.config.entity):c);case"batteries":return n`<label class="field"
             >${a("bat_low_at")}
             <input type="number" min="5" max="60" .value=${String(t.config.low??20)} @change=${t=>Re(e,s,(e=>e.config.low=Number(t.target.value)||20))} />
-          </label>`;case"folder":return Ce(qe(e,s,t.config.title),Pe(e,a("widget_folder"),t.config.entities,{domains:["light","switch","fan","cover","climate","lock","media_player","input_boolean","scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"scenes":return Ce(qe(e,s,t.config.title),Pe(e,a("widget_scenes"),t.config.entities,{domains:["scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"lights":case"covers":{const i=Object.values(e.hass.areas??{});return Ce(qe(e,s,t.config.title),n`<label class="field"
+          </label>`;case"folder":return Ce(Be(e,s,t.config.title),Pe(e,a("widget_folder"),t.config.entities,{domains:["light","switch","fan","cover","climate","lock","media_player","input_boolean","scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"scenes":return Ce(Be(e,s,t.config.title),Pe(e,a("widget_scenes"),t.config.entities,{domains:["scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"lights":case"covers":{const i=Object.values(e.hass.areas??{});return Ce(Be(e,s,t.config.title),n`<label class="field"
               >${a("room_area")}
               <select @change=${t=>Re(e,s,(e=>e.config.area=t.target.value||void 0))}>
                 <option value="">${a("area_all")}</option>
@@ -306,7 +306,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${()=>{if(["tile","camera","vacuum","gauge","gate","media","remote"].includes(t.type))return void e.showSheet({still:!0,title:e.t("choose_entity"),render:e=>n`<sn-entity-picker
                   .ctx=${e}
-                  .filter=${Te[t.type]??{}}
+                  .filter=${qe[t.type]??{}}
                   .onPick=${a=>{s(e,t.type,{entity:a}),e.closeSheet(),e.closeSheet()}}
                 ></sn-entity-picker>`});const a="floorplan"===t.type?{floors:[W(e.t("floor_default"))]}:"heading"===t.type?{text:""}:{},i=s(e,t.type,a);e.closeSheet(),"heading"===t.type&&Fe(e,0,i)}}
         >
@@ -345,7 +345,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
         </label>`,n`<div class="field">
           ${r("page_icon")}
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px">
-            ${q.map((t=>n`<button
+            ${B.map((t=>n`<button
                 class="icon-btn pressable ${o.icon===t?"primary":""}"
                 style="width:100%;border-radius:var(--r-sm)"
                 aria-pressed=${o.icon===t}
@@ -591,7 +591,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
             <div class="seg">
               ${["chime","dingdong","melody"].map((t=>n`<button
                   aria-pressed=${a.doorbell_tone===t}
-                  @click=${()=>{o((e=>e.settings.doorbell_tone=t)),e((()=>import("./app-2h68TQ5a.js").then((e=>e.aq))),[]).then((e=>e.playBell(t)))}}
+                  @click=${()=>{o((e=>e.settings.doorbell_tone=t)),e((()=>import("./app-CLTQWd-2.js").then((e=>e.ar))),[]).then((e=>e.playBell(t)))}}
                 >
                   ${i(`bell_${t}`)}
                 </button>`))}
@@ -690,7 +690,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
                 <input name="every" type="number" min="1" placeholder=${i("m_every")} style="flex:1;min-width:90px" />
                 <button class="btn primary pressable" type="submit">${i("add")}</button>
               </form>`):c,We(i("transfer"),n`<div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn pressable" @click=${()=>T(t.config)}><sn-icon icon="export" style="--icon-size:18px"></sn-icon>${i("export_config")}</button>
+            <button class="btn pressable" @click=${()=>q(t.config)}><sn-icon icon="export" style="--icon-size:18px"></sn-icon>${i("export_config")}</button>
             <label class="btn pressable" style="cursor:pointer">
               <sn-icon icon="import" style="--icon-size:18px"></sn-icon>${i("import_config")}
               <input
@@ -707,7 +707,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as a,i,b as n,e 
               <span class="muted" style="font-size:13px">${i("tagline")}</span>
               <span class="muted ltr" style="font-size:12px;font-family:'JetBrains Mono',monospace">${i("version")} ${s.version}</span>
               ${s.license?.licensee?n`<span class="muted" style="font-size:12px">${i("licensed_to")} ${s.license.licensee}</span>`:c}
-              <button class="btn pressable" style="justify-self:start;min-height:34px;font-size:13px;margin-top:6px" @click=${()=>B(t)}>
+              <button class="btn pressable" style="justify-self:start;min-height:34px;font-size:13px;margin-top:6px" @click=${()=>T(t)}>
                 <sn-icon icon="star" style="--icon-size:16px;color:var(--accent)"></sn-icon>${i("rate_service")}
               </button>
               ${s.license?n`<span class="muted" style="font-size:12px">

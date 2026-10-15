@@ -1160,9 +1160,16 @@ export class SnFloorplan extends LitElement {
     if (e.button !== 0) return;
     e.stopPropagation();
     if (this.ctx.editing) {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const el = e.currentTarget as HTMLElement;
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* the finger is already gone */
+      }
       this.selected = m.id;
       this.drag = { id: m.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, origX: m.x, origY: m.y, x: m.x, y: m.y, moved: false };
+      this.liveEl = el;
+      this.liveStage = this.stageSize();
       return;
     }
     window.clearTimeout(this.press?.timer);
@@ -1178,18 +1185,20 @@ export class SnFloorplan extends LitElement {
     };
   }
 
+  /** The marker being dragged and the plan's size, so a move just shifts it on screen (no redraw of the plan). */
+  private liveEl?: HTMLElement;
+  private liveStage?: { w: number; h: number };
+
   private onMove(e: PointerEvent) {
-    if (this.drag && e.pointerId === this.drag.pointerId) {
-      const stage = this.stageSize();
-      const dx = ((e.clientX - this.drag.startX) / stage.w) * 100;
-      const dy = ((e.clientY - this.drag.startY) / stage.h) * 100;
-      const moved = this.drag.moved || Math.hypot(e.clientX - this.drag.startX, e.clientY - this.drag.startY) > 3;
-      this.drag = {
-        ...this.drag,
-        moved,
-        x: Math.min(100, Math.max(0, this.drag.origX + dx)),
-        y: Math.min(100, Math.max(0, this.drag.origY + dy)),
-      };
+    const d = this.drag;
+    if (d && e.pointerId === d.pointerId) {
+      const stage = this.liveStage ?? this.stageSize();
+      const s = this.zoom.s || 1;
+      d.x = Math.min(100, Math.max(0, d.origX + ((e.clientX - d.startX) / s / stage.w) * 100));
+      d.y = Math.min(100, Math.max(0, d.origY + ((e.clientY - d.startY) / s / stage.h) * 100));
+      d.moved = d.moved || Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 3;
+      // Straight onto the element: following the finger at full frame rate, the rest of the plan untouched.
+      if (this.liveEl) this.liveEl.style.translate = `${(((d.x - d.origX) / 100) * stage.w).toFixed(1)}px ${(((d.y - d.origY) / 100) * stage.h).toFixed(1)}px`;
       return;
     }
     if (this.press && Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > 10) {
@@ -1202,6 +1211,9 @@ export class SnFloorplan extends LitElement {
     if (this.drag && e.pointerId === this.drag.pointerId) {
       const { x, y, moved } = this.drag;
       this.drag = undefined;
+      // The redraw at the new spot replaces the element's style (and so the shift); with no move, undo it here.
+      if (!moved && this.liveEl) this.liveEl.style.translate = "";
+      this.liveEl = undefined;
       if (moved)
         this.edit((_f, floor) => {
           const mk = floor?.markers.find((k) => k.id === m.id);
@@ -1220,6 +1232,8 @@ export class SnFloorplan extends LitElement {
     window.clearTimeout(this.press?.timer);
     this.press = undefined;
     this.drag = undefined;
+    if (this.liveEl) this.liveEl.style.translate = "";
+    this.liveEl = undefined;
   }
 
   private tap(m: Marker) {
@@ -2038,8 +2052,9 @@ export class SnFloorplan extends LitElement {
     // A cleaning robot drives to the room it's in.
     const roving = !ctx.editing && domainOf(m.entity) === "vacuum" && this.floor && ctx.allows("robot_on_plan") ? this.robotRoom(this.floor, m.entity) : undefined;
     const [rx, ry] = roving ? centroid(roving.points) : [m.x, m.y];
-    const x = dragging ? this.drag!.x : rx;
-    const y = dragging ? this.drag!.y : ry;
+    // While dragging, the element is shifted directly (see onMove); it's drawn at its saved spot.
+    const x = rx;
+    const y = ry;
     const motion = on && domainOf(m.entity) === "binary_sensor" && ["motion", "occupancy", "presence"].includes(e?.attributes.device_class);
     const cls = [
       "marker",

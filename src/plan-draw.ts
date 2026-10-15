@@ -4,7 +4,7 @@ import type { Ctx } from "./ctx";
 import type { Door, Floor, Room, RoomKind } from "./types";
 import { uid } from "./config";
 import { guessKind, planSvg, svgDataUrl, wallSegments } from "./plan-svg";
-import { FURNITURE, FURNITURE_ORDER, furniturePreview, type Furniture, type FurnitureKind } from "./furniture";
+import { FURNITURE, FURNITURE_ORDER, furniturePreview, furnitureSvg, type Furniture, type FurnitureKind } from "./furniture";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import { shared } from "./theme";
 import { haptic } from "./ui/haptic";
@@ -120,6 +120,17 @@ export class SnPlanDraw extends LitElement {
         width: 100%;
         height: 100%;
         pointer-events: none;
+      }
+      .pv,
+      svg.lifted {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .pv svg {
+        width: 100%;
+        height: 100%;
+        display: block;
       }
       .canvas img.trace {
         opacity: 0.35;
@@ -504,6 +515,21 @@ export class SnPlanDraw extends LitElement {
     requestAnimationFrame(() => this.renderRoot.querySelector<HTMLInputElement>(".foot input")?.select());
   }
 
+  /** The plan as it was when a piece of furniture was picked up (redrawn once it's put down). */
+  private frozen?: string;
+  private moveFrame = 0;
+  private lastMove?: PointerEvent;
+
+  /** Finger moves come faster than the screen draws: keep the last one and apply it once per frame. */
+  private onMoveEvent = (e: PointerEvent) => {
+    this.lastMove = e;
+    if (this.moveFrame) return;
+    this.moveFrame = requestAnimationFrame(() => {
+      this.moveFrame = 0;
+      if (this.lastMove) this.move(this.lastMove);
+    });
+  };
+
   private move = (e: PointerEvent) => {
     const d = this.drag;
     if (!d && this.poly.length) return void (this.hover = this.nextPoint(e));
@@ -591,6 +617,12 @@ export class SnPlanDraw extends LitElement {
   }
 
   private up = () => {
+    // The last move first, so the piece lands exactly where the finger left it.
+    if (this.moveFrame) {
+      cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = 0;
+      if (this.lastMove && this.drag) this.move(this.lastMove);
+    }
     const d = this.drag;
     this.drag = undefined;
     if (d?.kind === "line") {
@@ -755,7 +787,16 @@ export class SnPlanDraw extends LitElement {
     const { t } = this.ctx;
     const W = 1200;
     const H = Math.round(W / this.ratio);
-    const preview = svgDataUrl(planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture, walls: this.walls }));
+    // Drawn inline (no picture to decode on every change). While a piece of furniture moves, the plan under it stays
+    // as it was and only that piece is drawn on top, following the finger.
+    const dd = this.drag;
+    const moving = dd && (dd.kind === "fmove" || dd.kind === "fsize" || dd.kind === "frot") ? dd.id : undefined;
+    let preview = this.frozen;
+    if (!moving || !preview) {
+      preview = planSvg(this.rooms, this.doors, W, H, { openings: this.openings, furniture: this.furniture.filter((f) => f.id !== moving), walls: this.walls });
+      this.frozen = moving ? preview : undefined;
+    }
+    const lifted = moving ? this.furniture.find((f) => f.id === moving) : undefined;
     const selF = this.furniture.find((f) => f.id === this.selF);
     const sel = this.rooms.find((r) => r.id === this.sel);
     const d = this.drag;
@@ -783,12 +824,17 @@ export class SnPlanDraw extends LitElement {
           class="canvas"
           style="width:${this.box.w}px;height:${this.box.h}px"
           @pointerdown=${this.down}
-          @pointermove=${this.move}
+          @pointermove=${this.onMoveEvent}
           @pointerup=${this.up}
           @pointercancel=${this.up}
         >
           ${this.trace ? html`<img class="trace" src=${this.trace} alt="" />` : nothing}
-          <img src=${preview} alt="" />
+          <div class="pv">${unsafeSVG(preview)}</div>
+          ${lifted
+            ? html`<svg class="lifted" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+                <g fill="#B4BDC5" fill-opacity=".3" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">${unsafeSVG(furnitureSvg(lifted, W, H))}</g>
+              </svg>`
+            : nothing}
           <svg class="over" viewBox="0 0 100 100" preserveAspectRatio="none">
             ${this.rooms.map(
               (r) => svg`<polygon class="room ${r.id === this.sel ? "sel" : ""}" data-room=${r.id} points=${r.points.map((p) => p.join(",")).join(" ")}></polygon>`
