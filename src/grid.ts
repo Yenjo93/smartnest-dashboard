@@ -335,12 +335,29 @@ export class SnPageGrid extends LitElement {
     if (e.button !== 0 || this.ctx.narrow) return;
     e.preventDefault();
     e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* the finger is already gone */
+    }
     const { col, row } = this.pointerCell(e);
     this.gesture = { id: w.id, mode, pointerId: e.pointerId, offCol: col - w.x, offRow: row - w.y };
     this.preview = this.page.widgets.map((x) => ({ ...x }));
     haptic("tap");
   }
+
+  private moveFrame = 0;
+  private lastMove?: PointerEvent;
+
+  /** Moves come faster than the screen draws: apply the last one once per frame. */
+  private onMove = (e: PointerEvent) => {
+    this.lastMove = e;
+    if (this.moveFrame) return;
+    this.moveFrame = requestAnimationFrame(() => {
+      this.moveFrame = 0;
+      if (this.lastMove) this.move(this.lastMove);
+    });
+  };
 
   private move(e: PointerEvent) {
     const g = this.gesture;
@@ -366,6 +383,8 @@ export class SnPageGrid extends LitElement {
   private end(e: PointerEvent) {
     const g = this.gesture;
     if (!g || e.pointerId !== g.pointerId) return;
+    cancelAnimationFrame(this.moveFrame);
+    this.moveFrame = 0;
     this.move(e); // the release point counts, even if no move event fired right before it
     const result = this.preview;
     this.gesture = undefined;
@@ -412,7 +431,22 @@ export class SnPageGrid extends LitElement {
     window.clearTimeout(this.catchUp);
   }
 
-  private renderWidget(w: Widget) {
+  private stable = new Map<string, Widget>();
+
+  /**
+   * The same widget object as last time when only its place on the grid changed: while cards are dragged around,
+   * the layout is recomputed with fresh copies, and without this every card on the page would redraw on every move.
+   * A card only cares about its size (tiles lay out differently when tall), not where it sits.
+   */
+  private stableWidget(w: Widget): Widget {
+    const k = this.stable.get(w.id);
+    if (k && k.config === w.config && k.type === w.type && k.w === w.w && k.h === w.h) return k;
+    this.stable.set(w.id, w);
+    return w;
+  }
+
+  private renderWidget(cell: Widget) {
+    const w = this.stableWidget(cell);
     const ctx = this.ctxFor(w);
     if (!ctx.allows(widgetFeature(w.type)))
       return html`<div class="glass" style="height:100%;border-radius:var(--r-lg);display:grid;place-items:center;align-content:center;gap:6px;color:var(--text-2);text-align:center;padding:12px;--icon-size:26px">
@@ -530,7 +564,7 @@ export class SnPageGrid extends LitElement {
         ? html`<div
             class="surface"
             @pointerdown=${(e: PointerEvent) => this.start(e, w, "move")}
-            @pointermove=${this.move}
+            @pointermove=${this.onMove}
             @pointerup=${this.end}
             @pointercancel=${this.end}
           ></div>`
@@ -540,7 +574,7 @@ export class SnPageGrid extends LitElement {
             class="handle"
             aria-label="drag"
             @pointerdown=${(e: PointerEvent) => this.start(e, w, "move")}
-            @pointermove=${this.move}
+            @pointermove=${this.onMove}
             @pointerup=${this.end}
             @pointercancel=${this.end}
           >
@@ -560,7 +594,7 @@ export class SnPageGrid extends LitElement {
             class="resize"
             aria-label="resize"
             @pointerdown=${(e: PointerEvent) => this.start(e, w, "resize")}
-            @pointermove=${this.move}
+            @pointermove=${this.onMove}
             @pointerup=${this.end}
             @pointercancel=${this.end}
           >
