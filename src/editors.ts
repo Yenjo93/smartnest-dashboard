@@ -205,11 +205,34 @@ function moveToRoom(c: Ctx, w: Widget) {
   const t = c.t;
   const here = c.config.pages.find((p) => p.widgets.some((x) => x.id === w.id));
   const areaOfPage = (p: Page) => p.widgets.find((x) => x.type === "room" && x.config.area)?.config.area as string | undefined;
+  const areaNamed = (name: string) => Object.values(c.hass.areas ?? {}).find((a) => a.name.trim() === name.trim())?.area_id;
+  // On a page with a title per room (the Rooms page), each title is a place the card can go.
+  const headings = (here?.widgets ?? []).filter((x) => x.type === "heading" && x.config.text).sort((a, b) => a.y - b.y);
+  const mine = [...headings].reverse().find((h) => h.y < w.y);
+  const follow = async (area?: string) => {
+    const id = w.config.entity as string | undefined;
+    if (area && id && c.hass.entities?.[id] && (c.hass.entities[id].area_id ?? undefined) !== area)
+      await c.hass.callWS({ type: "config/entity_registry/update", entity_id: id, area_id: area }).catch(() => undefined);
+  };
   return html`<label class="field"
     >${t("move_room")}
     <select
       @change=${async (e: any) => {
-        const to = c.config.pages.find((p) => p.id === e.target.value);
+        const [kind, target] = String(e.target.value).split(":");
+        if (kind === "h") {
+          const h = headings.find((x) => x.id === target);
+          if (!h || h.id === mine?.id) return;
+          c.update((d) => {
+            const page = d.pages.find((p) => p.widgets.some((x) => x.id === w.id));
+            const card = page?.widgets.find((x) => x.id === w.id);
+            if (!page || !card) return;
+            page.widgets = sectionPlace(page.widgets, card, target);
+          });
+          await follow(areaNamed(h.config.text));
+          c.toast(t("moved_to", { page: h.config.text }));
+          return c.closeSheet();
+        }
+        const to = c.config.pages.find((p) => p.id === target);
         if (!to || to.id === here?.id) return;
         c.update((d) => {
           const from = d.pages.find((p) => p.widgets.some((x) => x.id === w.id));
@@ -220,18 +243,43 @@ function moveToRoom(c: Ctx, w: Widget) {
           const bottom = dest.widgets.reduce((m, x) => Math.max(m, x.y + x.h), 0);
           dest.widgets = resolveLayout([...dest.widgets, { ...card, x: 0, y: bottom }]);
         });
-        const area = areaOfPage(to);
-        const id = w.config.entity as string | undefined;
-        if (area && id && c.hass.entities?.[id] && (c.hass.entities[id].area_id ?? undefined) !== area)
-          await c.hass.callWS({ type: "config/entity_registry/update", entity_id: id, area_id: area }).catch(() => undefined);
+        await follow(areaOfPage(to));
         c.toast(t("moved_to", { page: to.title }));
         c.closeSheet();
       }}
     >
-      ${c.config.pages.map((p) => html`<option value=${p.id} ?selected=${p.id === here?.id}>${p.title}</option>`)}
+      ${headings.length
+        ? html`<optgroup label=${t("move_this_page")}>
+            ${headings.map((h) => html`<option value=${`h:${h.id}`} ?selected=${h.id === mine?.id}>${h.config.text}</option>`)}
+          </optgroup>`
+        : nothing}
+      <optgroup label=${t("move_other_page")}>
+        ${c.config.pages.map((p) => html`<option value=${`p:${p.id}`} ?selected=${!headings.length && p.id === here?.id}>${p.title}</option>`)}
+      </optgroup>
     </select>
     <span class="hint">${t("move_room_hint")}</span>
   </label>`;
+}
+
+/**
+ * The card at the end of a room's section on the same page (the section runs from its title to the next title):
+ * in a free spot on the section's last row, or on a new row there, with everything below moved down to make room.
+ */
+function sectionPlace(widgets: Widget[], card: Widget, headingId: string): Widget[] {
+  const ws = resolveLayout(widgets.filter((x) => x.id !== card.id)).map((x) => ({ ...x }));
+  const titles = ws.filter((x) => x.type === "heading").sort((a, b) => a.y - b.y);
+  const h = titles.find((x) => x.id === headingId);
+  if (!h) return widgets;
+  const next = titles.find((x) => x.y > h.y);
+  const inSec = ws.filter((x) => x.type !== "heading" && x.y > h.y && (!next || x.y < next.y));
+  const free = (x: number, y: number) => x + card.w <= 12 && !ws.some((o) => x < o.x + o.w && o.x < x + card.w && y < o.y + o.h && o.y < y + card.h);
+  if (inSec.length) {
+    const lastRow = Math.max(...inSec.map((x) => x.y));
+    for (let x = 0; x + card.w <= 12; x++) if (free(x, lastRow)) return resolveLayout([...ws, { ...card, x, y: lastRow }], card.id);
+  }
+  const bottom = inSec.length ? Math.max(...inSec.map((x) => x.y + x.h)) : h.y + h.h;
+  for (const o of ws) if (o.y >= bottom) o.y += card.h;
+  return resolveLayout([...ws, { ...card, x: 0, y: bottom }], card.id);
 }
 
 function widgetBody(c: Ctx, w: Widget, widgetId: string) {
