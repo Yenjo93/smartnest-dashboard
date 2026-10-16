@@ -490,7 +490,23 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
         case "family":
           return col(
             multiField(c, t("family_who"), w.config.entities, { domains: ["person", "device_tracker", "binary_sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)), "family_all"),
-            html`<div class="field">${t("pmap_setting")} ${toggle(c, w.config.map !== false, (v) => editWidget(c, widgetId, (x) => (x.config.map = v)))}<span class="hint">${t("pmap_setting_hint")}</span></div>`
+            html`<div class="field">${t("pmap_setting")} ${toggle(c, w.config.map !== false, (v) => editWidget(c, widgetId, (x) => (x.config.map = v)))}<span class="hint">${t("pmap_setting_hint")}</span></div>`,
+            w.config.map === false
+              ? nothing
+              : html`<label class="field"
+                  >${t("pmap_tiles")}
+                  <select @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.map_tiles = e.target.value))}>
+                    ${(["osm", "streets", "satellite", "custom"] as const).map(
+                      (k) => html`<option value=${k} ?selected=${(w.config.map_tiles ?? "osm") === k}>${t(`pmap_tiles_${k}` as I18nKey)}</option>`
+                    )}
+                  </select>
+                </label>`,
+            w.config.map_tiles === "custom"
+              ? html`<label class="field"
+                  >URL
+                  <input dir="ltr" placeholder="https://…/{z}/{x}/{y}.png" .value=${w.config.map_tiles_url ?? ""} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.map_tiles_url = e.target.value.trim()))} />
+                </label>`
+              : nothing
           );
         case "hours":
           return multiField(c, t("widget_hours"), w.config.entities, { domains: ["light", "switch", "climate", "fan", "media_player", "water_heater", "input_boolean"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)));

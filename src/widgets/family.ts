@@ -86,7 +86,7 @@ export class SnFamily extends LitElement {
         ctx.showSheet({
           title: entityName(ctx.hass, ctx.config, id),
           origin,
-          render: (c) => html`<sn-person-map .ctx=${c} entity=${id}></sn-person-map>`,
+          render: (c) => html`<sn-person-map .ctx=${c} entity=${id} source=${this.widget.config.map_tiles ?? "osm"} customUrl=${this.widget.config.map_tiles_url ?? ""}></sn-person-map>`,
         }),
       () => ctx.openEntity(id, origin)
     );

@@ -1265,6 +1265,11 @@ const en = {
   pmap_no_gps: "No GPS points in this time: the phone needs the HA app with location on",
   pmap_setting: "Map with route when tapping a person",
   pmap_setting_hint: "Shows where they went today, yesterday or this week (from HA's history)",
+  pmap_tiles: "Map",
+  pmap_tiles_osm: "OpenStreetMap",
+  pmap_tiles_streets: "Streets (Esri)",
+  pmap_tiles_satellite: "Satellite (Esri)",
+  pmap_tiles_custom: "Custom tile URL",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2534,6 +2539,11 @@ const ar: Record<I18nKey, string> = {
   pmap_no_gps: "ما في نقاط GPS بهالوقت: لازم تطبيق HA عالتلفون والموقع شغّال",
   pmap_setting: "خريطة مع المسار لما تكبس على شخص",
   pmap_setting_hint: "بتورجي وين راح اليوم أو مبارح أو هالأسبوع (من سجل الـ HA)",
+  pmap_tiles: "الخريطة",
+  pmap_tiles_osm: "OpenStreetMap",
+  pmap_tiles_streets: "شوارع (Esri)",
+  pmap_tiles_satellite: "قمر صناعي (Esri)",
+  pmap_tiles_custom: "رابط خرائط خاص",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3801,6 +3811,11 @@ const he: Record<I18nKey, string> = {
   pmap_no_gps: "אין נקודות GPS בזמן הזה: צריך את אפליקציית HA בטלפון עם מיקום פעיל",
   pmap_setting: "מפה עם מסלול בלחיצה על אדם",
   pmap_setting_hint: "מציג לאן הלכו היום, אתמול או השבוע (מההיסטוריה של HA)",
+  pmap_tiles: "מפה",
+  pmap_tiles_osm: "OpenStreetMap",
+  pmap_tiles_streets: "רחובות (Esri)",
+  pmap_tiles_satellite: "לוויין (Esri)",
+  pmap_tiles_custom: "כתובת אריחים מותאמת",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

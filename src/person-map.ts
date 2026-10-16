@@ -39,10 +39,21 @@ function window_(range: Range): [Date, Date] {
   return [new Date(start.getTime() - 6 * 86_400_000), new Date()];
 }
 
+export type MapSource = "osm" | "streets" | "satellite" | "custom";
+const OSM = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const ESRI = "Tiles © Esri";
+const TILES: Record<Exclude<MapSource, "custom">, { url: string; attribution: string; night: boolean }> = {
+  osm: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: OSM, night: true },
+  streets: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attribution: ESRI, night: true },
+  satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: ESRI, night: false },
+};
+
 @customElement("sn-person-map")
 export class SnPersonMap extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property() entity = "";
+  @property() source: MapSource = "osm";
+  @property() customUrl = "";
   @state() private range: Range = "today";
   @state() private fixes: Fix[] = [];
   @state() private visits: Visit[] = [];
@@ -233,15 +244,27 @@ export class SnPersonMap extends LitElement {
     this.ro.observe(this.box);
   }
 
-  private setTiles() {
-    if (!this.map || this.dark === this.ctx.dark) return;
+  private setTiles(force = false) {
+    if (!this.map || (!force && this.dark === this.ctx.dark)) return;
     this.dark = this.ctx.dark;
     this.tiles?.remove();
-    this.tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    const src = this.source === "custom" ? (this.customUrl ? { ...TILES.osm, url: this.customUrl, attribution: "" } : TILES.osm) : TILES[this.source] ?? TILES.osm;
+    let errors = 0;
+    this.tiles = L.tileLayer(src.url, {
       maxZoom: 19,
-      className: this.dark ? "night" : "",
-      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
-    }).addTo(this.map);
+      className: this.dark && src.night ? "night" : "",
+      // Home Assistant's page sends no Referer, and OpenStreetMap blocks tiles without one: send the HA address for the tiles.
+      referrerPolicy: "strict-origin-when-cross-origin",
+      attribution: src.attribution,
+    } as L.TileLayerOptions)
+      .on("tileerror", () => {
+        // Blocked or offline: fall back to the other street map once.
+        if (++errors === 4 && this.source === "osm") {
+          this.source = "streets";
+          this.setTiles(true);
+        }
+      })
+      .addTo(this.map);
   }
 
   private draw() {
