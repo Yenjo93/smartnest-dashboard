@@ -42,8 +42,8 @@ export class SnMiniPlayer extends LitElement {
       padding-inline-end: 8px;
       border-radius: 999px;
       background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-      -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(160%);
-      backdrop-filter: blur(var(--glass-blur, 24px)) saturate(160%);
+      -webkit-backdrop-filter: var(--glass-filter, blur(var(--glass-blur, 24px)) saturate(160%));
+      backdrop-filter: var(--glass-filter, blur(var(--glass-blur, 24px)) saturate(160%));
       box-shadow: var(--shadow-lift);
       color: var(--text);
       cursor: pointer;

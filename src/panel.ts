@@ -152,6 +152,23 @@ const liteNow = () => {
   const v = liteSaved();
   return v === "1" || (v === null && weakDevice());
 };
+/**
+ * Smooth: everything still moves and every theme still shows, but no live glass blur, no glows, no light layers on
+ * the cards: those are what make a tablet's frames late. Chosen in About, or picked by itself on a screen measured
+ * a bit slow.
+ */
+const smoothNow = () => {
+  const v = liteSaved();
+  if (v === "s") return true;
+  if (v !== null) return false;
+  // Automatic: tablets and phones (touch) get smooth by default; a computer keeps every effect unless it was slow.
+  if (matchMedia("(pointer: coarse)").matches) return true;
+  try {
+    return localStorage.getItem("smartnest-smooth") === "1";
+  } catch {
+    return false;
+  }
+};
 
 const SHOWROOM = (() => {
   try {
@@ -210,6 +227,7 @@ export class SmartNestPanel extends LitElement {
   private hassTimer?: number;
   /** Fast mode: no blur, no ambient animation, fewer redraws. */
   @state() private lite = liteNow();
+  @state() private smooth = smoothNow();
   private liteChoice = liteSaved();
   private applyHass(v: Hass) {
     const old = this._hass;
@@ -1028,8 +1046,8 @@ export class SmartNestPanel extends LitElement {
         padding: 8px 14px;
         border-radius: 999px;
         background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(12px));
+        backdrop-filter: var(--glass-filter, blur(12px));
         box-shadow: var(--shadow-lift);
         font-size: 14px;
         font-weight: 600;
@@ -1536,14 +1554,17 @@ export class SmartNestPanel extends LitElement {
       frames++;
       if (now - start < 3000) return void requestAnimationFrame(step);
       const fps = (frames * 1000) / (now - start);
-      if (fps < 45) {
+      // Well under: fast mode. A little under: smooth (the look and motion stay, the glass and glows go).
+      // Already smooth: only a really struggling screen steps down to fast.
+      if (fps < 40 || (!this.smooth && fps < 56)) {
         try {
-          localStorage.setItem("smartnest-slow", "1");
+          localStorage.setItem(fps < 40 ? "smartnest-slow" : "smartnest-smooth", "1");
         } catch {
           /* per screen */
         }
         this.lite = liteNow();
-        this.toast(translator(this.uiLang)("fast_auto_on"));
+        this.smooth = smoothNow();
+        this.toast(translator(this.uiLang)(fps < 40 ? "fast_auto_on" : "smooth_auto_on"));
       }
     };
     requestAnimationFrame(step);
@@ -2116,13 +2137,36 @@ export class SmartNestPanel extends LitElement {
     setStill(motion === "off");
     vars["--loops"] = motion === "full" ? "running" : "paused";
     // The moving light only in full motion; otherwise it rests in the top corner.
-    if (pro && motion === "full" && !this.lite && !this.stopLight) this.stopLight = followLight(this);
+    if (pro && motion === "full" && !this.lite && !this.smooth && !this.stopLight) this.stopLight = followLight(this);
     if ((!pro || motion !== "full") && this.stopLight) {
       this.stopLight();
       this.stopLight = undefined;
     }
     vars["--breathe"] = pro && motion === "full" && allows(this.lic.plan, "breathing") ? "block" : "none";
     this.syncTilt(pro && motion === "full" && !this.lite && allows(this.lic.plan, "tilt"));
+    if (this.smooth && !this.lite) {
+      // Smooth: the same look and motion, minus the costly parts: no live blur behind cards (near-solid instead), no
+      // glows or light layers on them, softer shadows.
+      const solid = vars["--surface-solid"] ?? (this.dark ? "#2A333B" : "#FFFFFF");
+      Object.assign(vars, {
+        "--glass-filter": "none",
+        "--glass-blur": "0px",
+        "--surface": `color-mix(in srgb, ${solid} 93%, transparent)`,
+        "--sheen": "none",
+        "--grain": "none",
+        "--material": "none",
+        "--leak-opacity": "0",
+        "--on-glow": "0%",
+        "--active-glow": "none",
+        "--breathe": "none",
+        "--shadow": this.dark ? "0 2px 8px rgba(0,0,0,.28)" : "0 2px 8px rgba(30,37,43,.10)",
+        "--shadow-lift": this.dark ? "0 10px 24px rgba(0,0,0,.35)" : "0 10px 24px rgba(30,37,43,.16)",
+      });
+      if (this.stopLight) {
+        this.stopLight();
+        this.stopLight = undefined;
+      }
+    }
     if (this.lite) {
       // Fast mode: solid cards instead of live blur (the biggest cost on tablets), and nothing moving on its own.
       Object.assign(vars, {
@@ -2436,8 +2480,9 @@ export class SmartNestPanel extends LitElement {
               <div class="seg">
                 ${([
                   [null, "fast_auto"],
-                  ["1", "on"],
-                  ["0", "off"],
+                  ["0", "perf_full"],
+                  ["s", "perf_smooth"],
+                  ["1", "perf_fast"],
                 ] as const).map(
                   ([v, label]) => html`<button
                     aria-pressed=${this.liteChoice === v}
@@ -2449,6 +2494,7 @@ export class SmartNestPanel extends LitElement {
                         /* per screen */
                       }
                       this.lite = liteNow();
+                      this.smooth = smoothNow();
                       this.requestUpdate();
                     }}
                   >
@@ -2456,7 +2502,7 @@ export class SmartNestPanel extends LitElement {
                   </button>`
                 )}
               </div>
-              <span class="hint">${c.t(weakDevice() ? "fast_hint_weak" : "fast_hint")}${this.lite ? " ✓" : ""}</span>
+              <span class="hint">${c.t("perf_hint")}${this.liteChoice === null ? ` (${c.t(this.lite ? "perf_fast" : this.smooth ? "perf_smooth" : "perf_full")})` : ""}</span>
             </div>
             ${c.allows("simple_mode")
               ? html`<div class="field">
@@ -2823,7 +2869,7 @@ export class SmartNestPanel extends LitElement {
       ${this.pro && !this.lite && !this.occasion() && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
         ? html`<sn-seasonfx .season=${seasonNow()}></sn-seasonfx>`
         : nothing}
-      ${this.pro && !this.lite ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
+      ${this.pro && !this.lite && !this.smooth ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
       ${this.renderWeather(ctx)}
       ${this.renderRainGlass(ctx)}
       ${this.renderBar(ctx)}

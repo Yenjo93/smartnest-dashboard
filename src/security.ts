@@ -97,8 +97,8 @@ export class SnAlarm extends LitElement {
         background: radial-gradient(circle at 50% 30%, rgba(229, 72, 77, 0.55), rgba(70, 0, 6, 0.92));
         animation: flash 1.2s ease-in-out infinite alternate;
         color: #fff;
-        -webkit-backdrop-filter: blur(14px);
-        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(14px));
+        backdrop-filter: var(--glass-filter, blur(14px));
       }
       .card {
         width: min(760px, 100%);

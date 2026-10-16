@@ -47,8 +47,8 @@ export class SnMessage extends LitElement {
         place-items: center;
         padding: 24px;
         background: var(--scrim);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(12px));
+        backdrop-filter: var(--glass-filter, blur(12px));
         animation: fade 260ms cubic-bezier(0.22, 1, 0.36, 1);
       }
       .card {

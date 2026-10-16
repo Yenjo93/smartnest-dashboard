@@ -99,8 +99,8 @@ export class SnScreensaver extends LitElement {
         padding: 10px 16px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.08);
-        -webkit-backdrop-filter: blur(16px);
-        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(16px));
+        backdrop-filter: var(--glass-filter, blur(16px));
         color: #e9edf1;
         font-size: 17px;
         font-weight: 600;

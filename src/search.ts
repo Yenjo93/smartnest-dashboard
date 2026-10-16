@@ -48,8 +48,8 @@ export class SnSearch extends LitElement {
         align-items: start;
         padding: 12vh 16px 16px;
         background: var(--scrim);
-        -webkit-backdrop-filter: blur(8px);
-        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(8px));
+        backdrop-filter: var(--glass-filter, blur(8px));
         animation: fade 200ms ease;
       }
       .box {

@@ -73,8 +73,8 @@ export class SnVoice extends LitElement {
         display: grid;
         place-items: center;
         background: var(--surface);
-        -webkit-backdrop-filter: blur(16px);
-        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(16px));
+        backdrop-filter: var(--glass-filter, blur(16px));
         border: 1px solid var(--border);
         color: var(--text-2);
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
@@ -88,8 +88,8 @@ export class SnVoice extends LitElement {
         display: grid;
         place-items: center;
         background: color-mix(in srgb, #000 35%, transparent);
-        -webkit-backdrop-filter: blur(10px);
-        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(10px));
+        backdrop-filter: var(--glass-filter, blur(10px));
         animation: fade 240ms cubic-bezier(0.22, 1, 0.36, 1);
       }
       .panel {

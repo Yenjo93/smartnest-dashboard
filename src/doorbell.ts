@@ -58,8 +58,8 @@ export class SnDoorbell extends LitElement {
         place-items: center;
         padding: 24px;
         background: rgba(8, 10, 12, 0.6);
-        -webkit-backdrop-filter: blur(14px);
-        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(14px));
+        backdrop-filter: var(--glass-filter, blur(14px));
         animation: fade 300ms var(--ease-out);
       }
       .replies {

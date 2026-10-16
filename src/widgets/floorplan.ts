@@ -187,8 +187,8 @@ export class SnFloorplan extends LitElement {
         padding: 4px;
         border-radius: 999px;
         background: var(--surface);
-        -webkit-backdrop-filter: blur(16px) saturate(170%);
-        backdrop-filter: blur(16px) saturate(170%);
+        -webkit-backdrop-filter: var(--glass-filter, blur(16px) saturate(170%));
+        backdrop-filter: var(--glass-filter, blur(16px) saturate(170%));
         border: 1px solid var(--border);
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
         touch-action: none;
@@ -470,8 +470,8 @@ export class SnFloorplan extends LitElement {
       }
       .floors .seg {
         background: var(--surface);
-        -webkit-backdrop-filter: blur(20px);
-        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(20px));
+        backdrop-filter: var(--glass-filter, blur(20px));
         box-shadow: var(--shadow);
       }
       .tools {
@@ -762,8 +762,8 @@ export class SnFloorplan extends LitElement {
         display: grid;
         place-items: center;
         background: var(--surface);
-        -webkit-backdrop-filter: blur(20px);
-        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(20px));
+        backdrop-filter: var(--glass-filter, blur(20px));
         box-shadow: var(--shadow);
         color: var(--text-2);
         --icon-size: 20px;

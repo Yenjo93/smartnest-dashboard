@@ -39,8 +39,8 @@ export class SnRadar extends LitElement {
         padding: 6px 12px;
         border-radius: 999px;
         background: var(--surface);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(12px));
+        backdrop-filter: var(--glass-filter, blur(12px));
         font-weight: 600;
         font-size: 14px;
         display: flex;

@@ -108,8 +108,8 @@ export class SnRoom extends LitElement {
         display: grid;
         place-items: center;
         background: rgba(255, 255, 255, 0.18);
-        -webkit-backdrop-filter: blur(14px);
-        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(14px));
+        backdrop-filter: var(--glass-filter, blur(14px));
         color: #fff;
         transition: background 300ms, color 300ms, transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
       }

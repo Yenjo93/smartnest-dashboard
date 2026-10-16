@@ -100,8 +100,8 @@ export class SnMorning extends LitElement {
         place-items: center;
         padding: 24px;
         background: radial-gradient(80% 70% at 50% 0%, rgba(255, 200, 120, 0.45), transparent 70%), var(--scrim);
-        -webkit-backdrop-filter: blur(18px);
-        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(18px));
+        backdrop-filter: var(--glass-filter, blur(18px));
         animation: fade 700ms var(--ease-out);
       }
       .card {

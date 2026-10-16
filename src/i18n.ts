@@ -1215,6 +1215,11 @@ const en = {
   bins_name: "Bin (General, Recycling…)",
   quiet_hours: "Stand out after (hours quiet)",
   plants_dry_at: "Needs water under %",
+  perf_full: "Full",
+  perf_smooth: "Smooth",
+  perf_fast: "Fast",
+  perf_hint: "Full: every effect. Smooth: the same look and motion without glass blur and glows (much lighter). Fast: still, for weak tablets.",
+  smooth_auto_on: "This screen was a little slow, so it's on Smooth (same look, lighter). Change it in About.",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2434,6 +2439,11 @@ const ar: Record<I18nKey, string> = {
   bins_name: "الحاوية (عادية، تدوير…)",
   quiet_hours: "نبّه بعد (ساعات بدون حركة)",
   plants_dry_at: "بدها سقاية تحت %",
+  perf_full: "كامل",
+  perf_smooth: "ناعم",
+  perf_fast: "سريع",
+  perf_hint: "كامل: كل المؤثرات. ناعم: نفس الشكل والحركة بدون تمويه الزجاج والتوهج (أخف بكثير). سريع: بدون حركة، للتابلتات الضعيفة.",
+  smooth_auto_on: "الشاشة كانت تقيلة شوي، فصارت على ناعم (نفس الشكل وأخف). بتغيّره من حول.",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3651,6 +3661,11 @@ const he: Record<I18nKey, string> = {
   bins_name: "פח (רגיל, מיחזור…)",
   quiet_hours: "הדגש אחרי (שעות שקט)",
   plants_dry_at: "צריך מים מתחת ל-%",
+  perf_full: "מלא",
+  perf_smooth: "חלק",
+  perf_fast: "מהיר",
+  perf_hint: "מלא: כל האפקטים. חלק: אותו מראה ותנועה בלי טשטוש וזוהר. מהיר: בלי תנועה.",
+  smooth_auto_on: "המסך היה מעט איטי, אז עבר למצב חלק. אפשר לשנות באודות.",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

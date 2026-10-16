@@ -105,8 +105,8 @@ export class SnCamera extends LitElement {
         padding: 6px 12px;
         border-radius: 999px;
         background: rgba(21, 26, 30, 0.55);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(12px));
+        backdrop-filter: var(--glass-filter, blur(12px));
         color: #fff;
         font-size: 13px;
         font-weight: 500;

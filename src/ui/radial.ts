@@ -29,8 +29,8 @@ export class SnRadial extends LitElement {
       inset: 0;
       z-index: 70;
       background: color-mix(in srgb, var(--scrim) 70%, transparent);
-      -webkit-backdrop-filter: blur(4px);
-      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: var(--glass-filter, blur(4px));
+      backdrop-filter: var(--glass-filter, blur(4px));
       animation: fade 180ms ease-out;
     }
     .hub {

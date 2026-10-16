@@ -25,8 +25,8 @@ export class SnSheetHost extends LitElement {
         inset: 0;
         z-index: 50;
         background: var(--scrim);
-        -webkit-backdrop-filter: blur(6px);
-        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(6px));
+        backdrop-filter: var(--glass-filter, blur(6px));
         display: grid;
         place-items: center;
         padding: 24px;

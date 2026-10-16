@@ -27,8 +27,8 @@ export class SnWelcome extends LitElement {
         display: grid;
         place-items: center;
         background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 35%, transparent), var(--scrim) 70%);
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: var(--glass-filter, blur(12px));
+        backdrop-filter: var(--glass-filter, blur(12px));
         animation: fade 500ms ease;
       }
       .card {
