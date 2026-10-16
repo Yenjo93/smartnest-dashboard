@@ -1995,7 +1995,11 @@ export class SmartNestPanel extends LitElement {
       }
       if (Math.abs(dx) < 14 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
       s.active = true;
-      main.setPointerCapture(e.pointerId);
+      try {
+        main.setPointerCapture(e.pointerId);
+      } catch {
+        /* the pointer is already gone */
+      }
     }
     s.dx = dx;
     // Rubber-band at the first and last page.
@@ -2020,16 +2024,16 @@ export class SmartNestPanel extends LitElement {
       haptic("tap");
       // A fast flick leaves faster.
       const out = Math.max(110, Math.min(200, 160 / Math.max(1, Math.abs(velocity) * 1.5)));
-      main
-        .animate([{ transform: `translateX(${pull}px)`, opacity: main.style.opacity || "1" }, { transform: `translateX(${Math.sign(s.dx) * main.offsetWidth * 0.35}px)`, opacity: 0 }], {
-          duration: out,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-          fill: "forwards",
-        })
-        .finished.then(() => {
-          reset();
-          this.goToPage(target);
-        });
+      const leave = main.animate(
+        [{ transform: `translateX(${pull}px)`, opacity: main.style.opacity || "1" }, { transform: `translateX(${Math.sign(s.dx) * main.offsetWidth * 0.35}px)`, opacity: 0 }],
+        { duration: out, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" }
+      );
+      leave.finished.then(() => {
+        reset();
+        this.goToPage(target);
+        // The page stays built (to come back to instantly): drop the "gone" state the slide left on it, once it's hidden.
+        this.updateComplete.then(() => leave.cancel());
+      });
     } else {
       reset();
       // Back into place on a spring, carrying the finger's speed.

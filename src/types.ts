@@ -234,7 +234,16 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "car"
   | "solarcast"
   | "bins"
-  | "activity";
+  | "activity"
+  | "openings"
+  | "comfort"
+  | "ktimer"
+  | "reminders"
+  | "photos"
+  | "wifi"
+  | "baby"
+  | "switches"
+  | "fans";
 
 export interface Widget {
   id: string;

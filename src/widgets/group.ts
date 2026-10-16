@@ -9,7 +9,11 @@ import { saveAsScene } from "../scene-save";
 import { haptic } from "../ui/haptic";
 
 
-function members(ctx: Ctx, domain: "light" | "cover", w: Widget): string[] {
+export type GroupDomain = "light" | "cover" | "switch" | "fan";
+const NAME = { light: "widget_lights", cover: "widget_covers", switch: "widget_switches", fan: "widget_fans" } as const;
+const ICON = { light: "lightbulb", cover: "blinds", switch: "power-socket", fan: "fan" } as const;
+
+function members(ctx: Ctx, domain: GroupDomain, w: Widget): string[] {
   const { hass } = ctx;
   if (w.config.entities?.length) return (w.config.entities as string[]).filter((id) => hass.states[id]);
   return Object.keys(hass.states).filter(
@@ -31,7 +35,7 @@ function members(ctx: Ctx, domain: "light" | "cover", w: Widget): string[] {
 export class SnGroup extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
-  @property() domain: "light" | "cover" = "light";
+  @property() domain: GroupDomain = "light";
 
   static styles = [
     shared,
@@ -179,22 +183,22 @@ export class SnGroup extends LitElement {
     const { t, hass, config, lang } = ctx;
     const ids = members(ctx, domain, this.widget);
     const area = this.widget.config.area ? hass.areas?.[this.widget.config.area]?.name : undefined;
-    const title = this.widget.config.title || (area ? `${t(domain === "light" ? "widget_lights" : "widget_covers")} · ${area}` : t(domain === "light" ? "widget_lights" : "widget_covers"));
-    const active = ids.filter((id) => (domain === "light" ? hass.states[id].state === "on" : ["open", "opening"].includes(hass.states[id].state)));
+    const title = this.widget.config.title || (area ? `${t(NAME[domain])} · ${area}` : t(NAME[domain]));
+    const active = ids.filter((id) => (domain !== "cover" ? hass.states[id].state === "on" : ["open", "opening"].includes(hass.states[id].state)));
     if (!ids.length) return html`<div class="card glass"><sn-empty text=${t("no_entities")}></sn-empty></div>`;
     return html`<div class="card glass">
       <div class="head">
-        <sn-icon icon=${domain === "light" ? "lightbulb" : "blinds"} style="--icon-size:22px;color:${active.length ? "var(--accent-text)" : "var(--text-2)"}"></sn-icon>
+        <sn-icon icon=${ICON[domain]} style="--icon-size:22px;color:${active.length ? "var(--accent-text)" : "var(--text-2)"}"></sn-icon>
         <div>
           <b>${title}</b>
-          <span>${domain === "light" ? t("lights_on_n", { n: active.length, of: ids.length }) : t("covers_open_n", { n: active.length, of: ids.length })}</span>
+          <span>${domain !== "cover" ? t("lights_on_n", { n: active.length, of: ids.length }) : t("covers_open_n", { n: active.length, of: ids.length })}</span>
         </div>
         ${ctx.isAdmin
           ? html`<button class="icon-btn small pressable" aria-label=${t("scene_keep")} title=${t("scene_keep")} @click=${() => saveAsScene(ctx, ids, title).catch(() => ctx.toast(t("error")))}>
               <sn-icon icon="content-save" style="--icon-size:18px"></sn-icon>
             </button>`
           : nothing}
-        ${domain === "light"
+        ${domain !== "cover"
           ? active.length
             ? html`<button class="btn pressable" @click=${() => this.call("turn_off", active)}>${t("all_off")}</button>`
             : html`<button class="btn primary pressable" @click=${() => this.call("turn_on", ids)}>${t("all_on")}</button>`
@@ -218,7 +222,7 @@ export class SnGroup extends LitElement {
               ${domain === "light" && on && typeof bri === "number" ? html`<small class="ltr">${ltr(`${formatNumber((bri / 255) * 100, lang, 0)}%`)}</small>` : nothing}
               ${domain === "cover" && typeof pos === "number" ? html`<small class="ltr">${ltr(`${pos}%`)}</small>` : nothing}
             </span>
-            ${domain === "light"
+            ${domain !== "cover"
               ? html`<button class="sw" role="switch" aria-checked=${on} aria-label=${entityName(hass, config, id)} @click=${() => this.call("toggle", [id])}></button>`
               : html`<div class="cv">
                   <button aria-label=${t("open")} @click=${() => this.call("open_cover", [id])}><sn-icon icon="arrow-up"></sn-icon></button>

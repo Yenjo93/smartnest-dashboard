@@ -11,7 +11,7 @@ export type Feature =
   | "w_gauge" | "w_gate" | "w_frigate" | "w_schedule" | "automations" | "lock_history"
   | "sky" | "plan_3d" | "people_on_plan" | "air_maps" | "clock_styles" | "liquid_glass" | "guests"
   | "w_media" | "w_remote" | "broadcast" | "cinema" | "transfer" | "wizard" | "maintenance" | "rating"
-  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert" | "w_wake" | "w_chores" | "w_air" | "light_fx" | "person_pages" | "history" | "report" | "presets" | "support" | "ai_scene" | "ai_automation" | "ai_cameras" | "ai_bill" | "voice" | "w_boiler" | "w_irrigation" | "home_helpers" | "w_timeline" | "w_internet" | "guest_codes" | "faces" | "w_board" | "w_verse" | "w_radar" | "w_commute" | "w_parcels" | "tou" | "energy_challenge" | "refill" | "heartbeat" | "warranty" | "battery_plan" | "showroom" | "style_pro" | "w_hero" | "w_stack" | "w_room" | "island" | "bento" | "wallpaper" | "dock" | "dial" | "search" | "charts" | "complications" | "ui_sounds" | "boot" | "cinematic_pages" | "wiggle" | "live_gallery" | "motion_levels" | "plan_model" | "night_halos" | "plan_lens" | "breathing" | "high_contrast" | "music_backdrop" | "window_camera" | "welcome" | "page_moods" | "monogram" | "sun_arc" | "status_line" | "season_skin" | "light_wave" | "push_back" | "autobuild" | "w_ac" | "w_scenes" | "w_sensor" | "w_batteries" | "w_lights" | "w_covers" | "w_prayer" | "tilt" | "rain_glass" | "sun_on_plan" | "fonts" | "icon_styles" | "accent_day" | "active_glow" | "aurora" | "occasions" | "night_red" | "simple_mode" | "burn_in" | "w_folder" | "ac_week" | "notif_center" | "mini_player" | "live_timers" | "nudges" | "white_label" | "phone_qr" | "circadian" | "page_users" | "quick_scenes" | "w_story" | "w_hours" | "w_plants" | "w_pool" | "w_net" | "w_car" | "w_solarcast" | "w_bins" | "w_activity";
+  | "assistant" | "ai_doorbell" | "ai_summary" | "habits" | "ai_explain" | "w_consumers" | "w_water" | "overload" | "solar_tip" | "bill_budget" | "plan_fx" | "plan_replay" | "floor_stack" | "fly_to_room" | "robot_on_plan" | "travel" | "alarm_screen" | "package" | "weather_alert" | "w_wake" | "w_chores" | "w_air" | "light_fx" | "person_pages" | "history" | "report" | "presets" | "support" | "ai_scene" | "ai_automation" | "ai_cameras" | "ai_bill" | "voice" | "w_boiler" | "w_irrigation" | "home_helpers" | "w_timeline" | "w_internet" | "guest_codes" | "faces" | "w_board" | "w_verse" | "w_radar" | "w_commute" | "w_parcels" | "tou" | "energy_challenge" | "refill" | "heartbeat" | "warranty" | "battery_plan" | "showroom" | "style_pro" | "w_hero" | "w_stack" | "w_room" | "island" | "bento" | "wallpaper" | "dock" | "dial" | "search" | "charts" | "complications" | "ui_sounds" | "boot" | "cinematic_pages" | "wiggle" | "live_gallery" | "motion_levels" | "plan_model" | "night_halos" | "plan_lens" | "breathing" | "high_contrast" | "music_backdrop" | "window_camera" | "welcome" | "page_moods" | "monogram" | "sun_arc" | "status_line" | "season_skin" | "light_wave" | "push_back" | "autobuild" | "w_ac" | "w_scenes" | "w_sensor" | "w_batteries" | "w_lights" | "w_covers" | "w_prayer" | "tilt" | "rain_glass" | "sun_on_plan" | "fonts" | "icon_styles" | "accent_day" | "active_glow" | "aurora" | "occasions" | "night_red" | "simple_mode" | "burn_in" | "w_folder" | "ac_week" | "notif_center" | "mini_player" | "live_timers" | "nudges" | "white_label" | "phone_qr" | "circadian" | "page_users" | "quick_scenes" | "w_story" | "w_hours" | "w_plants" | "w_pool" | "w_net" | "w_car" | "w_solarcast" | "w_bins" | "w_activity" | "w_openings" | "w_comfort" | "w_ktimer" | "w_reminders" | "w_photos" | "w_wifi" | "w_baby" | "w_switches" | "w_fans";
 
 const NEEDS: Record<Feature, Plan> = {
   w_floorplan: "basic", w_tile: "basic", w_camera: "basic", w_heading: "basic", w_clock: "basic", w_modes: "basic",
@@ -154,6 +154,15 @@ const NEEDS: Record<Feature, Plan> = {
   w_solarcast: "pro",
   w_bins: "basic",
   w_activity: "pro",
+  w_openings: "basic",
+  w_comfort: "pro",
+  w_ktimer: "basic",
+  w_reminders: "basic",
+  w_photos: "pro",
+  w_wifi: "pro",
+  w_baby: "pro",
+  w_switches: "basic",
+  w_fans: "basic",
 };
 
 export const planFor = (f: Feature): Plan => NEEDS[f];

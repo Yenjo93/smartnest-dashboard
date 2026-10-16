@@ -32,12 +32,13 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/group";
+import "./widgets/cards3";
 import "./widgets/cards2";
 import "./widgets/hours";
 import "./widgets/story";
 import "./widgets/folder";
 import "./widgets/prayer";
-import "./widgets/group";
 import "./widgets/batteries";
 import "./widgets/sensor";
 import "./widgets/scenes";
@@ -613,6 +614,10 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="light"></sn-w-group>`;
       case "covers":
         return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="cover"></sn-w-group>`;
+      case "switches":
+        return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="switch"></sn-w-group>`;
+      case "fans":
+        return html`<sn-w-group .ctx=${ctx} .widget=${w} domain="fan"></sn-w-group>`;
       case "prayer":
         return html`<sn-w-prayer .ctx=${ctx} .widget=${w}></sn-w-prayer>`;
       case "folder":
@@ -635,6 +640,20 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-bins .ctx=${ctx} .widget=${w}></sn-w-bins>`;
       case "activity":
         return html`<sn-w-activity .ctx=${ctx} .widget=${w}></sn-w-activity>`;
+      case "openings":
+        return html`<sn-w-openings .ctx=${ctx} .widget=${w}></sn-w-openings>`;
+      case "comfort":
+        return html`<sn-w-comfort .ctx=${ctx} .widget=${w}></sn-w-comfort>`;
+      case "ktimer":
+        return html`<sn-w-ktimer .ctx=${ctx} .widget=${w}></sn-w-ktimer>`;
+      case "reminders":
+        return html`<sn-w-reminders .ctx=${ctx} .widget=${w}></sn-w-reminders>`;
+      case "photos":
+        return html`<sn-w-photos .ctx=${ctx} .widget=${w}></sn-w-photos>`;
+      case "wifi":
+        return html`<sn-w-wifi .ctx=${ctx} .widget=${w}></sn-w-wifi>`;
+      case "baby":
+        return html`<sn-w-baby .ctx=${ctx} .widget=${w}></sn-w-baby>`;
       default:
         return nothing;
     }

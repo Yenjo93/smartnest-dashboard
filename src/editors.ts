@@ -506,6 +506,69 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
             titleField(c, widgetId, w.config.title),
             entityField(c, t("car_pick"), w.config.entity, { domains: ["sensor", "device_tracker", "lock", "binary_sensor"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id)), true)
           );
+        case "openings":
+          return col(
+            titleField(c, widgetId, w.config.title),
+            html`<div class="field">${t("openings_only_open")} ${toggle(c, !!w.config.only_open, (v) => editWidget(c, widgetId, (x) => (x.config.only_open = v)))}</div>`,
+            multiField(c, t("widget_openings"), w.config.entities, { domains: ["binary_sensor", "cover"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)))
+          );
+        case "comfort": {
+          const chosenAreas: string[] = w.config.areas ?? [];
+          return html`<div class="field">
+            ${t("comfort_rooms")}
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${Object.values(c.hass.areas ?? {}).map((a) => {
+                const on = chosenAreas.includes(a.area_id);
+                return html`<button class="btn pressable ${on ? "primary" : ""}" aria-pressed=${on} @click=${() =>
+                  editWidget(c, widgetId, (x) => (x.config.areas = on ? chosenAreas.filter((id) => id !== a.area_id) : [...chosenAreas, a.area_id]))}>${a.name}</button>`;
+              })}
+            </div>
+            <span class="muted">${t("auto_all")}</span>
+          </div>`;
+        }
+        case "ktimer":
+          return html`<label class="field"
+            >${t("ktimer_presets")}
+            <input
+              .value=${(w.config.presets ?? [3, 5, 10, 15, 30, 60]).join(", ")}
+              @change=${(e: any) =>
+                editWidget(c, widgetId, (x) => (x.config.presets = String(e.target.value).split(/[,،\s]+/).map(Number).filter((n) => n > 0).slice(0, 8)))}
+            />
+          </label>`;
+        case "reminders":
+          return titleField(c, widgetId, w.config.title);
+        case "photos":
+          return col(
+            html`<label class="field"
+              >${t("photos_folder")}
+              <input .value=${w.config.folder ?? ""} placeholder=${c.config.settings.screensaver.photo_folder} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.folder = e.target.value.trim() || undefined))} />
+            </label>`,
+            numberField(t("photos_seconds"), w.config.seconds ?? 15, 5, 300, (v) => editWidget(c, widgetId, (x) => (x.config.seconds = v)))
+          );
+        case "wifi":
+          return col(
+            html`<div class="field">${t("wifi_only_on")} ${toggle(c, !!w.config.only_on, (v) => editWidget(c, widgetId, (x) => (x.config.only_on = v)))}</div>`,
+            multiField(c, t("widget_wifi"), w.config.entities, { domains: ["device_tracker"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)))
+          );
+        case "baby": {
+          const pick = (key: "camera" | "temp" | "humidity" | "light" | "noise", label: I18nKey, domains: string[]) =>
+            entityField(c, t(label), w.config[key], { domains }, (id) => editWidget(c, widgetId, (x) => (x.config[key] = id)), true);
+          return col(
+            titleField(c, widgetId, w.config.title),
+            html`<label class="field"
+              >${t("room_area")}
+              <select @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.area = e.target.value || undefined))}>
+                <option value="">–</option>
+                ${Object.values(c.hass.areas ?? {}).map((a) => html`<option value=${a.area_id} ?selected=${w.config.area === a.area_id}>${a.name}</option>`)}
+              </select>
+            </label>`,
+            pick("camera", "camera", ["camera"]),
+            pick("temp", "temperature", ["sensor"]),
+            pick("humidity", "humidity", ["sensor"]),
+            pick("light", "baby_light", ["light", "switch"]),
+            pick("noise", "baby_noise", ["media_player", "switch"])
+          );
+        }
         case "activity":
           return numberField(t("quiet_hours"), w.config.quiet_hours ?? 6, 1, 48, (v) => editWidget(c, widgetId, (x) => (x.config.quiet_hours = v)));
         case "bins": {
@@ -554,7 +617,9 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
             multiField(c, t("widget_scenes"), w.config.entities, { domains: ["scene", "script"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)))
           );
         case "lights":
-        case "covers": {
+        case "covers":
+        case "switches":
+        case "fans": {
           const areas = Object.values(c.hass.areas ?? {});
           return col(
             titleField(c, widgetId, w.config.title),
@@ -565,7 +630,7 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
                 ${areas.map((a) => html`<option value=${a.area_id} ?selected=${w.config.area === a.area_id}>${a.name}</option>`)}
               </select>
             </label>`,
-            multiField(c, t(w.type === "lights" ? "widget_lights" : "widget_covers"), w.config.entities, { domains: [w.type === "lights" ? "light" : "cover"] }, (ids) =>
+            multiField(c, t(`widget_${w.type}` as I18nKey), w.config.entities, { domains: [{ lights: "light", covers: "cover", switches: "switch", fans: "fan" }[w.type as "lights"]] }, (ids) =>
               editWidget(c, widgetId, (x) => (x.config.entities = ids))
             )
           );
@@ -674,6 +739,15 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "solarcast", icon: "solar" },
   { type: "bins", icon: "trash-can" },
   { type: "activity", icon: "motion-sensor" },
+  { type: "openings", icon: "door-open" },
+  { type: "comfort", icon: "sofa-single-outline" },
+  { type: "ktimer", icon: "timer-outline" },
+  { type: "reminders", icon: "pill" },
+  { type: "photos", icon: "image-multiple" },
+  { type: "wifi", icon: "wifi" },
+  { type: "baby", icon: "baby-face-outline" },
+  { type: "switches", icon: "power-socket" },
+  { type: "fans", icon: "fan" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

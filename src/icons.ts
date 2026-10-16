@@ -1,5 +1,15 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiPowerSocket,
+  mdiWaveform,
+  mdiLightbulbNightOutline,
+  mdiBabyFaceOutline,
+  mdiDevices,
+  mdiLaptop,
+  mdiCellphone,
+  mdiImageMultiple,
+  mdiSofaSingleOutline,
+  mdiDoorClosedLock,
   mdiTrashCan,
   mdiSpeedometer,
   mdiWifiOff,
@@ -444,6 +454,16 @@ export const ICONS: Record<string, string> = {
   "wifi-off": mdiWifiOff,
   speedometer: mdiSpeedometer,
   "trash-can": mdiTrashCan,
+  "door-closed-lock": mdiDoorClosedLock,
+  "sofa-single-outline": mdiSofaSingleOutline,
+  "image-multiple": mdiImageMultiple,
+  cellphone: mdiCellphone,
+  laptop: mdiLaptop,
+  devices: mdiDevices,
+  "baby-face-outline": mdiBabyFaceOutline,
+  "lightbulb-night-outline": mdiLightbulbNightOutline,
+  waveform: mdiWaveform,
+  "power-socket": mdiPowerSocket,
 };
 
 /** Icons offered when naming a page. */

@@ -22,7 +22,7 @@ from .license import NOT_LICENSED, is_licensed
 
 _LOGGER = logging.getLogger(__name__)
 
-KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board", "later", "warranty", "ac_week")
+KEYS = ("chores", "wake", "boiler", "irrigation", "internet", "board", "later", "warranty", "ac_week", "reminders")
 _SIGNAL = "smartnest_kv_{}"
 _MAX = 64_000
 
