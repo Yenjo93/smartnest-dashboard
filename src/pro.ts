@@ -48,7 +48,13 @@ function materialImage(m: Material, dark: boolean): string {
  * The colour the house is lit in right now: the lights on the dashboard that are on, mixed by brightness.
  * Undefined when everything's off, so the background falls back to the accent.
  */
+/** The house mode's own light behind the cards: amber evenings, a deep night blue for sleep, a cool calm when away. */
+const MODE_GLOW: Record<string, string> = { evening: "rgb(255, 170, 80)", sleep: "rgb(70, 90, 190)", away: "rgb(120, 140, 160)", home: "rgb(255, 214, 160)" };
+
 export function ambientColor(hass: Hass, config: DashboardConfig): string | undefined {
+  // A scene that says how the house should feel (evening, sleep) wins over the mix of lights that happen to be on.
+  const mode = hass.states["input_select.house_mode"]?.state;
+  if (mode === "evening" || mode === "sleep" || mode === "away") return MODE_GLOW[mode];
   let r = 0, g = 0, b = 0, w = 0;
   for (const id of dashboardEntities(config)) {
     const e = hass.states[id];

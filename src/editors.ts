@@ -1,5 +1,7 @@
 import { FONTS } from "./look";
-import { html, nothing, type TemplateResult } from "lit";
+import { shared } from "./theme";
+import { LitElement, html, nothing, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { unsafeStatic, html as staticHtml } from "lit/static-html.js";
 import type { Ctx } from "./ctx";
 import type { DashboardConfig, Lang, Page, ThemeMode, Widget, WidgetType } from "./types";
@@ -76,7 +78,7 @@ export function entityField(
 }
 
 /** Several devices: the chosen ones as chips (tap to drop), and a button to add one more. Empty means "all, automatically". */
-export function multiField(ctx: Ctx, label: string, value: string[] | undefined, filter: EntityFilter, onChange: (ids: string[] | undefined) => void) {
+export function multiField(ctx: Ctx, label: string, value: string[] | undefined, filter: EntityFilter, onChange: (ids: string[] | undefined) => void, emptyHint: I18nKey = "auto_all") {
   const ids = value ?? [];
   return html`<div class="field">
     ${label}
@@ -106,7 +108,7 @@ export function multiField(ctx: Ctx, label: string, value: string[] | undefined,
         <sn-icon icon="plus" style="--icon-size:16px"></sn-icon>${ctx.t("add")}
       </button>
     </div>
-    ${ids.length ? nothing : html`<span class="hint">${ctx.t("auto_all")}</span>`}
+    ${ids.length ? nothing : html`<span class="hint">${ctx.t(emptyHint)}</span>`}
   </div>`;
 }
 
@@ -285,8 +287,26 @@ function sectionPlace(widgets: Widget[], card: Widget, headingId: string): Widge
 function widgetBody(c: Ctx, w: Widget, widgetId: string) {
       const t = c.t;
       switch (w.type) {
-        case "tile":
         case "camera":
+          return col(
+            entityField(c, t("entity"), w.config.entity, { domains: ["camera"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id))),
+            w.config.entity ? nameField(c, w.config.entity) : nothing,
+            html`<div class="field">
+              ${t("camera_mode")}
+              <div class="seg">
+                ${(["auto", "live", "still"] as const).map(
+                  (v) => html`<button
+                    aria-pressed=${(w.config.live === undefined ? "auto" : w.config.live ? "live" : "still") === v}
+                    @click=${() => editWidget(c, widgetId, (x) => (v === "auto" ? delete x.config.live : (x.config.live = v === "live")))}
+                  >
+                    ${t(`camera_${v}` as I18nKey)}
+                  </button>`
+                )}
+              </div>
+              <span class="hint">${t("camera_mode_hint")}</span>
+            </div>`
+          );
+        case "tile":
         case "vacuum":
         case "media":
         case "remote":
@@ -725,6 +745,7 @@ export function pageSettingsSheet(ctx: Ctx, pageId: string, onDeleted: () => voi
           [d.pages[i], d.pages[j]] = [d.pages[j], d.pages[i]];
         });
       return col(
+        c.allows("page_users") ? html`<sn-page-users .ctx=${c} .page=${page} .onChange=${(ids: string[]) => edit(c, (d, i) => (ids.length ? (d.pages[i].users = ids) : delete d.pages[i].users))}></sn-page-users>` : nothing,
         html`<label class="field"
           >${t("page_title")}
           <input type="text" .value=${page.title} @change=${(e: any) => edit(c, (d, i) => (d.pages[i].title = e.target.value.trim() || page.title))} />
@@ -951,6 +972,14 @@ export function settingsSheet(
           : nothing,
         c.allows("occasions") ? html`<div class="field">${t("occasions")} ${toggle(c, s.occasions, (v) => set((d) => (d.settings.occasions = v)))}</div>` : nothing,
         c.allows("burn_in") ? html`<div class="field">${t("burn_in")} ${toggle(c, s.burn_in, (v) => set((d) => (d.settings.burn_in = v)))}</div>` : nothing,
+        html`<div class="field">${t("cameras_live")} ${toggle(c, s.cameras_live ?? true, (v) => set((d) => (d.settings.cameras_live = v)))}</div>`,
+        c.allows("quick_scenes")
+          ? multiField(c, t("quick_scenes"), s.quick_scenes?.length ? s.quick_scenes : undefined, { domains: ["scene", "script"] }, (ids) => set((d) => (d.settings.quick_scenes = ids ?? [])), "none")
+          : nothing,
+        c.allows("circadian")
+          ? html`${multiField(c, t("circadian"), s.circadian?.length ? s.circadian : undefined, { domains: ["light"] }, (ids) => set((d) => (d.settings.circadian = ids ?? [])), "none")}
+              <span class="hint" style="margin-top:-8px">${t("circadian_hint")}</span>`
+          : nothing,
         html`<div class="field">
           ${t("accent")}
           ${row(
@@ -1244,6 +1273,7 @@ export function settingsSheet(
           entityField(c, t("doorbell_lock"), s.doorbell.lock_entity, { domains: ["lock"] }, (id) =>
             set((d) => (d.settings.doorbell.lock_entity = id)), true
           ),
+          entityField(c, t("doorbell_speaker"), s.doorbell.speaker_entity, { domains: ["media_player"] }, (id) => set((d) => (d.settings.doorbell.speaker_entity = id)), true),
           numberField(t("keep_days"), s.doorbell.keep_days, 1, 30, (v) => set((d) => (d.settings.doorbell.keep_days = v))),
           html`<button class="btn pressable" style="justify-self:start" @click=${opts.testDoorbell}>
             <sn-icon icon="bell-ring" style="--icon-size:20px"></sn-icon>${t("doorbell_test")}
@@ -1537,4 +1567,44 @@ function helpersSettings(c: Ctx, set: (fn: (d: DashboardConfig) => void) => void
       )
     )
   );
+}
+
+/** Who sees a page: every Home Assistant user as a chip; none chosen means everyone. */
+@customElement("sn-page-users")
+export class SnPageUsers extends LitElement {
+  @property({ attribute: false }) ctx!: Ctx;
+  @property({ attribute: false }) page!: Page;
+  @property({ attribute: false }) onChange!: (ids: string[]) => void;
+  @state() private users?: { id: string; name: string; system_generated: boolean; is_active: boolean }[];
+
+  static styles = [shared];
+
+  async connectedCallback() {
+    super.connectedCallback();
+    this.users = await this.ctx.hass
+      .callWS<{ id: string; name: string; system_generated: boolean; is_active: boolean }[]>({ type: "config/auth/list" })
+      .then((u) => u.filter((x) => !x.system_generated && x.is_active), () => []);
+  }
+
+  render() {
+    const { t } = this.ctx;
+    const chosen = this.page.users ?? [];
+    if (!this.users?.length) return nothing;
+    return html`<div class="field">
+      ${t("page_users")}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${this.users.map((u) => {
+          const on = chosen.includes(u.id);
+          return html`<button
+            class="btn pressable ${on ? "primary" : ""}"
+            style="min-height:36px;font-size:14px"
+            @click=${() => this.onChange(on ? chosen.filter((x) => x !== u.id) : [...chosen, u.id])}
+          >
+            ${u.name}
+          </button>`;
+        })}
+      </div>
+      <span class="hint">${t(chosen.length ? "page_users_some" : "page_users_all")}</span>
+    </div>`;
+  }
 }

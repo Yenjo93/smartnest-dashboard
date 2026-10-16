@@ -81,7 +81,14 @@ export interface Settings {
   guests: { ssid?: string; password?: string; welcome?: string };
   weather: { entity?: string; background: boolean };
   fully: { night_dim: boolean; night_brightness: number; night_off_min: number; motion_wake: boolean };
-  doorbell: { trigger_entity?: string; camera_entity?: string; lock_entity?: string; keep_days: number };
+  doorbell: {
+    trigger_entity?: string;
+    camera_entity?: string;
+    lock_entity?: string;
+    /** The speaker by the door, for quick spoken replies to whoever rang. */
+    speaker_entity?: string;
+    keep_days: number;
+  };
   /** Name in the greeting; empty = the signed-in user's name. */
   greeting_name: string;
   /** Status chip types the installer switched off. */
@@ -151,6 +158,12 @@ export interface Settings {
   occasions: boolean;
   /** Wall tablets: the picture moves a few pixels now and then so nothing burns in. */
   burn_in: boolean;
+  /** Camera cards play live while on screen (each card can override it). */
+  cameras_live?: boolean;
+  /** Lights whose white follows the sun (run by Home Assistant). */
+  circadian?: string[];
+  /** Scenes and scripts in a floating bar at the bottom of every page; empty = no bar. */
+  quick_scenes?: string[];
   /** 2.0 extras: a camera as the background, the album art while music plays, a welcome when someone gets home,
    *  a colour mood per page, the family's monogram instead of the logo, and seasonal skies. */
   window_camera?: string;
@@ -221,6 +234,8 @@ export interface Page {
   widgets: Widget[];
   /** A family member's own page: reached from their photo in the bar instead of a tab. */
   person?: string;
+  /** Only these Home Assistant users see it (a guest account, the kids…); empty = everyone. Admins see every page. */
+  users?: string[];
 }
 
 export type MarkerDisplay = "icon" | "value";

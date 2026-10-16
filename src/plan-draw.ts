@@ -750,7 +750,11 @@ export class SnPlanDraw extends LitElement {
       .filter(
         (e) =>
           (e.entity_id.startsWith("binary_sensor.") && [...cls, "opening"].includes(e.attributes.device_class)) ||
-          (e.entity_id.startsWith("cover.") && (win ? ["window", "shutter", "awning"] : ["door", "garage", "gate"]).includes(e.attributes.device_class)) ||
+          (e.entity_id.startsWith("cover.") &&
+            (win
+              ? // Curtains, blinds, shutters and window motors: anything that isn't a door or a gate.
+                !["door", "garage", "gate"].includes(e.attributes.device_class)
+              : ["door", "garage", "gate"].includes(e.attributes.device_class))) ||
           (e.entity_id.startsWith("lock.") && !win)
       )
       .map((e) => e.entity_id);

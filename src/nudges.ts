@@ -58,6 +58,60 @@ export function findNudge(ctx: Ctx, dismissed: (key: string) => boolean): Nudge 
   if (tv && people.length && people.every((p) => p.state !== "home"))
     out.push({ key: `tv-${tv.entity_id}`, icon: "television-off", text: t("nudge_tv", { tv: name(tv.entity_id) }), action: t("nudge_turn_off"), ids: [], run: () => hass.callService("media_player", "turn_off", { entity_id: tv.entity_id }) });
 
+  // 5. A door left open a quarter of an hour (front door, garage, back door).
+  const doors = all.filter(
+    (e) => e.entity_id.startsWith("binary_sensor.") && ["door", "garage_door"].includes(e.attributes.device_class) && e.state === "on" && minsSince(e.last_changed) >= 15
+  );
+  for (const d of doors)
+    out.unshift({
+      key: `door-${d.entity_id}-${d.last_changed}`,
+      icon: "door-open",
+      text: t("nudge_door_open", { door: name(d.entity_id), n: Math.round(minsSince(d.last_changed)) }),
+      action: t("nudge_look"),
+      ids: [],
+      run: async () => ctx.openEntity(d.entity_id),
+    });
+
+  // 6. The fridge or freezer warming up.
+  for (const e of all) {
+    if (!e.entity_id.startsWith("sensor.") || e.attributes.device_class !== "temperature") continue;
+    const label = `${e.entity_id} ${e.attributes.friendly_name ?? ""}`;
+    const fridge = /fridge|refrigerator|تلاجة|ثلاجة|براد|מקרר/i.test(label);
+    const freezer = /freezer|فريزر|مجمد|מקפיא/i.test(label);
+    const v = Number(e.state);
+    if ((fridge && !freezer && v > 8) || (freezer && v > -10))
+      out.unshift({
+        key: `cold-${e.entity_id}`,
+        icon: "fridge-alert",
+        text: t(freezer ? "nudge_freezer_warm" : "nudge_fridge_warm", { name: name(e.entity_id), v: Math.round(v) }),
+        action: t("nudge_look"),
+        ids: [],
+        run: async () => ctx.openEntity(e.entity_id),
+      });
+  }
+
+  // 7. Standby draw: a TV, console or computer plug pulling power at night while nothing's being watched.
+  const h = new Date().getHours();
+  if (h >= 0 && h < 6)
+    for (const plug of all.filter((e) => e.entity_id.startsWith("switch.") && e.state === "on")) {
+      const label = `${plug.entity_id} ${plug.attributes.friendly_name ?? ""}`;
+      if (!/tv|television|tele|console|playstation|xbox|receiver|soundbar|computer|pc|monitor|تلفزيون|تلفاز|شاشة|بلايستيشن|كمبيوتر|טלוויזיה/i.test(label)) continue;
+      const dev = hass.entities?.[plug.entity_id]?.device_id;
+      const power = dev
+        ? all.find((e) => e.entity_id.startsWith("sensor.") && e.attributes.device_class === "power" && hass.entities?.[e.entity_id]?.device_id === dev)
+        : undefined;
+      const w = Number(power?.state);
+      if (power && w > 3 && w < 40)
+        out.push({
+          key: `vampire-${plug.entity_id}`,
+          icon: "power-plug-off",
+          text: t("nudge_standby", { name: name(plug.entity_id), w: Math.round(w) }),
+          action: t("nudge_turn_off"),
+          ids: [plug.entity_id],
+          run: () => hass.callService("switch", "turn_off", { entity_id: plug.entity_id }),
+        });
+    }
+
   return out.find((n) => !dismissed(n.key));
 }
 

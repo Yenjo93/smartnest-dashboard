@@ -58,6 +58,7 @@ import { rolling } from "./ui/num";
 import { spring } from "./ui/spring";
 import { allows, type Plan } from "./plans";
 import { haptic } from "./ui/haptic";
+import { entityIcon, entityName } from "./entities";
 
 /** Settings, page and widget editors: loaded the first time they're opened. */
 const editors = () => import("./editors");
@@ -135,7 +136,15 @@ const liteSaved = () => {
     return null;
   }
 };
-const weakDevice = () => ((navigator as any).deviceMemory ?? 8) <= 2 || (navigator.hardwareConcurrency ?? 8) <= 4;
+/** Measured slow on this screen (see measureSmoothness), or a tablet with little memory or few cores. */
+const measuredSlow = () => {
+  try {
+    return localStorage.getItem("smartnest-slow") === "1";
+  } catch {
+    return false;
+  }
+};
+const weakDevice = () => measuredSlow() || ((navigator as any).deviceMemory ?? 8) <= 2 || (navigator.hardwareConcurrency ?? 8) <= 4;
 const liteNow = () => {
   const v = liteSaved();
   return v === "1" || (v === null && weakDevice());
@@ -1029,6 +1038,44 @@ export class SmartNestPanel extends LitElement {
       .bell {
         position: relative;
       }
+      .quick {
+        position: fixed;
+        z-index: 23;
+        bottom: calc(18px + env(safe-area-inset-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 4px;
+        padding: 6px;
+        border-radius: 999px;
+        max-width: calc(100vw - 32px);
+        overflow-x: auto;
+        scrollbar-width: none;
+        animation: dock-in 420ms var(--spring);
+      }
+      .compact .quick {
+        bottom: calc(84px + env(safe-area-inset-bottom));
+      }
+      .quick button {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text);
+        font: 600 14px var(--font);
+        cursor: pointer;
+        --icon-size: 18px;
+      }
+      .quick button:hover {
+        background: var(--surface-2);
+      }
+      .quick button.off {
+        color: var(--alert-text);
+      }
       /* Where the bar is tight, the bell shows only when there's something in it. */
       @media (max-width: 1100px) {
         .bell.quiet {
@@ -1302,6 +1349,34 @@ export class SmartNestPanel extends LitElement {
     </div>`;
   }
 
+  /** Favourite scenes in a floating bar, plus "all off": the house's moods one tap away from any page. */
+  private renderQuickScenes(ctx: Ctx) {
+    const ids = (ctx.config.settings.quick_scenes ?? []).filter((id) => this.hass.states[id]);
+    if (!ids.length || !ctx.allows("quick_scenes") || ctx.editing || this.kids || this.sheets.length || this.sleeping) return nothing;
+    const { t, hass, config } = ctx;
+    const lightsOn = Object.values(hass.states).filter((e) => e.entity_id.startsWith("light.") && e.state === "on").map((e) => e.entity_id);
+    return html`<div class="quick glass" role="toolbar">
+      ${ids.map(
+        (id) => html`<button
+          class="pressable"
+          @click=${() => {
+            haptic("tap");
+            const members: string[] = id.startsWith("scene.") ? hass.states[id]?.attributes.entity_id ?? [] : [];
+            const run = () => hass.callService(id.split(".")[0], "turn_on", { entity_id: id });
+            members.length ? ctx.undoable(members, entityName(hass, config, id), run) : run().catch(() => this.toast(t("error")));
+          }}
+        >
+          <sn-icon .icon=${entityIcon(hass.states[id], id)}></sn-icon><span>${entityName(hass, config, id)}</span>
+        </button>`
+      )}
+      ${lightsOn.length
+        ? html`<button class="pressable off" @click=${() => ctx.undoable(lightsOn, t("all_off"), () => hass.callService("light", "turn_off", { entity_id: lightsOn }))}>
+            <sn-icon icon="power"></sn-icon><span>${t("all_off")}</span>
+          </button>`
+        : nothing}
+    </div>`;
+  }
+
   private renderUndo() {
     if (!this.undo) return nothing;
     const t = translator(this.uiLang);
@@ -1424,6 +1499,40 @@ export class SmartNestPanel extends LitElement {
    * Wall tablets show the same picture all day: every two minutes the whole dashboard moves by a couple of pixels
    * in a slow loop, so the static parts (header, plan lines) never burn into the screen. Too small to notice.
    */
+  /**
+   * Once per screen (again after a week): count how many frames the dashboard actually draws for three seconds while
+   * idle. Under 45 a second it's struggling, so fast mode turns itself on (when fast mode is on "automatic"), with a
+   * note saying so. Fast mode can always be set by hand in About.
+   */
+  private measureSmoothness() {
+    if (this.lite || liteSaved() !== null || document.hidden || SHOWROOM) return;
+    try {
+      const at = Number(localStorage.getItem("smartnest-fps-at") ?? 0);
+      if (Date.now() - at < 7 * 86_400_000) return;
+      localStorage.setItem("smartnest-fps-at", String(Date.now()));
+    } catch {
+      return;
+    }
+    let frames = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      if (document.hidden) return; // a hidden tab draws nothing: no verdict
+      frames++;
+      if (now - start < 3000) return void requestAnimationFrame(step);
+      const fps = (frames * 1000) / (now - start);
+      if (fps < 45) {
+        try {
+          localStorage.setItem("smartnest-slow", "1");
+        } catch {
+          /* per screen */
+        }
+        this.lite = liteNow();
+        this.toast(translator(this.uiLang)("fast_auto_on"));
+      }
+    };
+    requestAnimationFrame(step);
+  }
+
   private shiftPixels() {
     const s = this.config?.settings;
     const wall = this.kiosk || (allows(this.lic.plan, "fully") && !!this.hass && !!thisTablet(this.hass));
@@ -1545,6 +1654,7 @@ export class SmartNestPanel extends LitElement {
       );
       if (this.hass.user?.is_admin)
         this.hass.callWS<{ config: unknown; name: string; v: number } | null>({ type: "smartnest/design/pending" }).then((d) => (this.design = d ?? undefined), () => undefined);
+      window.setTimeout(() => this.measureSmoothness(), 5000);
       this.unsubNotes ??= watchNotes(this.hass, (n) => (this.notes = n)).catch(() => () => undefined);
       this.unsub = subscribeConfig(this.hass, (cfg) => {
         // Another screen saved. Take it, unless we're mid-edit here.
@@ -1734,8 +1844,17 @@ export class SmartNestPanel extends LitElement {
   // ---- derived ----
 
   private get current(): DashboardConfig | undefined {
-    return this.draft ?? this.config;
+    const c = this.draft ?? this.config;
+    // Pages meant for certain people only (a guest account, the kids): others don't get them at all. Admins see all.
+    const user = this.hass?.user;
+    if (!c || !user || user.is_admin || !c.pages.some((p) => p.users?.length)) return c;
+    const m = this.forUser;
+    if (m && m.src === c && m.user === user.id) return m.out;
+    const out = { ...c, pages: c.pages.filter((p) => !p.users?.length || p.users.includes(user.id)) };
+    this.forUser = { src: c, user: user.id, out };
+    return out;
   }
+  private forUser?: { src: DashboardConfig; user: string; out: DashboardConfig };
 
   private get uiLang(): Lang {
     return this.current?.settings.language ?? pickLang(this.hass?.language);
@@ -2733,6 +2852,7 @@ export class SmartNestPanel extends LitElement {
       ${this.toastMsg ? html`<div class="toast" role="status">${this.toastMsg}</div>` : nothing}
       ${this.renderUndo()}
       ${this.renderMiniPlayer(ctx)}
+      ${this.renderQuickScenes(ctx)}
       ${this.link !== "up"
         ? html`<div class="link ${this.link}" role="status">
             ${this.link === "back" ? html`<sn-icon icon="check" style="--icon-size:16px"></sn-icon>${ctx.t("link_back")}` : html`<i></i>${ctx.t("link_lost")}`}

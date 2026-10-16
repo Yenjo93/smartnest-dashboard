@@ -1,5 +1,6 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiFridgeAlert,
   mdiWindowOpenVariant,
   mdiWindowClosedVariant,
   mdiVectorPolygon,
@@ -434,6 +435,7 @@ export const ICONS: Record<string, string> = {
   "vector-polygon": mdiVectorPolygon,
   "window-closed-variant": mdiWindowClosedVariant,
   "window-open-variant": mdiWindowOpenVariant,
+  "fridge-alert": mdiFridgeAlert,
 };
 
 /** Icons offered when naming a page. */

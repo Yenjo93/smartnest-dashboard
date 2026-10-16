@@ -131,6 +131,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     beat = Heartbeat(hass, version)
     beat.async_start()
     hass.data[DOMAIN]["heartbeat"] = beat
+
+    from .circadian import Circadian
+
+    circadian = Circadian(hass)
+    circadian.async_start()
+    hass.data[DOMAIN]["circadian"] = circadian
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -155,6 +161,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         codes.async_stop()
     if beat := data.get("heartbeat"):
         beat.async_stop()
+    if circadian := data.get("circadian"):
+        circadian.async_stop()
     return True
 
 

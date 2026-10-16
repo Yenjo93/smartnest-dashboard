@@ -9,6 +9,8 @@ import { shared } from "./theme";
 import { hsToRgb, onColor, rgbCss, rgbHex } from "./color";
 import type { I18nKey } from "./i18n";
 import "./ui/icon";
+import "./ui/slide-confirm";
+import { openPip } from "./pip";
 import { fxRow } from "./lightfx";
 import { guestCodesSheet } from "./codes";
 import "./ui/dial";
@@ -568,27 +570,17 @@ export class SnEntityDetail extends LitElement {
     const { t } = this.ctx;
     if (e.state === "unlocked" || e.state === "open")
       return html`<button class="btn primary pressable lock-btn" @click=${() => (playUi("lock"), this.call("lock", "lock"))}><sn-icon icon="lock"></sn-icon>${t("lock")}</button>`;
-    if (this.confirmUnlock)
-      return html`<button
-        class="btn danger pressable lock-btn"
-        @click=${() => {
-          this.confirmUnlock = false;
-          playUi("unlock");
-          this.call("lock", "unlock");
-        }}
-      >
-        <sn-icon icon="lock-open"></sn-icon>${t("unlock_confirm")}
-      </button>`;
-    return html`<button
-      class="btn pressable lock-btn"
-      @click=${() => {
-        this.confirmUnlock = true;
-        window.clearTimeout(this.confirmTimer);
-        this.confirmTimer = window.setTimeout(() => (this.confirmUnlock = false), 4000);
+    // Slide to unlock: one deliberate gesture instead of two taps.
+    return html`<sn-slide-confirm
+      class="lock-btn"
+      .label=${t("slide_unlock")}
+      icon="lock-open"
+      tone="var(--alert)"
+      .onConfirm=${() => {
+        playUi("unlock");
+        this.call("lock", "unlock");
       }}
-    >
-      <sn-icon icon="lock-open"></sn-icon>${t("unlock")}
-    </button>`;
+    ></sn-slide-confirm>`;
   }
 
   private renderChart(e: HassEntity) {
@@ -683,7 +675,19 @@ export class SnEntityDetail extends LitElement {
         return this.renderAlarm(e);
       case "camera": {
         const url = liveUrl(this.ctx.hass, e.entity_id);
-        return url ? html`<div class="live"><img src=${url} alt="" /></div>` : nothing;
+        return url
+          ? html`<div class="live"><img src=${url} alt="" /></div>
+              <button
+                class="btn pressable"
+                style="justify-self:center"
+                @click=${() => {
+                  openPip(this.ctx, e.entity_id, this);
+                  this.ctx.closeSheet();
+                }}
+              >
+                <sn-icon icon="picture-in-picture" style="--icon-size:18px"></sn-icon>${this.ctx.t("door_mini")}
+              </button>`
+          : nothing;
       }
       case "sensor":
         return this.renderChart(e);

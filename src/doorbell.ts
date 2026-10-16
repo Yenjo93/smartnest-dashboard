@@ -6,6 +6,8 @@ import { LOCALE } from "./i18n";
 import { liveUrl, snapshotUrl } from "./widgets/camera";
 import { shared } from "./theme";
 import "./ui/icon";
+import { haptic } from "./ui/haptic";
+import "./ui/slide-confirm";
 import { aiEntity, askAI } from "./ai";
 import { playBell } from "./sounds";
 
@@ -59,6 +61,16 @@ export class SnDoorbell extends LitElement {
         -webkit-backdrop-filter: blur(14px);
         backdrop-filter: blur(14px);
         animation: fade 300ms var(--ease-out);
+      }
+      .replies {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 0 20px 14px;
+      }
+      .replies .btn {
+        min-height: 40px;
+        font-size: 14px;
       }
       .pip {
         position: fixed;
@@ -281,6 +293,25 @@ export class SnDoorbell extends LitElement {
     window.clearTimeout(this.timer);
   }
 
+  /** Quick spoken answers to whoever is at the door, through the speaker by the door. */
+  private renderReplies() {
+    const { ctx } = this;
+    const { t, hass } = ctx;
+    const speaker = ctx.config.settings.doorbell.speaker_entity;
+    const tts = Object.keys(hass.states).filter((id) => id.startsWith("tts."));
+    const engine = tts.find((id) => id.includes("google")) ?? tts[0];
+    if (!speaker || !engine) return nothing;
+    const say = (message: string) => {
+      haptic("tap");
+      hass
+        .callService("tts", "speak", { entity_id: engine, media_player_entity_id: speaker, message, language: ctx.lang })
+        .then(() => ctx.toast(t("reply_sent")), () => ctx.toast(t("error")));
+    };
+    return html`<div class="replies">
+      ${(["reply_coming", "reply_leave", "reply_wait", "reply_who"] as const).map((k) => html`<button class="btn pressable" @click=${() => say(t(k))}>🗣️ ${t(k)}</button>`)}
+    </div>`;
+  }
+
   render() {
     const { ctx } = this;
     const { t } = ctx;
@@ -325,29 +356,20 @@ export class SnDoorbell extends LitElement {
               : nothing}
           </span>
           <button class="btn pressable" @click=${() => this.onDismiss()}>${t("dismiss")}</button>
-          ${lock && lock.state !== "unlocked"
-            ? this.confirm
-              ? html`<button
-                  class="btn danger pressable"
-                  @click=${() => {
-                    ctx.hass.callService("lock", "unlock", { entity_id: lock.entity_id }).catch(() => ctx.toast(t("error")));
-                    this.onDismiss();
-                  }}
-                >
-                  <sn-icon icon="lock-open"></sn-icon>${t("unlock_confirm")}
-                </button>`
-              : html`<button
-                  class="btn primary pressable"
-                  @click=${() => {
-                    this.confirm = true;
-                    window.clearTimeout(this.timer);
-                    this.timer = window.setTimeout(() => (this.confirm = false), 4000);
-                  }}
-                >
-                  <sn-icon icon="lock-open"></sn-icon>${t("open_door")}
-                </button>`
-            : nothing}
         </div>
+        ${this.renderReplies()}
+        ${lock && lock.state !== "unlocked"
+          ? html`<div style="padding:0 20px 20px">
+              <sn-slide-confirm
+                .label=${t("slide_open_door")}
+                icon="lock-open"
+                .onConfirm=${() => {
+                  ctx.hass.callService("lock", "unlock", { entity_id: lock.entity_id }).catch(() => ctx.toast(t("error")));
+                  this.onDismiss();
+                }}
+              ></sn-slide-confirm>
+            </div>`
+          : nothing}
       </div>
     </div>`;
   }

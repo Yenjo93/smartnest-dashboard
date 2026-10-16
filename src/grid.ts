@@ -7,6 +7,7 @@ import { COLS, WIDGET_SIZES, resolveLayout } from "./config";
 import { GAP, ROW_H, shared } from "./theme";
 import { planFor, widgetFeature } from "./plans";
 import type { I18nKey } from "./i18n";
+import { isActive, seen } from "./entities";
 import "./ui/icon";
 import "./widgets/tile";
 import "./widgets/floorplan";
@@ -122,6 +123,42 @@ export class SnPageGrid extends LitElement {
   static styles = [
     shared,
     css`
+      .roomtabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding: 2px 2px 14px;
+      }
+      .roomtabs button {
+        flex: none;
+        display: grid;
+        gap: 2px;
+        text-align: start;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: var(--r-md);
+        background: var(--surface);
+        -webkit-backdrop-filter: var(--glass-filter, blur(16px));
+        backdrop-filter: var(--glass-filter, blur(16px));
+        color: var(--text);
+        font: 600 15px var(--font);
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .roomtabs button span {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-2);
+      }
+      .roomtabs button.on span {
+        color: var(--accent-text);
+        font-weight: 700;
+      }
+      .cell {
+        scroll-margin-top: 140px;
+      }
+
       :host {
         display: block;
       }
@@ -431,6 +468,33 @@ export class SnPageGrid extends LitElement {
     window.clearTimeout(this.catchUp);
   }
 
+  /**
+   * On a page with a title per room (the Rooms page): a row of rooms at the top, each with how many of its devices
+   * are on ("3 on"), a tap away from its section.
+   */
+  private renderRoomTabs(widgets: Widget[]) {
+    const titles = widgets.filter((w) => w.type === "heading" && w.config.text).sort((a, b) => a.y - b.y);
+    if (titles.length < 2) return nothing;
+    const { hass, t } = this.ctx;
+    const rooms = titles.map((h, i) => {
+      const next = titles[i + 1];
+      const ids = widgets.filter((w) => w.config.entity && w.y > h.y && (!next || w.y < next.y)).map((w) => w.config.entity as string);
+      const on = ids.filter((id) => /^(light|switch|fan|climate|media_player|cover|input_boolean|humidifier)\./.test(id) && isActive(seen(hass.states[id]))).length;
+      return { h, on, count: ids.length };
+    });
+    return html`<div class="roomtabs" role="tablist">
+      ${rooms.map(
+        (r) => html`<button
+          class="pressable ${r.on ? "on" : ""}"
+          @click=${() => this.renderRoot.querySelector(`.cell[data-id="${r.h.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        >
+          <b>${r.h.config.text}</b>
+          <span>${r.on ? t("rooms_on_n", { n: r.on }) : t("rooms_devices_n", { n: r.count })}</span>
+        </button>`
+      )}
+    </div>`;
+  }
+
   private stable = new Map<string, Widget>();
 
   /**
@@ -617,7 +681,7 @@ export class SnPageGrid extends LitElement {
     const hidden = ctx.config.settings.hidden;
     const visible = ctx.editing || !hidden.length ? widgets : widgets.filter((w) => !(w.config.entity && hidden.includes(w.config.entity)));
     const ordered = ctx.narrow ? [...visible].sort((a, b) => a.y - b.y || a.x - b.x) : visible;
-    return html`<div class="grid ${ctx.narrow ? "narrow" : ""} ${ctx.editing ? "editing" : ""}">
+    return html`${ctx.editing ? nothing : this.renderRoomTabs(visible)}<div class="grid ${ctx.narrow ? "narrow" : ""} ${ctx.editing ? "editing" : ""}">
       ${repeat(
         ordered,
         (w) => w.id,

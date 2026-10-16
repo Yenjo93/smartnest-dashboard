@@ -1,7 +1,7 @@
 // Premium look options that aren't a whole component: typefaces, an accent that follows the day, and the calendar's
 // big occasions.
 
-export type FontId = "rubik" | "plex" | "readex" | "tajawal" | "almarai" | "kufi";
+export type FontId = "rubik" | "plex" | "readex" | "tajawal" | "almarai" | "kufi" | "inter";
 
 /** Arabic-first typefaces (Hebrew and Latin covered by each or by Rubik behind it). */
 export const FONTS: Record<FontId, { label: string; family: string; css?: string }> = {
@@ -11,6 +11,8 @@ export const FONTS: Record<FontId, { label: string; family: string; css?: string
   tajawal: { label: "Tajawal", family: "Tajawal", css: "Tajawal:wght@400;500;700;800" },
   almarai: { label: "Almarai", family: "Almarai", css: "Almarai:wght@400;700;800" },
   kufi: { label: "Noto Kufi Arabic", family: "Noto Kufi Arabic", css: "Noto+Kufi+Arabic:wght@400;500;600;700" },
+  // Inter has no Arabic letters: Latin text and numbers in Inter, Arabic falls through to Rubik.
+  inter: { label: "Inter (+ Rubik)", family: "Inter", css: "Inter:wght@400;500;600;700;800" },
 };
 
 /**

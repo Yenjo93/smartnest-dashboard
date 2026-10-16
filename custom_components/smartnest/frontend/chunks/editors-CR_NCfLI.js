@@ -1,4 +1,4 @@
-import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as n,e as l,l as o,s as r,A as c,L as p,u as d,a as g,d as u,c as m,f as h,g as y,h as f,P as $,j as b,k as v,m as _,o as x,w,p as k,q as z,v as S,x as j,y as N,T as O,z as D,B as M,C,W as I,D as W,E as A,F as P,G as B,H as T,I as q,J as R,K as F,M as E,N as L,O as U,Q as H,R as J,S as V,U as G,V as K,X as Q,Y as X,Z as Y,_ as Z,$ as ee,a0 as te,a1 as se,a2 as ie,a3 as ae,a4 as ne,a5 as le,a6 as oe}from"./app-QOvcr_xU.js";var re=Object.defineProperty,ce=Object.getOwnPropertyDescriptor,pe=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?ce(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&re(t,s,n),n};const de=(e,t)=>n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
+import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as n,e as l,l as o,s as r,A as c,L as p,u as d,a as g,d as u,c as h,f as m,g as y,h as f,P as $,j as b,k as v,m as _,o as x,w,p as k,q as z,v as S,x as j,y as N,T as O,z as D,B as M,C,W,D as I,E as q,F as A,G as P,H as B,I as T,J as R,K as F,M as E,N as L,O as U,Q as H,R as J,S as V,U as G,V as K,X as Q,Y as X,Z as Y,_ as Z,$ as ee,a0 as te,a1 as se,a2 as ie,a3 as ae,a4 as ne,a5 as le,a6 as oe}from"./app-DaFoLO5U.js";var re=Object.defineProperty,ce=Object.getOwnPropertyDescriptor,pe=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?ce(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&re(t,s,n),n};const de=(e,t)=>n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
   <div style="font-weight:700">${e}</div>
   ${t}
 </section>`;let ge=class extends a{createRenderRoot(){return this}async connectedCallback(){super.connectedCallback();const{hass:e}=this.ctx,t=Object.values(e.states).filter((e=>e.entity_id.startsWith("sensor.")&&"battery"===e.attributes.device_class&&!Number.isNaN(Number(e.state)))).map((e=>e.entity_id)).slice(0,60);if(!t.length)return void(this.rows=[]);let s={};try{s=await e.callWS({type:"recorder/statistics_during_period",start_time:new Date(Date.now()-2592e6).toISOString(),statistic_ids:t,period:"day",types:["mean"]})}catch{return void(this.rows=[])}const i=[];for(const a of t){const t=(s[a]??[]).map((e=>["number"==typeof e.start?e.start>1e12?e.start:1e3*e.start:Date.parse(e.start),e.mean??NaN])).filter((([,e])=>!Number.isNaN(e)));if(t.length<7)continue;const n=t.length,l=t.map((([e])=>e/864e5)),o=t.map((([,e])=>e)),r=l.reduce(((e,t)=>e+t),0)/n,c=o.reduce(((e,t)=>e+t),0)/n,p=l.reduce(((e,t,s)=>e+(t-r)*(o[s]-c)),0)/(l.reduce(((e,t)=>e+(t-r)**2),0)||1),d=Number(e.states[a].state);p>=-.05||d<=10||i.push({id:a,level:d,days:Math.round((d-10)/-p)})}this.rows=i.sort(((e,t)=>e.days-t.days)).slice(0,10)}render(){const{t:e,hass:t,config:s}=this.ctx;return this.rows?de(e("bat_title"),this.rows.length?n`<div style="display:grid;gap:4px;font-size:14px">
@@ -29,7 +29,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
           </div>
           <label class="field">🧾 ${e("war_invoice")}<input name="invoice" type="file" accept="image/*" /></label>
           <button class="btn pressable" type="submit" ?disabled=${this.busy} style="justify-self:start">${e("add")}</button>
-        </form>`)}};pe([s({attribute:!1})],ue.prototype,"ctx",2),pe([t()],ue.prototype,"items",2),pe([t()],ue.prototype,"busy",2),ue=pe([i("sn-warranty")],ue);var me=Object.defineProperty,he=Object.getOwnPropertyDescriptor,ye=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?he(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&me(t,s,n),n};let fe=class extends a{connectedCallback(){super.connectedCallback(),w(this.ctx).then((e=>this.rows=e))}createRenderRoot(){return this}render(){const{t:e}=this.ctx;return this.rows?ve(e("faults_week"),!this.rows.length,_e(this.rows.map((t=>xe(t.name,e("times",{n:t.n}))))),e("h_all_good")):n`<sn-skeleton></sn-skeleton>`}};function $e(e,t){const s=e.hass.entities?.[t]?.platform??"";return["zha","zigbee2mqtt","deconz"].includes(s)?"x_zigbee":"mqtt"===s?"x_mqtt":["zwave_js"].includes(s)?"x_zwave":["tuya","ewelink","sonoff","smartthings","google_assistant","alexa","xiaomi_miot","roborock"].includes(s)?"x_cloud":["esphome","shelly","tasmota","wled","tplink","fully_kiosk"].includes(s)?"x_wifi":"x_generic"}ye([s({attribute:!1})],fe.prototype,"ctx",2),ye([t()],fe.prototype,"rows",2),fe=ye([i("sn-faults")],fe);let be=class extends a{constructor(){super(...arguments),this.offline=[],this.low=[],this.busy=!1}createRenderRoot(){return this}render(){const{ctx:e}=this,{t:t,hass:s,config:i}=e;if(!this.offline.length&&!this.low.length)return c;const a=[...this.offline.map((a=>[l(s,i,a.entity_id),t($e(e,a.entity_id))])),...this.low.map((e=>[l(s,i,e.entity_id),t("x_battery")]))];return n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
+        </form>`)}};pe([s({attribute:!1})],ue.prototype,"ctx",2),pe([t()],ue.prototype,"items",2),pe([t()],ue.prototype,"busy",2),ue=pe([i("sn-warranty")],ue);var he=Object.defineProperty,me=Object.getOwnPropertyDescriptor,ye=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?me(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&he(t,s,n),n};let fe=class extends a{connectedCallback(){super.connectedCallback(),w(this.ctx).then((e=>this.rows=e))}createRenderRoot(){return this}render(){const{t:e}=this.ctx;return this.rows?ve(e("faults_week"),!this.rows.length,_e(this.rows.map((t=>xe(t.name,e("times",{n:t.n}))))),e("h_all_good")):n`<sn-skeleton></sn-skeleton>`}};function $e(e,t){const s=e.hass.entities?.[t]?.platform??"";return["zha","zigbee2mqtt","deconz"].includes(s)?"x_zigbee":"mqtt"===s?"x_mqtt":["zwave_js"].includes(s)?"x_zwave":["tuya","ewelink","sonoff","smartthings","google_assistant","alexa","xiaomi_miot","roborock"].includes(s)?"x_cloud":["esphome","shelly","tasmota","wled","tplink","fully_kiosk"].includes(s)?"x_wifi":"x_generic"}ye([s({attribute:!1})],fe.prototype,"ctx",2),ye([t()],fe.prototype,"rows",2),fe=ye([i("sn-faults")],fe);let be=class extends a{constructor(){super(...arguments),this.offline=[],this.low=[],this.busy=!1}createRenderRoot(){return this}render(){const{ctx:e}=this,{t:t,hass:s,config:i}=e;if(!this.offline.length&&!this.low.length)return c;const a=[...this.offline.map((a=>[l(s,i,a.entity_id),t($e(e,a.entity_id))])),...this.low.map((e=>[l(s,i,e.entity_id),t("x_battery")]))];return n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
       <div style="display:flex;align-items:center;gap:8px;font-weight:700">
         <sn-icon icon="wrench" style="--icon-size:20px;color:var(--accent-text)"></sn-icon>${t("x_title")}
       </div>
@@ -53,7 +53,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
     ${e}
   </div>
   ${t&&!a?n`<span class="muted" style="font-size:14px">${i}</span>`:s}
-</section>`,_e=e=>n`<div style="display:grid;gap:4px;font-size:14px">${e}</div>`,xe=(e,t)=>n`<div style="display:flex;justify-content:space-between;gap:12px"><span>${e}</span><span class="muted" style="unicode-bidi:plaintext">${t}</span></div>`,we=(e,t)=>e.find((e=>e.entity_id.startsWith("sensor.")&&t.test(e.entity_id)));var ke=Object.defineProperty,ze=Object.getOwnPropertyDescriptor,Se=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?ze(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&ke(t,s,n),n};const je={apartment:{perArea:!1,off:["garden","car","pets","water"],on:["media"]},villa:{perArea:!0,off:["pets"],on:["garden","car","water","doorbell","security"]},office:{perArea:!0,off:["media","garden","car","pets","robot"],on:["security","doorbell","power","climate"]}};function Ne(e){const t=e.toLowerCase();return/نوم|bed|שינה|ولاد|kids|ילדים/.test(t)?"bed":/مطبخ|kitchen|מטבח/.test(t)?"kitchen":/حمام|bath|shower|מקלחת|אמבט/.test(t)?"shower":/جنين|حديق|garden|yard|גינה|حوش|ساح/.test(t)?"garden":/كراج|garage|חניה|موقف/.test(t)?"garage":/مكتب|office|study|משרד/.test(t)?"desk":/غسيل|laundry|כביסה/.test(t)?"laundry":"sofa"}function Oe(e,t){const s=[M("room",{area:t.areaId},{x:0,y:0,w:12,h:5})];let i=0,a=5;const n=t.ids.filter((e=>"camera"!==m(e)));for(const l of n)i+3>12&&(i=0,a+=2),s.push(M("tile",{entity:l},{x:i,y:a,w:3,h:2})),i+=3;return a+=n.length?2:0,t.ids.filter((e=>"camera"===m(e))).forEach(((e,t)=>s.push(M("camera",{entity:e},{x:t%2*6,y:a+5*Math.floor(t/2),w:6,h:5})))),e.allows("w_room")||s.shift(),{id:g(),title:t.name??e.t("other_devices"),icon:Ne(t.name??""),widgets:s}}function De(e,t){const{hass:s,config:i,t:a}=e,n=[],l=(e,t,s=!0)=>{const i=t.widgets.reduce(((e,t)=>e+(t.config.entity?1:0)+("floorplan"===t.type||"hero"===t.type||"energy"===t.type||"water"===t.type?1:0)),0);(i||"home"===e)&&n.push({key:e,page:t,devices:i,on:s})},o=e=>D(e,s,i,a),r="pro"===i.settings.style&&e.allows("bento"),c=i.pages.some((e=>e.widgets.some((e=>"floorplan"===e.type&&e.config.floors?.some((e=>e.image))))));if(l("home",o(r&&!c?"bento":"home")),r&&c&&l("bento",o("bento")),t)for(const p of N(s).filter((e=>e.areaId&&e.ids.length)))l(`area-${p.areaId}`,Oe(e,p));else l("rooms",o("rooms"));for(const p of["climate","power","security","doorbell","water","robot"])O.some((e=>e.id===p))&&l(p,o(p));l("media",function(e){const{hass:t}=e,s=Object.keys(t.states).filter((e=>e.startsWith("media_player.")&&"fully_kiosk"!==t.entities?.[e]?.platform&&!t.entities?.[e]?.entity_category)),i=Object.keys(t.states).filter((e=>e.startsWith("remote."))),a=[];s.slice(0,6).forEach(((e,t)=>a.push(M("media",{entity:e},{x:t%2*6,y:5*Math.floor(t/2),w:6,h:5}))));const n=5*Math.ceil(Math.min(s.length,6)/2);return i.slice(0,3).forEach(((e,t)=>a.push(M("remote",{entity:e},{x:4*t,y:n,w:4,h:8})))),{id:g(),title:e.t("template_media"),icon:"speaker",widgets:a}}(e));for(const p of["car","garden","pets"])l(p,o(p),!1);return n}let Me=class extends a{constructor(){super(...arguments),this.perArea=!1,this.replace=!0,this.list=[]}connectedCallback(){super.connectedCallback(),this.refresh()}refresh(e=!1){const t=new Map(this.list.map((e=>[e.key,e.on]))),s=this.kind?je[this.kind]:void 0;this.list=De(this.ctx,this.perArea).map((i=>{const a=!!s?.on.includes(i.key)||!s?.off.includes(i.key)&&void 0;return{...i,on:e?a??i.on:t.get(i.key)??a??i.on}}))}build(){const{ctx:e}=this,t=this.list.filter((e=>e.on)).map((e=>e.page));t.length&&(e.update((e=>{const s=e.pages.flatMap((e=>e.widgets)).find((e=>"floorplan"===e.type)),i=s?.config.floors?.some((e=>e.image))?s.config.floors:void 0;if(i){const e=t.flatMap((e=>e.widgets)).find((e=>"floorplan"===e.type));e&&(e.config.floors=i)}e.pages=this.replace?t:[...e.pages,...t],e.settings.default_page=e.pages[0].id})),e.toast(e.t("ab_done",{n:t.length})),e.closeSheet())}render(){const{t:e}=this.ctx,t=this.list.filter((e=>e.on));return n`<p class="hint">${e("ab_hint")}</p>
+</section>`,_e=e=>n`<div style="display:grid;gap:4px;font-size:14px">${e}</div>`,xe=(e,t)=>n`<div style="display:flex;justify-content:space-between;gap:12px"><span>${e}</span><span class="muted" style="unicode-bidi:plaintext">${t}</span></div>`,we=(e,t)=>e.find((e=>e.entity_id.startsWith("sensor.")&&t.test(e.entity_id)));var ke=Object.defineProperty,ze=Object.getOwnPropertyDescriptor,Se=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?ze(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&ke(t,s,n),n};const je={apartment:{perArea:!1,off:["garden","car","pets","water"],on:["media"]},villa:{perArea:!0,off:["pets"],on:["garden","car","water","doorbell","security"]},office:{perArea:!0,off:["media","garden","car","pets","robot"],on:["security","doorbell","power","climate"]}};function Ne(e){const t=e.toLowerCase();return/نوم|bed|שינה|ولاد|kids|ילדים/.test(t)?"bed":/مطبخ|kitchen|מטבח/.test(t)?"kitchen":/حمام|bath|shower|מקלחת|אמבט/.test(t)?"shower":/جنين|حديق|garden|yard|גינה|حوش|ساح/.test(t)?"garden":/كراج|garage|חניה|موقف/.test(t)?"garage":/مكتب|office|study|משרד/.test(t)?"desk":/غسيل|laundry|כביסה/.test(t)?"laundry":"sofa"}function Oe(e,t){const s=[M("room",{area:t.areaId},{x:0,y:0,w:12,h:5})];let i=0,a=5;const n=t.ids.filter((e=>"camera"!==h(e)));for(const l of n)i+3>12&&(i=0,a+=2),s.push(M("tile",{entity:l},{x:i,y:a,w:3,h:2})),i+=3;return a+=n.length?2:0,t.ids.filter((e=>"camera"===h(e))).forEach(((e,t)=>s.push(M("camera",{entity:e},{x:t%2*6,y:a+5*Math.floor(t/2),w:6,h:5})))),e.allows("w_room")||s.shift(),{id:g(),title:t.name??e.t("other_devices"),icon:Ne(t.name??""),widgets:s}}function De(e,t){const{hass:s,config:i,t:a}=e,n=[],l=(e,t,s=!0)=>{const i=t.widgets.reduce(((e,t)=>e+(t.config.entity?1:0)+("floorplan"===t.type||"hero"===t.type||"energy"===t.type||"water"===t.type?1:0)),0);(i||"home"===e)&&n.push({key:e,page:t,devices:i,on:s})},o=e=>D(e,s,i,a),r="pro"===i.settings.style&&e.allows("bento"),c=i.pages.some((e=>e.widgets.some((e=>"floorplan"===e.type&&e.config.floors?.some((e=>e.image))))));if(l("home",o(r&&!c?"bento":"home")),r&&c&&l("bento",o("bento")),t)for(const p of N(s).filter((e=>e.areaId&&e.ids.length)))l(`area-${p.areaId}`,Oe(e,p));else l("rooms",o("rooms"));for(const p of["climate","power","security","doorbell","water","robot"])O.some((e=>e.id===p))&&l(p,o(p));l("media",function(e){const{hass:t}=e,s=Object.keys(t.states).filter((e=>e.startsWith("media_player.")&&"fully_kiosk"!==t.entities?.[e]?.platform&&!t.entities?.[e]?.entity_category)),i=Object.keys(t.states).filter((e=>e.startsWith("remote."))),a=[];s.slice(0,6).forEach(((e,t)=>a.push(M("media",{entity:e},{x:t%2*6,y:5*Math.floor(t/2),w:6,h:5}))));const n=5*Math.ceil(Math.min(s.length,6)/2);return i.slice(0,3).forEach(((e,t)=>a.push(M("remote",{entity:e},{x:4*t,y:n,w:4,h:8})))),{id:g(),title:e.t("template_media"),icon:"speaker",widgets:a}}(e));for(const p of["car","garden","pets"])l(p,o(p),!1);return n}let Me=class extends a{constructor(){super(...arguments),this.perArea=!1,this.replace=!0,this.list=[]}connectedCallback(){super.connectedCallback(),this.refresh()}refresh(e=!1){const t=new Map(this.list.map((e=>[e.key,e.on]))),s=this.kind?je[this.kind]:void 0;this.list=De(this.ctx,this.perArea).map((i=>{const a=!!s?.on.includes(i.key)||!s?.off.includes(i.key)&&void 0;return{...i,on:e?a??i.on:t.get(i.key)??a??i.on}}))}build(){const{ctx:e}=this,t=this.list.filter((e=>e.on)).map((e=>e.page));t.length&&(e.update((e=>{const s=e.pages.flatMap((e=>e.widgets)).find((e=>"floorplan"===e.type)),i=s?.config.floors?.some((e=>e.image))?s.config.floors:void 0;if(i){const e=t.flatMap((e=>e.widgets)).find((e=>"floorplan"===e.type));e&&(e.config.floors=i)}e.pages=this.replace?t:[...e.pages,...t],e.settings.default_page=e.pages[0].id})),e.toast(e.t("ab_done",{n:t.length})),e.closeSheet())}render(){const{t:e}=this.ctx,t=this.list.filter((e=>e.on));return n`<p class="hint">${e("ab_hint")}</p>
       <div class="opt">
         <span>${e("ab_kind")}</span>
         <div class="seg">
@@ -171,10 +171,10 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
         min-height: 56px;
         font-size: 17px;
       }
-    `],Se([s({attribute:!1})],Me.prototype,"ctx",2),Se([t()],Me.prototype,"perArea",2),Se([t()],Me.prototype,"kind",2),Se([t()],Me.prototype,"replace",2),Se([t()],Me.prototype,"list",2),Me=Se([i("sn-autobuild")],Me);const Ce=(...e)=>n`<div style="display:grid;gap:18px">${e}</div>`,Ie=(...e)=>n`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${e}</div>`,We=(e,...t)=>n`<section style="display:grid;gap:12px;padding-top:6px">
+    `],Se([s({attribute:!1})],Me.prototype,"ctx",2),Se([t()],Me.prototype,"perArea",2),Se([t()],Me.prototype,"kind",2),Se([t()],Me.prototype,"replace",2),Se([t()],Me.prototype,"list",2),Me=Se([i("sn-autobuild")],Me);var Ce=Object.defineProperty,We=Object.getOwnPropertyDescriptor,Ie=(e,t,s,i)=>{for(var a,n=i>1?void 0:i?We(t,s):t,l=e.length-1;l>=0;l--)(a=e[l])&&(n=(i?a(t,s,n):a(n))||n);return i&&n&&Ce(t,s,n),n};const qe=(...e)=>n`<div style="display:grid;gap:18px">${e}</div>`,Ae=(...e)=>n`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">${e}</div>`,Pe=(e,...t)=>n`<section style="display:grid;gap:12px;padding-top:6px">
     <h3 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2)">${e}</h3>
     ${t}
-  </section>`;function Ae(e,t,s,i,a,o=!1){const r=s?e.hass.states[s]:void 0;return n`<div class="field">
+  </section>`;function Be(e,t,s,i,a,o=!1){const r=s?e.hass.states[s]:void 0;return n`<div class="field">
     ${t}
     <div style="display:flex;gap:8px">
       <button
@@ -186,16 +186,16 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
               .onPick=${t=>{a(t),e.closeSheet()}}
             ></sn-entity-picker>`})}
       >
-        ${s?n`<sn-icon .icon=${P(r,s)} style="--icon-size:20px"></sn-icon>${l(e.hass,e.config,s)}`:n`<span class="muted">${e.t(o?"none":"choose_entity")}</span>`}
+        ${s?n`<sn-icon .icon=${A(r,s)} style="--icon-size:20px"></sn-icon>${l(e.hass,e.config,s)}`:n`<span class="muted">${e.t(o?"none":"choose_entity")}</span>`}
       </button>
       ${o&&s?n`<button class="icon-btn pressable" aria-label=${e.t("delete")} @click=${()=>a(void 0)}>
             <sn-icon icon="close" style="--icon-size:18px"></sn-icon>
           </button>`:c}
     </div>
-  </div>`}function Pe(e,t,s,i,a){const o=s??[];return n`<div class="field">
+  </div>`}function Te(e,t,s,i,a,o="auto_all"){const r=s??[];return n`<div class="field">
     ${t}
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${o.map((t=>n`<button class="btn pressable" style="min-height:36px;font-size:14px" @click=${()=>a(o.length>1?o.filter((e=>e!==t)):void 0)}>
+      ${r.map((t=>n`<button class="btn pressable" style="min-height:36px;font-size:14px" @click=${()=>a(r.length>1?r.filter((e=>e!==t)):void 0)}>
           ${l(e.hass,e.config,t)}<sn-icon icon="close" style="--icon-size:14px"></sn-icon>
         </button>`))}
       <button
@@ -204,17 +204,17 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
         @click=${()=>e.showSheet({still:!0,title:t,render:e=>n`<sn-entity-picker
               .ctx=${e}
               .filter=${i}
-              .onPick=${t=>{o.includes(t)||a([...o,t]),e.closeSheet()}}
+              .onPick=${t=>{r.includes(t)||a([...r,t]),e.closeSheet()}}
             ></sn-entity-picker>`})}
       >
         <sn-icon icon="plus" style="--icon-size:16px"></sn-icon>${e.t("add")}
       </button>
     </div>
-    ${o.length?c:n`<span class="hint">${e.t("auto_all")}</span>`}
-  </div>`}function Be(e,t,s){return n`<label class="field"
+    ${r.length?c:n`<span class="hint">${e.t(o)}</span>`}
+  </div>`}function Re(e,t,s){return n`<label class="field"
     >${e.t("widget_title")}
-    <input type="text" .value=${s??""} @change=${s=>Re(e,t,(e=>e.config.title=s.target.value.trim()||void 0))} />
-  </label>`}function Te(e,t){return n`<label class="field"
+    <input type="text" .value=${s??""} @change=${s=>Le(e,t,(e=>e.config.title=s.target.value.trim()||void 0))} />
+  </label>`}function Fe(e,t){return n`<label class="field"
     >${e.t("display_name")}
     <input
       type="text"
@@ -223,82 +223,93 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
       @change=${s=>e.update((e=>{const i=s.target.value.trim();i?e.names[t]=i:delete e.names[t]}))}
     />
     <span class="hint">${e.t("display_name_hint")}</span>
-  </label>`}const qe={camera:{domains:["camera"]},vacuum:{domains:["vacuum"]},todo:{domains:["todo"]},gauge:{domains:["sensor"]},gate:{domains:["cover"]},media:{domains:["media_player"]},remote:{domains:["remote","media_player"]}};function Re(e,t,s){e.update((e=>{const i=Y(e,t);i&&s(i,e)}))}function Fe(e,t,s){e.showSheet({still:!0,title:e.t("widget_settings"),render:e=>{const t=Y(e.config,s);return t?Ce(function(e,t,s){const i=e.t;switch(t.type){case"tile":case"camera":case"vacuum":case"media":case"remote":return Ce(Ae(e,i("entity"),t.config.entity,qe[t.type]??{},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Te(e,t.config.entity):c);case"gauge":return Ce(Ae(e,i("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),n`<div class="row" style="display:flex;gap:8px">
+  </label>`}const Ee={camera:{domains:["camera"]},vacuum:{domains:["vacuum"]},todo:{domains:["todo"]},gauge:{domains:["sensor"]},gate:{domains:["cover"]},media:{domains:["media_player"]},remote:{domains:["remote","media_player"]}};function Le(e,t,s){e.update((e=>{const i=Y(e,t);i&&s(i,e)}))}function Ue(e,t,s){e.showSheet({still:!0,title:e.t("widget_settings"),render:e=>{const t=Y(e.config,s);return t?qe(function(e,t,s){const i=e.t;switch(t.type){case"camera":return qe(Be(e,i("entity"),t.config.entity,{domains:["camera"]},(t=>Le(e,s,(e=>e.config.entity=t)))),t.config.entity?Fe(e,t.config.entity):c,n`<div class="field">
+              ${i("camera_mode")}
+              <div class="seg">
+                ${["auto","live","still"].map((a=>n`<button
+                    aria-pressed=${(void 0===t.config.live?"auto":t.config.live?"live":"still")===a}
+                    @click=${()=>Le(e,s,(e=>"auto"===a?delete e.config.live:e.config.live="live"===a))}
+                  >
+                    ${i(`camera_${a}`)}
+                  </button>`))}
+              </div>
+              <span class="hint">${i("camera_mode_hint")}</span>
+            </div>`);case"tile":case"vacuum":case"media":case"remote":return qe(Be(e,i("entity"),t.config.entity,Ee[t.type]??{},(t=>Le(e,s,(e=>e.config.entity=t)))),t.config.entity?Fe(e,t.config.entity):c);case"gauge":return qe(Be(e,i("entity"),t.config.entity,{domains:["sensor"]},(t=>Le(e,s,(e=>e.config.entity=t)))),n`<div class="row" style="display:flex;gap:8px">
               ${["min","max","low"].map((a=>n`<label class="field" style="flex:1"
                   >${"low"===a?i("gauge_low")+" %":a}
-                  <input type="number" .value=${String(t.config[a]??("max"===a?100:"low"===a?20:0))} @change=${t=>Re(e,s,(e=>e.config[a]=Number(t.target.value)))} />
+                  <input type="number" .value=${String(t.config[a]??("max"===a?100:"low"===a?20:0))} @change=${t=>Le(e,s,(e=>e.config[a]=Number(t.target.value)))} />
                 </label>`))}
             </div>`,e.allows("refill")?n`<label class="field"
                   >${i("refill_phone")}
-                  <input type="tel" class="ltr" placeholder="972501234567" .value=${t.config.supplier??""} @change=${t=>Re(e,s,(e=>e.config.supplier=t.target.value.trim()||void 0))} />
+                  <input type="tel" class="ltr" placeholder="972501234567" .value=${t.config.supplier??""} @change=${t=>Le(e,s,(e=>e.config.supplier=t.target.value.trim()||void 0))} />
                   <span class="hint">${i("refill_hint")}</span>
-                </label>`:c);case"gate":return Ce(Ae(e,i("widget_gate"),t.config.entity,{domains:["cover"]},(t=>Re(e,s,(e=>e.config.entity=t)))),Ae(e,i("widget_camera"),t.config.camera,{domains:["camera"]},(t=>Re(e,s,(e=>e.config.camera=t))),!0));case"frigate":return n`<label class="field"
+                </label>`:c);case"gate":return qe(Be(e,i("widget_gate"),t.config.entity,{domains:["cover"]},(t=>Le(e,s,(e=>e.config.entity=t)))),Be(e,i("widget_camera"),t.config.camera,{domains:["camera"]},(t=>Le(e,s,(e=>e.config.camera=t))),!0));case"frigate":return n`<label class="field"
             >Frigate instance ID
-            <input type="text" class="ltr" .value=${t.config.instance??"frigate"} @change=${t=>Re(e,s,(e=>e.config.instance=t.target.value.trim()||"frigate"))} />
-          </label>`;case"todo":return Ae(e,i("widget_todo"),t.config.entity,{domains:["todo"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"calendar":{const i=Object.keys(e.hass.states).filter((e=>e.startsWith("calendar."))),a=t.config.entities??[];return n`<div style="display:grid;gap:8px">
+            <input type="text" class="ltr" .value=${t.config.instance??"frigate"} @change=${t=>Le(e,s,(e=>e.config.instance=t.target.value.trim()||"frigate"))} />
+          </label>`;case"todo":return Be(e,i("widget_todo"),t.config.entity,{domains:["todo"]},(t=>Le(e,s,(e=>e.config.entity=t))));case"calendar":{const i=Object.keys(e.hass.states).filter((e=>e.startsWith("calendar."))),a=t.config.entities??[];return n`<div style="display:grid;gap:8px">
             ${i.map((t=>{const o=!a.length||a.includes(t);return n`<button
                 class="btn pressable ${o?"primary":""}"
                 style="justify-content:flex-start;font-weight:500"
-                @click=${()=>Re(e,s,(e=>{const s=e.config.entities?.length?e.config.entities:[...i];e.config.entities=o?s.filter((e=>e!==t)):[...s,t]}))}
+                @click=${()=>Le(e,s,(e=>{const s=e.config.entities?.length?e.config.entities:[...i];e.config.entities=o?s.filter((e=>e!==t)):[...s,t]}))}
               >
                 <sn-icon icon=${o?"check":"close"} style="--icon-size:18px"></sn-icon>${l(e.hass,e.config,t)}
               </button>`}))}
-          </div>`}case"countdown":{const a=t.config.events??[];return Ce(n`<div class="field">${i("next_ramadan")} / ${i("next_eid")} ${Ve(e,t.config.islamic??"ar"===e.lang,(t=>Re(e,s,(e=>e.config.islamic=t))))}</div>`,...a.map(((t,a)=>n`<div style="display:flex;gap:8px;align-items:center">
+          </div>`}case"countdown":{const a=t.config.events??[];return qe(n`<div class="field">${i("next_ramadan")} / ${i("next_eid")} ${Qe(e,t.config.islamic??"ar"===e.lang,(t=>Le(e,s,(e=>e.config.islamic=t))))}</div>`,...a.map(((t,a)=>n`<div style="display:flex;gap:8px;align-items:center">
                 <span style="flex:1">${t.title}</span><span class="muted ltr">${t.date}</span>
-                <button class="icon-btn small pressable" aria-label=${i("delete")} @click=${()=>Re(e,s,(e=>e.config.events.splice(a,1)))}>
+                <button class="icon-btn small pressable" aria-label=${i("delete")} @click=${()=>Le(e,s,(e=>e.config.events.splice(a,1)))}>
                   <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
                 </button>
               </div>`)),n`<form
               style="display:grid;gap:8px"
-              @submit=${t=>{t.preventDefault();const i=t.currentTarget,a=i.elements.namedItem("title").value.trim(),n=i.elements.namedItem("date").value;a&&n&&(Re(e,s,(e=>e.config.events=[...e.config.events??[],{title:a,date:n}])),i.reset())}}
+              @submit=${t=>{t.preventDefault();const i=t.currentTarget,a=i.elements.namedItem("title").value.trim(),n=i.elements.namedItem("date").value;a&&n&&(Le(e,s,(e=>e.config.events=[...e.config.events??[],{title:a,date:n}])),i.reset())}}
             >
               <input name="title" type="text" placeholder=${i("event_title")} />
               <input name="date" type="date" />
               <button class="btn primary pressable" type="submit" style="justify-self:start">${i("add_event")}</button>
-            </form>`)}case"energy_stats":{const a=le(e.hass),l=(n,l)=>Ae(e,i(l),t.config[n]??a[n],{domains:["sensor"],deviceClasses:["energy"]},(t=>Re(e,s,(e=>e.config[n]=t))),!0);return Ce(l("total","e_total_energy"),l("solar","e_solar_energy"),n`<label class="field"
+            </form>`)}case"energy_stats":{const a=le(e.hass),l=(n,l)=>Be(e,i(l),t.config[n]??a[n],{domains:["sensor"],deviceClasses:["energy"]},(t=>Le(e,s,(e=>e.config[n]=t))),!0);return qe(l("total","e_total_energy"),l("solar","e_solar_energy"),n`<label class="field"
               >${i("tariff")}
-              <input type="number" step="0.01" min="0" .value=${String(t.config.tariff??.6)} @change=${t=>Re(e,s,(e=>e.config.tariff=Number(t.target.value)||0))} />
+              <input type="number" step="0.01" min="0" .value=${String(t.config.tariff??.6)} @change=${t=>Le(e,s,(e=>e.config.tariff=Number(t.target.value)||0))} />
             </label>`,n`<label class="field"
               >${i("bill_budget")}
-              <input type="number" min="0" .value=${String(t.config.budget??"")} placeholder="–" @change=${t=>Re(e,s,(e=>e.config.budget=Number(t.target.value)||void 0))} />
+              <input type="number" min="0" .value=${String(t.config.budget??"")} placeholder="–" @change=${t=>Le(e,s,(e=>e.config.budget=Number(t.target.value)||void 0))} />
             </label>`,n`<label class="field"
               >${i("currency")}
-              <input type="text" maxlength="4" .value=${t.config.currency??"₪"} @change=${t=>Re(e,s,(e=>e.config.currency=t.target.value.trim()||"₪"))} />
-            </label>`)}case"energy":{const a=ne(e.hass),l=(n,l,o)=>Ae(e,i(l),t.config[n]??a[n],{domains:["sensor"],deviceClasses:o},(t=>Re(e,s,(e=>e.config[n]=t))),!0),o=a=>n`<div class="field">${i("e_flip")} ${Ve(e,!!t.config[a],(t=>Re(e,s,(e=>e.config[a]=t))))}</div>`;return Ce(l("solar","e_solar_entity",["power"]),l("grid","e_grid_entity",["power"]),o("flip_grid"),l("battery","e_battery_entity",["power"]),o("flip_battery"),l("soc","e_soc_entity",["battery"]),l("home","e_home_entity",["power"]))}case"room":{const a=Object.values(e.hass.areas??{});return Ce(n`<label class="field"
+              <input type="text" maxlength="4" .value=${t.config.currency??"₪"} @change=${t=>Le(e,s,(e=>e.config.currency=t.target.value.trim()||"₪"))} />
+            </label>`)}case"energy":{const a=ne(e.hass),l=(n,l,o)=>Be(e,i(l),t.config[n]??a[n],{domains:["sensor"],deviceClasses:o},(t=>Le(e,s,(e=>e.config[n]=t))),!0),o=a=>n`<div class="field">${i("e_flip")} ${Qe(e,!!t.config[a],(t=>Le(e,s,(e=>e.config[a]=t))))}</div>`;return qe(l("solar","e_solar_entity",["power"]),l("grid","e_grid_entity",["power"]),o("flip_grid"),l("battery","e_battery_entity",["power"]),o("flip_battery"),l("soc","e_soc_entity",["battery"]),l("home","e_home_entity",["power"]))}case"room":{const a=Object.values(e.hass.areas??{});return qe(n`<label class="field"
               >${i("room_area")}
-              <select @change=${t=>Re(e,s,(e=>e.config.area=t.target.value||void 0))}>
+              <select @change=${t=>Le(e,s,(e=>e.config.area=t.target.value||void 0))}>
                 <option value="">–</option>
                 ${a.map((e=>n`<option value=${e.area_id} ?selected=${t.config.area===e.area_id}>${e.name}</option>`))}
               </select>
-            </label>`,n`<label class="field">${i("room_name")}<input type="text" .value=${t.config.name??""} @change=${t=>Re(e,s,(e=>e.config.name=t.target.value.trim()||void 0))} /></label>`,n`<label class="field"
+            </label>`,n`<label class="field">${i("room_name")}<input type="text" .value=${t.config.name??""} @change=${t=>Le(e,s,(e=>e.config.name=t.target.value.trim()||void 0))} /></label>`,n`<label class="field"
               >${i("room_photo")}
               <input
                 type="file"
                 accept="image/*"
-                @change=${async t=>{const a=t.target.files?.[0];if(a)try{const t=await d(e.hass,a);Re(e,s,(e=>e.config.photo=t))}catch{e.toast(i("error"))}}}
+                @change=${async t=>{const a=t.target.files?.[0];if(a)try{const t=await d(e.hass,a);Le(e,s,(e=>e.config.photo=t))}catch{e.toast(i("error"))}}}
               />
-            </label>`)}case"water":{const a=ae(e.hass),n=(n,l,o)=>Ae(e,i(l),t.config[n]??a[n],o,(t=>Re(e,s,(e=>e.config[n]=t))),!0);return Ce(n("usage","water_usage",{domains:["sensor"],deviceClasses:["water"]}),n("tank","water_tank",{domains:["sensor"]}),n("valve","water_valve",{domains:["valve","switch"]}))}case"ac":return Ae(e,i("entity"),t.config.entity,{domains:["climate"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"sensor":return Ce(Ae(e,i("entity"),t.config.entity,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entity=t)))),t.config.entity?Te(e,t.config.entity):c);case"batteries":return n`<label class="field"
+            </label>`)}case"water":{const a=ae(e.hass),n=(n,l,o)=>Be(e,i(l),t.config[n]??a[n],o,(t=>Le(e,s,(e=>e.config[n]=t))),!0);return qe(n("usage","water_usage",{domains:["sensor"],deviceClasses:["water"]}),n("tank","water_tank",{domains:["sensor"]}),n("valve","water_valve",{domains:["valve","switch"]}))}case"ac":return Be(e,i("entity"),t.config.entity,{domains:["climate"]},(t=>Le(e,s,(e=>e.config.entity=t))));case"sensor":return qe(Be(e,i("entity"),t.config.entity,{domains:["sensor"]},(t=>Le(e,s,(e=>e.config.entity=t)))),t.config.entity?Fe(e,t.config.entity):c);case"batteries":return n`<label class="field"
             >${i("bat_low_at")}
-            <input type="number" min="5" max="60" .value=${String(t.config.low??20)} @change=${t=>Re(e,s,(e=>e.config.low=Number(t.target.value)||20))} />
-          </label>`;case"folder":return Ce(Be(e,s,t.config.title),Pe(e,i("widget_folder"),t.config.entities,{domains:["light","switch","fan","cover","climate","lock","media_player","input_boolean","scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"scenes":return Ce(Be(e,s,t.config.title),Pe(e,i("widget_scenes"),t.config.entities,{domains:["scene","script"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"lights":case"covers":{const a=Object.values(e.hass.areas??{});return Ce(Be(e,s,t.config.title),n`<label class="field"
+            <input type="number" min="5" max="60" .value=${String(t.config.low??20)} @change=${t=>Le(e,s,(e=>e.config.low=Number(t.target.value)||20))} />
+          </label>`;case"folder":return qe(Re(e,s,t.config.title),Te(e,i("widget_folder"),t.config.entities,{domains:["light","switch","fan","cover","climate","lock","media_player","input_boolean","scene","script"]},(t=>Le(e,s,(e=>e.config.entities=t)))));case"scenes":return qe(Re(e,s,t.config.title),Te(e,i("widget_scenes"),t.config.entities,{domains:["scene","script"]},(t=>Le(e,s,(e=>e.config.entities=t)))));case"lights":case"covers":{const a=Object.values(e.hass.areas??{});return qe(Re(e,s,t.config.title),n`<label class="field"
               >${i("room_area")}
-              <select @change=${t=>Re(e,s,(e=>e.config.area=t.target.value||void 0))}>
+              <select @change=${t=>Le(e,s,(e=>e.config.area=t.target.value||void 0))}>
                 <option value="">${i("area_all")}</option>
                 ${a.map((e=>n`<option value=${e.area_id} ?selected=${t.config.area===e.area_id}>${e.name}</option>`))}
               </select>
-            </label>`,Pe(e,i("lights"===t.type?"widget_lights":"widget_covers"),t.config.entities,{domains:["lights"===t.type?"light":"cover"]},(t=>Re(e,s,(e=>e.config.entities=t)))))}case"boiler":return Ae(e,i("boiler_pick"),t.config.entity,{domains:["switch","water_heater","input_boolean","light"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"irrigation":return Ae(e,i("widget_irrigation"),t.config.entity,{domains:["valve","switch","input_boolean"]},(t=>Re(e,s,(e=>e.config.entity=t))));case"air":return Ce(Ae(e,i("air_purifier"),t.config.purifier,{domains:["fan","humidifier","switch","climate"]},(t=>Re(e,s,(e=>e.config.purifier=t))),!0),Pe(e,i("air_sensors"),t.config.entities,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entities=t)))));case"commute":return Pe(e,i("widget_commute"),t.config.entities,{domains:["sensor"]},(t=>Re(e,s,(e=>e.config.entities=t))));case"timeline":return Ae(e,i("widget_camera"),t.config.camera,{domains:["camera"]},(t=>Re(e,s,(e=>e.config.camera=t))),!0);case"heading":return n`<label class="field"
+            </label>`,Te(e,i("lights"===t.type?"widget_lights":"widget_covers"),t.config.entities,{domains:["lights"===t.type?"light":"cover"]},(t=>Le(e,s,(e=>e.config.entities=t)))))}case"boiler":return Be(e,i("boiler_pick"),t.config.entity,{domains:["switch","water_heater","input_boolean","light"]},(t=>Le(e,s,(e=>e.config.entity=t))));case"irrigation":return Be(e,i("widget_irrigation"),t.config.entity,{domains:["valve","switch","input_boolean"]},(t=>Le(e,s,(e=>e.config.entity=t))));case"air":return qe(Be(e,i("air_purifier"),t.config.purifier,{domains:["fan","humidifier","switch","climate"]},(t=>Le(e,s,(e=>e.config.purifier=t))),!0),Te(e,i("air_sensors"),t.config.entities,{domains:["sensor"]},(t=>Le(e,s,(e=>e.config.entities=t)))));case"commute":return Te(e,i("widget_commute"),t.config.entities,{domains:["sensor"]},(t=>Le(e,s,(e=>e.config.entities=t))));case"timeline":return Be(e,i("widget_camera"),t.config.camera,{domains:["camera"]},(t=>Le(e,s,(e=>e.config.camera=t))),!0);case"heading":return n`<label class="field"
             >${i("heading_text")}
-            <input type="text" .value=${t.config.text??""} @change=${t=>Re(e,s,(e=>e.config.text=t.target.value))} />
-          </label>`;case"floorplan":return Ce(n`<div class="field">
+            <input type="text" .value=${t.config.text??""} @change=${t=>Le(e,s,(e=>e.config.text=t.target.value))} />
+          </label>`;case"floorplan":return qe(n`<div class="field">
               ${i("plan_in_dark")}
               <div class="seg">
-                ${[!1,!0].map((a=>n`<button aria-pressed=${!!t.config.invert_dark===a} @click=${()=>Re(e,s,(e=>e.config.invert_dark=a))}>
+                ${[!1,!0].map((a=>n`<button aria-pressed=${!!t.config.invert_dark===a} @click=${()=>Le(e,s,(e=>e.config.invert_dark=a))}>
                     ${i(a?"plan_invert":"plan_original")}
                   </button>`))}
               </div>
             </div>`,e.allows("sun_on_plan")?n`<label class="field"
                   >${i("plan_north")}
-                  <input type="number" min="0" max="359" step="5" .value=${String(t.config.north??0)} @change=${t=>Re(e,s,(e=>e.config.north=(Number(t.target.value)||0)%360))} />
+                  <input type="number" min="0" max="359" step="5" .value=${String(t.config.north??0)} @change=${t=>Le(e,s,(e=>e.config.north=(Number(t.target.value)||0)%360))} />
                   <span class="hint">${i("plan_north_hint")}</span>
                 </label>`:c,n`<p class="muted" style="margin:0;font-size:14px">${i("drag_hint")}</p>`);default:return n`<p class="muted">${i(`widget_${t.type}`)}</p>`}}(e,t,s),"floorplan"===t.type?c:function(e,t){const s=e.t,i=e.config.pages.find((e=>e.widgets.some((e=>e.id===t.id)))),a=e=>e.widgets.find((e=>"room"===e.type&&e.config.area))?.config.area,l=t=>Object.values(e.hass.areas??{}).find((e=>e.name.trim()===t.trim()))?.area_id,o=(i?.widgets??[]).filter((e=>"heading"===e.type&&e.config.text)).sort(((e,t)=>e.y-t.y)),r=[...o].reverse().find((e=>e.y<t.y)),p=async s=>{const i=t.config.entity;s&&i&&e.hass.entities?.[i]&&(e.hass.entities[i].area_id??void 0)!==s&&await e.hass.callWS({type:"config/entity_registry/update",entity_id:i,area_id:s}).catch((()=>{}))};return n`<label class="field"
     >${s("move_room")}
@@ -313,17 +324,17 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
       </optgroup>
     </select>
     <span class="hint">${s("move_room_hint")}</span>
-  </label>`}(e,t)):n``}})}const Ee=[{type:"tile",icon:"lightbulb"},{type:"floorplan",icon:"layers"},{type:"camera",icon:"cctv"},{type:"modes",icon:"leave"},{type:"vacuum",icon:"robot-vacuum"},{type:"visitors",icon:"doorbell"},{type:"energy",icon:"solar"},{type:"energy_stats",icon:"lightning-bolt"},{type:"check",icon:"night"},{type:"panic",icon:"alert-circle-outline"},{type:"family",icon:"family"},{type:"todo",icon:"todo"},{type:"calendar",icon:"calendar"},{type:"forecast",icon:"w-partlycloudy"},{type:"countdown",icon:"countdown"},{type:"gauge",icon:"gas"},{type:"gate",icon:"gate"},{type:"frigate",icon:"cctv"},{type:"schedule",icon:"schedule"},{type:"media",icon:"speaker"},{type:"remote",icon:"television"},{type:"consumers",icon:"lightning-bolt"},{type:"water",icon:"water"},{type:"wake",icon:"weather-sunset-up"},{type:"chores",icon:"star"},{type:"air",icon:"leaf"},{type:"boiler",icon:"water-boiler"},{type:"irrigation",icon:"sprinkler"},{type:"timeline",icon:"history"},{type:"internet",icon:"wifi"},{type:"board",icon:"note"},{type:"verse",icon:"book-open-variant"},{type:"radar",icon:"weather-pouring"},{type:"commute",icon:"car"},{type:"parcels",icon:"package"},{type:"hero",icon:"home"},{type:"stack",icon:"layers"},{type:"room",icon:"sofa"},{type:"ac",icon:"air-conditioner"},{type:"scenes",icon:"palette"},{type:"sensor",icon:"chart-line"},{type:"batteries",icon:"battery"},{type:"lights",icon:"lightbulb-group"},{type:"covers",icon:"blinds"},{type:"prayer",icon:"mosque"},{type:"folder",icon:"folder"},{type:"clock",icon:"clock-outline"},{type:"heading",icon:"title"}],Le=["clock","hero","verse","forecast","consumers","energy_stats","energy","air","water","board","commute","modes","family","countdown"];function Ue(e,t){const s=(e,s,i)=>{let a="";return e.update((e=>{const n=e.pages.find((e=>e.id===t));if(!n)return;const l=M(s,i,{y:Z(n.widgets)});a=l.id,n.widgets=ee([...n.widgets,l])})),a};e.showSheet({still:!0,title:e.t("add_widget"),render:e=>n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
-      ${Ee.map((t=>e.allows(C(t.type))?n`<button
+  </label>`}(e,t)):n``}})}const He=[{type:"tile",icon:"lightbulb"},{type:"floorplan",icon:"layers"},{type:"camera",icon:"cctv"},{type:"modes",icon:"leave"},{type:"vacuum",icon:"robot-vacuum"},{type:"visitors",icon:"doorbell"},{type:"energy",icon:"solar"},{type:"energy_stats",icon:"lightning-bolt"},{type:"check",icon:"night"},{type:"panic",icon:"alert-circle-outline"},{type:"family",icon:"family"},{type:"todo",icon:"todo"},{type:"calendar",icon:"calendar"},{type:"forecast",icon:"w-partlycloudy"},{type:"countdown",icon:"countdown"},{type:"gauge",icon:"gas"},{type:"gate",icon:"gate"},{type:"frigate",icon:"cctv"},{type:"schedule",icon:"schedule"},{type:"media",icon:"speaker"},{type:"remote",icon:"television"},{type:"consumers",icon:"lightning-bolt"},{type:"water",icon:"water"},{type:"wake",icon:"weather-sunset-up"},{type:"chores",icon:"star"},{type:"air",icon:"leaf"},{type:"boiler",icon:"water-boiler"},{type:"irrigation",icon:"sprinkler"},{type:"timeline",icon:"history"},{type:"internet",icon:"wifi"},{type:"board",icon:"note"},{type:"verse",icon:"book-open-variant"},{type:"radar",icon:"weather-pouring"},{type:"commute",icon:"car"},{type:"parcels",icon:"package"},{type:"hero",icon:"home"},{type:"stack",icon:"layers"},{type:"room",icon:"sofa"},{type:"ac",icon:"air-conditioner"},{type:"scenes",icon:"palette"},{type:"sensor",icon:"chart-line"},{type:"batteries",icon:"battery"},{type:"lights",icon:"lightbulb-group"},{type:"covers",icon:"blinds"},{type:"prayer",icon:"mosque"},{type:"folder",icon:"folder"},{type:"clock",icon:"clock-outline"},{type:"heading",icon:"title"}],Je=["clock","hero","verse","forecast","consumers","energy_stats","energy","air","water","board","commute","modes","family","countdown"];function Ve(e,t){const s=(e,s,i)=>{let a="";return e.update((e=>{const n=e.pages.find((e=>e.id===t));if(!n)return;const l=M(s,i,{y:Z(n.widgets)});a=l.id,n.widgets=ee([...n.widgets,l])})),a};e.showSheet({still:!0,title:e.t("add_widget"),render:e=>n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+      ${He.map((t=>e.allows(C(t.type))?n`<button
           class="glass pressable"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
           @click=${()=>{if(["tile","camera","vacuum","gauge","gate","media","remote"].includes(t.type))return void e.showSheet({still:!0,title:e.t("choose_entity"),render:e=>n`<sn-entity-picker
                   .ctx=${e}
-                  .filter=${qe[t.type]??{}}
+                  .filter=${Ee[t.type]??{}}
                   .onPick=${i=>{s(e,t.type,{entity:i}),e.closeSheet(),e.closeSheet()}}
-                ></sn-entity-picker>`});const i="floorplan"===t.type?{floors:[W(e.t("floor_default"))]}:"heading"===t.type?{text:""}:{},a=s(e,t.type,i);e.closeSheet(),"heading"===t.type&&Fe(e,0,a)}}
+                ></sn-entity-picker>`});const i="floorplan"===t.type?{floors:[I(e.t("floor_default"))]}:"heading"===t.type?{text:""}:{},a=s(e,t.type,i);e.closeSheet(),"heading"===t.type&&Ue(e,0,a)}}
         >
-          ${Le.includes(t.type)&&e.allows("live_gallery")?function(e,t){const s=I[t],i=Math.min(560,60*s.w),a=Math.min(420,56*s.h),l=Math.min(150/i,96/a),o=te(`sn-w-${t.replace(/_/g,"-")}`),r={id:`preview-${t}`,type:t,x:0,y:0,w:s.w,h:s.h,config:{}};return n`<span style="position:relative;display:block;width:${i*l}px;height:${a*l}px;pointer-events:none;border-radius:14px;overflow:hidden" aria-hidden="true">
+          ${Je.includes(t.type)&&e.allows("live_gallery")?function(e,t){const s=W[t],i=Math.min(560,60*s.w),a=Math.min(420,56*s.h),l=Math.min(150/i,96/a),o=te(`sn-w-${t.replace(/_/g,"-")}`),r={id:`preview-${t}`,type:t,x:0,y:0,w:s.w,h:s.h,config:{}};return n`<span style="position:relative;display:block;width:${i*l}px;height:${a*l}px;pointer-events:none;border-radius:14px;overflow:hidden" aria-hidden="true">
     <span style="position:absolute;top:0;left:0;width:${i}px;height:${a}px;transform:scale(${l});transform-origin:0 0;direction:${e.rtl?"rtl":"ltr"}">
       ${se`<${o} .ctx=${e} .widget=${r}></${o}>`}
     </span>
@@ -331,17 +342,17 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                 <sn-icon .icon=${t.icon}></sn-icon>
               </span>`}
           ${e.t(`widget_${t.type}`)}
-          <span class="muted ltr" style="font-size:12px">${I[t.type].w}×${I[t.type].h}</span>
+          <span class="muted ltr" style="font-size:12px">${W[t.type].w}×${W[t.type].h}</span>
         </button>`:n`<div
           class="glass"
           style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500;opacity:.55"
-          title=${e.t("plan_needed",{plan:e.t(`plan_${A(C(t.type))}`)})}
+          title=${e.t("plan_needed",{plan:e.t(`plan_${q(C(t.type))}`)})}
         >
           <span style="display:grid;place-items:center;width:52px;height:52px;border-radius:999px;background:var(--surface-2)"><sn-icon icon="lock"></sn-icon></span>
           ${e.t(`widget_${t.type}`)}
-          <span style="font-size:12px;color:var(--accent-text)">${e.t("plan_needed",{plan:e.t(`plan_${A(C(t.type))}`)})}</span>
+          <span style="font-size:12px;color:var(--accent-text)">${e.t("plan_needed",{plan:e.t(`plan_${q(C(t.type))}`)})}</span>
         </div>`))}
-    </div>`})}function He(e,t){e.showSheet({still:!0,title:e.t("add_page"),render:e=>We(e.t("choose_template"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+    </div>`})}function Ge(e,t){e.showSheet({still:!0,title:e.t("add_page"),render:e=>Pe(e.t("choose_template"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
         ${O.map((s=>n`<button
             class="glass pressable"
             style="display:grid;gap:10px;justify-items:center;padding:20px 12px;border-radius:var(--r-md);font-weight:500"
@@ -352,13 +363,13 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
             </span>
             ${e.t(s.label)}
           </button>`))}
-      </div>`)})}function Je(e,t,s){const i=(e,s)=>e.update((e=>{const i=e.pages.findIndex((e=>e.id===t));i>=0&&s(e,i)}));e.showSheet({still:!0,title:e.t("page_settings"),render:e=>{const a=e.config.pages.findIndex((e=>e.id===t)),o=e.config.pages[a];if(!o)return n``;const r=e.t,p=t=>i(e,((e,s)=>{const i=s+t;i<0||i>=e.pages.length||([e.pages[s],e.pages[i]]=[e.pages[i],e.pages[s]])}));return Ce(n`<label class="field"
+      </div>`)})}function Ke(e,t,s){const i=(e,s)=>e.update((e=>{const i=e.pages.findIndex((e=>e.id===t));i>=0&&s(e,i)}));e.showSheet({still:!0,title:e.t("page_settings"),render:e=>{const a=e.config.pages.findIndex((e=>e.id===t)),o=e.config.pages[a];if(!o)return n``;const r=e.t,p=t=>i(e,((e,s)=>{const i=s+t;i<0||i>=e.pages.length||([e.pages[s],e.pages[i]]=[e.pages[i],e.pages[s]])}));return qe(e.allows("page_users")?n`<sn-page-users .ctx=${e} .page=${o} .onChange=${t=>i(e,((e,s)=>t.length?e.pages[s].users=t:delete e.pages[s].users))}></sn-page-users>`:c,n`<label class="field"
           >${r("page_title")}
           <input type="text" .value=${o.title} @change=${t=>i(e,((e,s)=>e.pages[s].title=t.target.value.trim()||o.title))} />
         </label>`,n`<div class="field">
           ${r("page_icon")}
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px">
-            ${B.map((t=>n`<button
+            ${P.map((t=>n`<button
                 class="icon-btn pressable ${o.icon===t?"primary":""}"
                 style="width:100%;border-radius:var(--r-sm)"
                 aria-pressed=${o.icon===t}
@@ -374,30 +385,30 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                 ${Object.keys(e.hass.states).filter((e=>e.startsWith("person."))).map((t=>n`<option value=${t} ?selected=${o.person===t}>${l(e.hass,e.config,t)}</option>`))}
               </select>
               <span class="hint">${r("page_person_hint")}</span>
-            </label>`:c,Ie(n`<button class="btn pressable" ?disabled=${0===a} @click=${()=>p(-1)}>${r("move_earlier")}</button>`,n`<button class="btn pressable" ?disabled=${a===e.config.pages.length-1} @click=${()=>p(1)}>${r("move_later")}</button>`,n`<span style="flex:1"></span>`,n`<button
+            </label>`:c,Ae(n`<button class="btn pressable" ?disabled=${0===a} @click=${()=>p(-1)}>${r("move_earlier")}</button>`,n`<button class="btn pressable" ?disabled=${a===e.config.pages.length-1} @click=${()=>p(1)}>${r("move_later")}</button>`,n`<span style="flex:1"></span>`,n`<button
             class="btn danger pressable"
             ?disabled=${e.config.pages.length<=1}
             @click=${()=>{confirm(r("delete_confirm"))&&(i(e,((e,s)=>{e.pages.splice(s,1),e.settings.default_page===t&&(e.settings.default_page=e.pages[0]?.id??"")})),e.closeSheet(),s())}}
           >
             <sn-icon icon="delete" style="--icon-size:20px"></sn-icon>${r("delete")}
-          </button>`))}})}function Ve(e,t,s){return n`<div class="seg">
+          </button>`))}})}function Qe(e,t,s){return n`<div class="seg">
     ${[!0,!1].map((i=>n`<button aria-pressed=${t===i} @click=${()=>s(i)}>${e.t(i?"on":"off")}</button>`))}
-  </div>`}function Ge(e,t,s,i,a){return n`<label class="field"
+  </div>`}function Xe(e,t,s,i,a){return n`<label class="field"
     >${e}
     <input type="number" min=${s} max=${i} .value=${String(t)} @change=${e=>a(Math.min(i,Math.max(s,Number(e.target.value)||0)))} />
-  </label>`}const Ke=[U,"#18BCF2","#2FB57A","#F26B68","#A78BFA","#F5BE6A"],Qe=[{id:"schedule",label:"theme_schedule"},{id:"auto",label:"theme_auto"},{id:"light",label:"theme_light"},{id:"dark",label:"theme_dark"},{id:"midnight",label:"theme_midnight"}];function Xe(t,s){t.showSheet({still:!0,title:t.t("settings"),render:t=>{const i=t.config.settings,a=t.t,o=e=>t.update(e);return Ce(t.allows("autobuild")?n`<button class="btn primary pressable" style="min-height:56px;font-size:16px" @click=${()=>(e=>e.showSheet({still:!0,title:e.t("ab_title"),render:e=>n`<sn-autobuild .ctx=${e}></sn-autobuild>`}))(t)}>
+  </label>`}const Ye=[U,"#18BCF2","#2FB57A","#F26B68","#A78BFA","#F5BE6A"],Ze=[{id:"schedule",label:"theme_schedule"},{id:"auto",label:"theme_auto"},{id:"light",label:"theme_light"},{id:"dark",label:"theme_dark"},{id:"midnight",label:"theme_midnight"}];function et(t,s){t.showSheet({still:!0,title:t.t("settings"),render:t=>{const i=t.config.settings,a=t.t,o=e=>t.update(e);return qe(t.allows("autobuild")?n`<button class="btn primary pressable" style="min-height:56px;font-size:16px" @click=${()=>(e=>e.showSheet({still:!0,title:e.t("ab_title"),render:e=>n`<sn-autobuild .ctx=${e}></sn-autobuild>`}))(t)}>
               <sn-icon icon="auto-fix" style="--icon-size:22px"></sn-icon>${a("ab_title")}
             </button>`:c,n`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn pressable" @click=${()=>function(e){e.showSheet({title:e.t("health"),render:e=>{const{hass:t,t:s,config:i}=e,a=Object.values(t.states),o=s("h_all_good"),r=new Set(u(i)),p=a.filter((e=>"unavailable"===e.state&&r.has(e.entity_id))).sort(((e,t)=>e.last_changed.localeCompare(t.last_changed))),d=a.filter((e=>{if("battery"!==e.attributes.device_class)return!1;if("binary_sensor"===m(e.entity_id))return"on"===e.state;const t=Number(e.state);return"sensor"===m(e.entity_id)&&!Number.isNaN(t)&&t<20})).sort(((e,t)=>Number(e.state)-Number(t.state))),g=a.find((e=>/backup_last_successful_automatic_backup$/.test(e.entity_id))),w=g?Date.parse(g.state):NaN,k=Number.isNaN(w)?void 0:Math.floor((Date.now()-w)/864e5),z=a.filter((e=>"update"===m(e.entity_id)&&"on"===e.state)),S=we(a,/disk_use_percent|disk_usage/),j=we(a,/processor_temperature|cpu_temperature/),N=we(a,/memory_use_percent|memory_usage/),O=[S&&xe(s("h_disk"),h(`${y(Number(S.state),e.lang,0)}%`)),j&&xe(s("h_cpu_temp"),h(`${y(Number(j.state),e.lang,0)}°`)),N&&xe(s("h_memory"),h(`${y(Number(N.state),e.lang,0)}%`))].filter(Boolean),D=S&&Number(S.state)>85||j&&Number(j.state)>75,M=[...r].filter((e=>"vacuum"===m(e)&&t.states[e])),C=M.flatMap((e=>{const a=f(t,e);return $.filter((e=>a.parts[e.key])).flatMap((n=>{const o=b(t.states[a.parts[n.key]]);return void 0!==o&&o/n.life<.15?[{robot:l(t,i,e),part:s(n.label),h:o}]:[]}))})),I=v(t).map((e=>{const s=Object.values(t.entities??{}).filter((t=>t.device_id===e.deviceId)),i=e=>e.translation_key??e.entity_id.split(".")[1],a=s.find((e=>e.entity_id.startsWith("sensor.")&&/battery/.test(i(e)))),n=s.find((e=>e.entity_id.startsWith("binary_sensor.")&&/plugged/.test(i(e)))),l=s.find((e=>e.entity_id.startsWith("button.")&&/load_start_url|restart_browser/.test(i(e))));return{tab:e,battery:a&&t.states[a.entity_id],plugged:n&&t.states[n.entity_id],reload:l?.entity_id}}));return n`<div style="display:grid;gap:12px">
+          <button class="btn pressable" @click=${()=>function(e){e.showSheet({title:e.t("health"),render:e=>{const{hass:t,t:s,config:i}=e,a=Object.values(t.states),o=s("h_all_good"),r=new Set(u(i)),p=a.filter((e=>"unavailable"===e.state&&r.has(e.entity_id))).sort(((e,t)=>e.last_changed.localeCompare(t.last_changed))),d=a.filter((e=>{if("battery"!==e.attributes.device_class)return!1;if("binary_sensor"===h(e.entity_id))return"on"===e.state;const t=Number(e.state);return"sensor"===h(e.entity_id)&&!Number.isNaN(t)&&t<20})).sort(((e,t)=>Number(e.state)-Number(t.state))),g=a.find((e=>/backup_last_successful_automatic_backup$/.test(e.entity_id))),w=g?Date.parse(g.state):NaN,k=Number.isNaN(w)?void 0:Math.floor((Date.now()-w)/864e5),z=a.filter((e=>"update"===h(e.entity_id)&&"on"===e.state)),S=we(a,/disk_use_percent|disk_usage/),j=we(a,/processor_temperature|cpu_temperature/),N=we(a,/memory_use_percent|memory_usage/),O=[S&&xe(s("h_disk"),m(`${y(Number(S.state),e.lang,0)}%`)),j&&xe(s("h_cpu_temp"),m(`${y(Number(j.state),e.lang,0)}°`)),N&&xe(s("h_memory"),m(`${y(Number(N.state),e.lang,0)}%`))].filter(Boolean),D=S&&Number(S.state)>85||j&&Number(j.state)>75,M=[...r].filter((e=>"vacuum"===h(e)&&t.states[e])),C=M.flatMap((e=>{const a=f(t,e);return $.filter((e=>a.parts[e.key])).flatMap((n=>{const o=b(t.states[a.parts[n.key]]);return void 0!==o&&o/n.life<.15?[{robot:l(t,i,e),part:s(n.label),h:o}]:[]}))})),W=v(t).map((e=>{const s=Object.values(t.entities??{}).filter((t=>t.device_id===e.deviceId)),i=e=>e.translation_key??e.entity_id.split(".")[1],a=s.find((e=>e.entity_id.startsWith("sensor.")&&/battery/.test(i(e)))),n=s.find((e=>e.entity_id.startsWith("binary_sensor.")&&/plugged/.test(i(e)))),l=s.find((e=>e.entity_id.startsWith("button.")&&/load_start_url|restart_browser/.test(i(e))));return{tab:e,battery:a&&t.states[a.entity_id],plugged:n&&t.states[n.entity_id],reload:l?.entity_id}}));return n`<div style="display:grid;gap:12px">
         ${ve(s("h_offline"),!p.length,_e(p.map((e=>xe(l(t,i,e.entity_id),_(s,e.last_changed))))),o)}
-        ${ve(s("h_battery"),!d.length,_e(d.map((e=>xe(l(t,i,e.entity_id),"sensor"===m(e.entity_id)?h(`${e.state}%`):"!")))),o)}
+        ${ve(s("h_battery"),!d.length,_e(d.map((e=>xe(l(t,i,e.entity_id),"sensor"===h(e.entity_id)?m(`${e.state}%`):"!")))),o)}
         ${g?ve(s("h_backup"),void 0!==k&&k<=7,_e([xe(s("h_backup"),void 0===k?"–":s("h_days_ago",{n:k}))]),0===k?s("today"):s("h_days_ago",{n:k??0})):ve(s("h_backup"),!1,n`<span class="muted" style="font-size:14px">${s("h_backup_missing")}</span>`,"")}
         ${ve(s("h_updates"),!z.length,_e(z.map((e=>xe(e.attributes.title??e.attributes.friendly_name??e.entity_id,e.attributes.latest_version??"")))),o)}
         ${O.length?ve(s("h_system"),!D,_e(O),"",!0):c}
-        ${M.length?ve(s("h_robot_parts"),!C.length,_e(C.map((t=>xe(`${t.robot} · ${t.part}`,s("hours_left",{n:h(y(t.h,e.lang,0))}))))),o):c}
-        ${I.length?n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
+        ${M.length?ve(s("h_robot_parts"),!C.length,_e(C.map((t=>xe(`${t.robot} · ${t.part}`,s("hours_left",{n:m(y(t.h,e.lang,0))}))))),o):c}
+        ${W.length?n`<section style="display:grid;gap:8px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)">
               <div style="font-weight:700">${s("h_tablets")}</div>
-              ${I.map((i=>n`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              ${W.map((i=>n`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                   <strong style="flex:1">${i.tab.name}</strong>
                   ${i.battery?n`<span class="muted ltr">${i.battery.state}%</span>`:c}
                   ${i.plugged?n`<span class="muted">${s("on"===i.plugged.state?"h_charging":"h_not_charging")}</span>`:c}
@@ -433,9 +444,9 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
         </div>`,n`<div class="field">
           ${a("theme")}
           <div class="seg">
-            ${Qe.map((e=>n`<button aria-pressed=${i.theme===e.id} @click=${()=>o((t=>t.settings.theme=e.id))}>${a(e.label)}</button>`))}
+            ${Ze.map((e=>n`<button aria-pressed=${i.theme===e.id} @click=${()=>o((t=>t.settings.theme=e.id))}>${a(e.label)}</button>`))}
           </div>
-          ${"schedule"===i.theme?Ie(n`<span>${a("dark_from")}</span>`,n`<input type="time" style="width:auto" .value=${i.dark_from} @change=${e=>o((t=>t.settings.dark_from=e.target.value))} />`,n`<span>${a("dark_to")}</span>`,n`<input type="time" style="width:auto" .value=${i.dark_to} @change=${e=>o((t=>t.settings.dark_to=e.target.value))} />`):c}
+          ${"schedule"===i.theme?Ae(n`<span>${a("dark_from")}</span>`,n`<input type="time" style="width:auto" .value=${i.dark_from} @change=${e=>o((t=>t.settings.dark_from=e.target.value))} />`,n`<span>${a("dark_to")}</span>`,n`<input type="time" style="width:auto" .value=${i.dark_to} @change=${e=>o((t=>t.settings.dark_to=e.target.value))} />`):c}
         </div>`,t.allows("presets")?J(t,o):c,t.allows("style_pro")?n`<div class="field">
               ${a("style")}
               <div class="seg">
@@ -444,7 +455,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
               ${"pro"===i.style?n`<div class="seg" style="margin-top:8px">
                       ${["none","marble","wood","sand","olive"].map((e=>n`<button aria-pressed=${i.material===e} @click=${()=>o((t=>t.settings.material=e))}>${a(`material_${e}`)}</button>`))}
                     </div>
-                    <div class="field" style="margin-top:8px">${a("night_midnight")} ${Ve(t,i.night_midnight,(e=>o((t=>t.settings.night_midnight=e))))}</div>
+                    <div class="field" style="margin-top:8px">${a("night_midnight")} ${Qe(t,i.night_midnight,(e=>o((t=>t.settings.night_midnight=e))))}</div>
                     ${t.allows("wallpaper")?n`<div class="field" style="margin-top:8px">
                           ${a("wallpaper")}
                           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -461,16 +472,16 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                                   >${a("wallpaper_dim")}
                                   <input type="range" min="0" max="0.8" step="0.05" .value=${String(i.wallpaper_dim)} @change=${e=>o((t=>t.settings.wallpaper_dim=Number(e.target.value)))} style="flex:1"
                                 /></label>
-                                <div>${a("accent_from_wallpaper")} ${Ve(t,i.accent_from_wallpaper,(e=>o((t=>t.settings.accent_from_wallpaper=e))))}</div>`:c}
+                                <div>${a("accent_from_wallpaper")} ${Qe(t,i.accent_from_wallpaper,(e=>o((t=>t.settings.accent_from_wallpaper=e))))}</div>`:c}
                         </div>`:c}
-                    ${t.allows("window_camera")?Ae(t,a("window_camera"),i.window_camera,{domains:["camera"]},(e=>o((t=>t.settings.window_camera=e))),!0):c}
-                    ${t.allows("music_backdrop")?n`<div class="field">${a("music_backdrop")} ${Ve(t,i.music_backdrop,(e=>o((t=>t.settings.music_backdrop=e))))}</div>`:c}
-                    ${t.allows("welcome")?n`<div class="field">${a("welcome_moment")} ${Ve(t,i.welcome,(e=>o((t=>t.settings.welcome=e))))}</div>`:c}
-                    ${t.allows("page_moods")?n`<div class="field">${a("page_moods")} ${Ve(t,i.page_moods,(e=>o((t=>t.settings.page_moods=e))))}</div>`:c}
-                    ${t.allows("season_skin")?n`<div class="field">${a("season_skin")} ${Ve(t,i.season_skin,(e=>o((t=>t.settings.season_skin=e))))}</div>`:c}
-                    ${t.allows("accent_day")?n`<div class="field">${a("accent_day")} ${Ve(t,i.accent_day,(e=>o((t=>t.settings.accent_day=e))))}</div>`:c}
-                    ${t.allows("active_glow")?n`<div class="field">${a("active_glow")} ${Ve(t,i.active_glow,(e=>o((t=>t.settings.active_glow=e))))}</div>`:c}
-                    ${t.allows("aurora")?n`<div class="field">${a("aurora")} ${Ve(t,i.aurora,(e=>o((t=>t.settings.aurora=e))))}</div>`:c}
+                    ${t.allows("window_camera")?Be(t,a("window_camera"),i.window_camera,{domains:["camera"]},(e=>o((t=>t.settings.window_camera=e))),!0):c}
+                    ${t.allows("music_backdrop")?n`<div class="field">${a("music_backdrop")} ${Qe(t,i.music_backdrop,(e=>o((t=>t.settings.music_backdrop=e))))}</div>`:c}
+                    ${t.allows("welcome")?n`<div class="field">${a("welcome_moment")} ${Qe(t,i.welcome,(e=>o((t=>t.settings.welcome=e))))}</div>`:c}
+                    ${t.allows("page_moods")?n`<div class="field">${a("page_moods")} ${Qe(t,i.page_moods,(e=>o((t=>t.settings.page_moods=e))))}</div>`:c}
+                    ${t.allows("season_skin")?n`<div class="field">${a("season_skin")} ${Qe(t,i.season_skin,(e=>o((t=>t.settings.season_skin=e))))}</div>`:c}
+                    ${t.allows("accent_day")?n`<div class="field">${a("accent_day")} ${Qe(t,i.accent_day,(e=>o((t=>t.settings.accent_day=e))))}</div>`:c}
+                    ${t.allows("active_glow")?n`<div class="field">${a("active_glow")} ${Qe(t,i.active_glow,(e=>o((t=>t.settings.active_glow=e))))}</div>`:c}
+                    ${t.allows("aurora")?n`<div class="field">${a("aurora")} ${Qe(t,i.aurora,(e=>o((t=>t.settings.aurora=e))))}</div>`:c}
                     ${t.allows("monogram")?n`<label class="field"
                           >${a("monogram")}
                           <input type="text" maxlength="30" placeholder="آل محمد" .value=${i.monogram??""} @change=${e=>o((t=>t.settings.monogram=e.target.value.trim()||void 0))} />
@@ -490,9 +501,10 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
             </label>`:c,t.allows("icon_styles")?n`<div class="field">
               ${a("icons_style")}
               <div class="seg">${["filled","line"].map((e=>n`<button aria-pressed=${(i.icons??"filled")===e} @click=${()=>o((t=>t.settings.icons=e))}>${a("line"===e?"icons_line":"icons_filled")}</button>`))}</div>
-            </div>`:c,t.allows("occasions")?n`<div class="field">${a("occasions")} ${Ve(t,i.occasions,(e=>o((t=>t.settings.occasions=e))))}</div>`:c,t.allows("burn_in")?n`<div class="field">${a("burn_in")} ${Ve(t,i.burn_in,(e=>o((t=>t.settings.burn_in=e))))}</div>`:c,n`<div class="field">
+            </div>`:c,t.allows("occasions")?n`<div class="field">${a("occasions")} ${Qe(t,i.occasions,(e=>o((t=>t.settings.occasions=e))))}</div>`:c,t.allows("burn_in")?n`<div class="field">${a("burn_in")} ${Qe(t,i.burn_in,(e=>o((t=>t.settings.burn_in=e))))}</div>`:c,n`<div class="field">${a("cameras_live")} ${Qe(t,i.cameras_live??!0,(e=>o((t=>t.settings.cameras_live=e))))}</div>`,t.allows("quick_scenes")?Te(t,a("quick_scenes"),i.quick_scenes?.length?i.quick_scenes:void 0,{domains:["scene","script"]},(e=>o((t=>t.settings.quick_scenes=e??[]))),"none"):c,t.allows("circadian")?n`${Te(t,a("circadian"),i.circadian?.length?i.circadian:void 0,{domains:["light"]},(e=>o((t=>t.settings.circadian=e??[]))),"none")}
+              <span class="hint" style="margin-top:-8px">${a("circadian_hint")}</span>`:c,n`<div class="field">
           ${a("accent")}
-          ${Ie(...Ke.map((e=>n`<button
+          ${Ae(...Ye.map((e=>n`<button
                 class="pressable"
                 aria-label=${e}
                 aria-pressed=${i.accent.toUpperCase()===e}
@@ -510,7 +522,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
               <div class="seg">
                 ${["classic","liquid"].map((e=>n`<button aria-pressed=${i.glass===e} @click=${()=>o((t=>t.settings.glass=e))}>${a(`glass_${e}`)}</button>`))}
               </div>
-            </div>`:c,n`<div class="field">${a("night_plan")} ${Ve(t,i.night_plan,(e=>o((t=>t.settings.night_plan=e))))}</div>`,t.allows("seasons")?n`<div class="field">
+            </div>`:c,n`<div class="field">${a("night_plan")} ${Qe(t,i.night_plan,(e=>o((t=>t.settings.night_plan=e))))}</div>`,t.allows("seasons")?n`<div class="field">
               ${a("season")}
               <div class="seg">
                 ${["auto","ramadan","eid","off"].map((e=>n`<button aria-pressed=${i.season===e} @click=${()=>o((t=>t.settings.season=e))}>${a("off"===e?"off":`season_${e}`)}</button>`))}
@@ -526,7 +538,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
           <select @change=${e=>o((t=>t.settings.default_page=e.target.value))}>
             ${t.config.pages.map((e=>n`<option value=${e.id} ?selected=${i.default_page===e.id}>${e.title}</option>`))}
           </select>
-        </label>`,We(a("screensaver"),n`<div class="seg">
+        </label>`,Pe(a("screensaver"),n`<div class="seg">
             ${[!0,!1].map((e=>n`<button aria-pressed=${i.screensaver.enabled===e} @click=${()=>o((t=>t.settings.screensaver.enabled=e))}>
                 ${a(e?"on":"off")}
               </button>`))}
@@ -545,8 +557,8 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                     @change=${e=>o((t=>t.settings.screensaver.timeout_min=Math.max(1,Number(e.target.value)||5)))}
                   />
                 </label>
-                ${Ae(t,a("temp_entity"),i.screensaver.temp_entity,{domains:["sensor","climate","weather"]},(e=>o((t=>t.settings.screensaver.temp_entity=e))),!0)}
-                <div class="field">${a("photos")} ${Ve(t,i.screensaver.photos,(e=>o((t=>t.settings.screensaver.photos=e))))}</div>
+                ${Be(t,a("temp_entity"),i.screensaver.temp_entity,{domains:["sensor","climate","weather"]},(e=>o((t=>t.settings.screensaver.temp_entity=e))),!0)}
+                <div class="field">${a("photos")} ${Qe(t,i.screensaver.photos,(e=>o((t=>t.settings.screensaver.photos=e))))}</div>
                 ${i.screensaver.photos?n`<label class="field"
                         >${a("photo_folder")}
                         <input
@@ -557,7 +569,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                         />
                         <span class="hint">${a("photos_hint",{folder:i.screensaver.photo_folder})}</span>
                       </label>
-                      ${Ge(a("photo_seconds"),i.screensaver.photo_seconds,5,600,(e=>o((t=>t.settings.screensaver.photo_seconds=e))))}`:c}`:c),We(a("greet_morning")+" ☀️",n`<label class="field"
+                      ${Xe(a("photo_seconds"),i.screensaver.photo_seconds,5,600,(e=>o((t=>t.settings.screensaver.photo_seconds=e))))}`:c}`:c),Pe(a("greet_morning")+" ☀️",n`<label class="field"
             >${a("greeting_name")}
             <input
               type="text"
@@ -566,7 +578,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
               @change=${e=>o((t=>t.settings.greeting_name=e.target.value.trim()))}
             />
             <span class="hint">${a("greeting_name_hint")}</span>
-          </label>`,n`<div class="field">${a("prayer")} ${Ve(t,i.prayer,(e=>o((t=>t.settings.prayer=e))))}</div>`,n`<div class="field">${a("morning_summary")} ${Ve(t,i.morning,(e=>o((t=>t.settings.morning=e))))}</div>`),We(a("hidden_devices"),function(e,t,s){const i=e.fullHass??e.hass;return n`<span class="hint" style="margin-top:-4px">${e.t("hidden_hint")}</span>
+          </label>`,n`<div class="field">${a("prayer")} ${Qe(t,i.prayer,(e=>o((t=>t.settings.prayer=e))))}</div>`,n`<div class="field">${a("morning_summary")} ${Qe(t,i.morning,(e=>o((t=>t.settings.morning=e))))}</div>`),Pe(a("hidden_devices"),function(e,t,s){const i=e.fullHass??e.hass;return n`<span class="hint" style="margin-top:-4px">${e.t("hidden_hint")}</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${t.map((a=>n`<button class="btn pressable" style="min-height:36px;font-size:14px" title=${e.t("hidden_show")} @click=${()=>s(t.filter((e=>e!==a)))}>
           <sn-icon icon="eye-off" style="--icon-size:16px"></sn-icon>${l(i,e.config,a)}<sn-icon icon="close" style="--icon-size:14px"></sn-icon>
@@ -582,7 +594,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
       >
         <sn-icon icon="plus" style="--icon-size:16px"></sn-icon>${e.t("hidden_add")}
       </button>
-    </div>`}(t,i.hidden,(e=>o((t=>t.settings.hidden=e))))),We(a("status_bar"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+    </div>`}(t,i.hidden,(e=>o((t=>t.settings.hidden=e))))),Pe(a("status_bar"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
             ${L.map((e=>{const t=!i.chips_hidden.includes(e.id);return n`<button
                 class="btn pressable ${t?"primary":""}"
                 style="justify-content:flex-start;font-weight:500"
@@ -591,20 +603,20 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
               >
                 <sn-icon icon=${t?"check":"close"} style="--icon-size:18px"></sn-icon>${a(e.label)}
               </button>`}))}
-          </div>`,Ae(t,a("power_entity"),i.power_entity,{domains:["sensor"],deviceClasses:["power"]},(e=>o((t=>t.settings.power_entity=e))),!0),t.allows("tou")?n`<div class="field">
-                ${a("tou")} ${Ve(t,i.tou.enabled,(e=>o((t=>t.settings.tou.enabled=e))))}
-                ${i.tou.enabled?n`${Ie(n`<span>🌙 ${a("tou_cheap")}</span>`,n`<input type="time" style="width:auto" .value=${i.tou.cheap_from} @change=${e=>o((t=>t.settings.tou.cheap_from=e.target.value))} />`,n`<span>←</span>`,n`<input type="time" style="width:auto" .value=${i.tou.cheap_to} @change=${e=>o((t=>t.settings.tou.cheap_to=e.target.value))} />`)}
-                    ${Ie(n`<span>⚡ ${a("tou_peak")}</span>`,n`<input type="time" style="width:auto" .value=${i.tou.peak_from} @change=${e=>o((t=>t.settings.tou.peak_from=e.target.value))} />`,n`<span>←</span>`,n`<input type="time" style="width:auto" .value=${i.tou.peak_to} @change=${e=>o((t=>t.settings.tou.peak_to=e.target.value))} />`)}`:c}
+          </div>`,Be(t,a("power_entity"),i.power_entity,{domains:["sensor"],deviceClasses:["power"]},(e=>o((t=>t.settings.power_entity=e))),!0),t.allows("tou")?n`<div class="field">
+                ${a("tou")} ${Qe(t,i.tou.enabled,(e=>o((t=>t.settings.tou.enabled=e))))}
+                ${i.tou.enabled?n`${Ae(n`<span>🌙 ${a("tou_cheap")}</span>`,n`<input type="time" style="width:auto" .value=${i.tou.cheap_from} @change=${e=>o((t=>t.settings.tou.cheap_from=e.target.value))} />`,n`<span>←</span>`,n`<input type="time" style="width:auto" .value=${i.tou.cheap_to} @change=${e=>o((t=>t.settings.tou.cheap_to=e.target.value))} />`)}
+                    ${Ae(n`<span>⚡ ${a("tou_peak")}</span>`,n`<input type="time" style="width:auto" .value=${i.tou.peak_from} @change=${e=>o((t=>t.settings.tou.peak_from=e.target.value))} />`,n`<span>←</span>`,n`<input type="time" style="width:auto" .value=${i.tou.peak_to} @change=${e=>o((t=>t.settings.tou.peak_to=e.target.value))} />`)}`:c}
               </div>`:c,t.allows("overload")?n`<label class="field"
                 >${a("power_limit")}
                 <input type="number" min="0" step="100" class="ltr" .value=${String(i.power_limit??"")} placeholder="6000" @change=${e=>o((t=>t.settings.power_limit=Number(e.target.value)||void 0))} />
                 <span class="hint">${a("power_limit_hint")}</span>
-              </label>`:c),t.allows("guests")?We(a("guests_mode"),n`<label class="field">${a("guests_welcome")}<input type="text" .value=${i.guests.welcome??""} placeholder=${a("welcome_default")} @change=${e=>o((t=>t.settings.guests.welcome=e.target.value.trim()||void 0))} /></label>`,n`<label class="field">${a("wifi_ssid")}<input type="text" class="ltr" .value=${i.guests.ssid??""} @change=${e=>o((t=>t.settings.guests.ssid=e.target.value.trim()||void 0))} /></label>`,n`<label class="field">${a("wifi_password")}<input type="text" class="ltr" autocomplete="off" .value=${i.guests.password??""} @change=${e=>o((t=>t.settings.guests.password=e.target.value||void 0))} /></label>`):c,We(a("sound_motion"),t.allows("ui_sounds")?n`<div class="field">${a("ui_sounds")} ${Ve(t,i.sounds,(e=>o((t=>t.settings.sounds=e))))}</div>`:c,n`<div class="field">
+              </label>`:c),t.allows("guests")?Pe(a("guests_mode"),n`<label class="field">${a("guests_welcome")}<input type="text" .value=${i.guests.welcome??""} placeholder=${a("welcome_default")} @change=${e=>o((t=>t.settings.guests.welcome=e.target.value.trim()||void 0))} /></label>`,n`<label class="field">${a("wifi_ssid")}<input type="text" class="ltr" .value=${i.guests.ssid??""} @change=${e=>o((t=>t.settings.guests.ssid=e.target.value.trim()||void 0))} /></label>`,n`<label class="field">${a("wifi_password")}<input type="text" class="ltr" autocomplete="off" .value=${i.guests.password??""} @change=${e=>o((t=>t.settings.guests.password=e.target.value||void 0))} /></label>`):c,Pe(a("sound_motion"),t.allows("ui_sounds")?n`<div class="field">${a("ui_sounds")} ${Qe(t,i.sounds,(e=>o((t=>t.settings.sounds=e))))}</div>`:c,n`<div class="field">
             ${a("bell_tone")}
             <div class="seg">
               ${["chime","dingdong","melody"].map((t=>n`<button
                   aria-pressed=${i.doorbell_tone===t}
-                  @click=${()=>{o((e=>e.settings.doorbell_tone=t)),e((()=>import("./app-QOvcr_xU.js").then((e=>e.ar))),[]).then((e=>e.playBell(t)))}}
+                  @click=${()=>{o((e=>e.settings.doorbell_tone=t)),e((()=>import("./app-DaFoLO5U.js").then((e=>e.ar))),[]).then((e=>e.playBell(t)))}}
                 >
                   ${a(`bell_${t}`)}
                 </button>`))}
@@ -613,7 +625,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                 ${a("motion")}
                 <div class="seg">${["full","light","off"].map((e=>n`<button aria-pressed=${i.motion===e} @click=${()=>o((t=>t.settings.motion=e))}>${a(`motion_${e}`)}</button>`))}</div>
                 <span class="hint">${a("motion_hint")}</span>
-              </div>`:c,t.allows("high_contrast")?n`<div class="field">${a("high_contrast")} ${Ve(t,!!i.contrast,(e=>o((t=>t.settings.contrast=e))))}</div>`:c),t.allows("travel")?function(e,t){const{t:s,hass:i,config:a}=e,o=a.settings.travel,r=u(a).filter((e=>i.states[e])),p=r.filter((e=>["switch","valve","water_heater","climate","media_player","fan","humidifier"].includes(m(e)))),d=r.filter((e=>"light"===m(e))),g=Object.keys(i.services?.notify??{}).filter((e=>"send_message"!==e&&"persistent_notification"!==e)).map((e=>`notify.${e}`)),h=(e,s,o)=>n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+              </div>`:c,t.allows("high_contrast")?n`<div class="field">${a("high_contrast")} ${Qe(t,!!i.contrast,(e=>o((t=>t.settings.contrast=e))))}</div>`:c),t.allows("travel")?function(e,t){const{t:s,hass:i,config:a}=e,o=a.settings.travel,r=u(a).filter((e=>i.states[e])),p=r.filter((e=>["switch","valve","water_heater","climate","media_player","fan","humidifier"].includes(h(e)))),d=r.filter((e=>"light"===h(e))),g=Object.keys(i.services?.notify??{}).filter((e=>"send_message"!==e&&"persistent_notification"!==e)).map((e=>`notify.${e}`)),m=(e,s,o)=>n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
     ${e.map((e=>{const r=s.includes(e);return n`<button
         class="btn pressable ${r?"primary":""}"
         style="justify-content:flex-start;font-weight:500"
@@ -622,7 +634,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
       >
         <sn-icon icon=${r?"check":"close"} style="--icon-size:18px"></sn-icon>${l(i,a,e)}
       </button>`}))}
-  </div>`;return We(s("travel"),n`<span class="field">${s("travel_off_pick")}</span>`,h(p,o.off,"off"),n`<div class="field">${s("travel_sim")} ${Ve(e,o.simulate,(e=>t((t=>t.settings.travel.simulate=e))))}</div>`,o.simulate?h(d,o.lights,"lights"):c,n`<div class="field">${s("travel_arm")} ${Ve(e,o.arm,(e=>t((t=>t.settings.travel.arm=e))))}</div>`,n`<label class="field"
+  </div>`;return Pe(s("travel"),n`<span class="field">${s("travel_off_pick")}</span>`,m(p,o.off,"off"),n`<div class="field">${s("travel_sim")} ${Qe(e,o.simulate,(e=>t((t=>t.settings.travel.simulate=e))))}</div>`,o.simulate?m(d,o.lights,"lights"):c,n`<div class="field">${s("travel_arm")} ${Qe(e,o.arm,(e=>t((t=>t.settings.travel.arm=e))))}</div>`,n`<label class="field"
       >${s("travel_report")}
       <select @change=${e=>t((t=>t.settings.travel.notify=e.target.value||void 0))}>
         <option value="" ?selected=${!o.notify}>–</option>
@@ -630,7 +642,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
       </select>
     </label>`)}(t,o):c,t.allows("home_helpers")?function(e,t){const{t:s,hass:i,config:a}=e,o=a.settings,r=Object.values(i.states),c=(e,t)=>r.filter((s=>s.entity_id.startsWith(`${e}.`)&&(!t||t.includes(s.attributes.device_class)))).map((e=>e.entity_id)),p=c("sensor",["power"]).sort(((e,t)=>Number(/wash|dry|dish|غسال|نشاف|جلاي/i.test(l(i,a,t)+t))-Number(/wash|dry|dish|غسال|نشاف|جلاي/i.test(l(i,a,e)+e)))),d=r.filter((e=>e.entity_id.endsWith("_direction_of_travel"))).length,g=(e,t,...i)=>n`<div style="display:grid;gap:8px;padding:12px;border-radius:var(--r-md);background:var(--surface-2)">
     <b>${e}</b><span class="muted" style="font-size:13px">${s(t)}</span>${i}
-  </div>`;return We(s("helpers"),g(s("h_appliances"),"h_appliances_hint",Ye(e,p.slice(0,24),o.appliances.map((e=>e.power)),((e,s)=>t((t=>{t.settings.appliances=s?[...t.settings.appliances,{power:e,name:l(i,a,e).replace(/\s*(power|استهلاك|consumption)\s*/gi," ").trim()}]:t.settings.appliances.filter((t=>t.power!==e))}))))),g(s("h_night_path"),"h_night_path_hint",Ye(e,c("binary_sensor",["motion","occupancy","presence"]),o.night_path.motion,((e,s)=>t((t=>t.settings.night_path.motion=Ze(t.settings.night_path.motion,e,s))))),Ye(e,c("light"),o.night_path.lights,((e,s)=>t((t=>t.settings.night_path.lights=Ze(t.settings.night_path.lights,e,s))))),Ie(n`<span>${s("from")}</span>`,n`<input type="time" style="width:auto" .value=${o.night_path.from} @change=${e=>t((t=>t.settings.night_path.from=e.target.value))} />`,n`<span>${s("to")}</span>`,n`<input type="time" style="width:auto" .value=${o.night_path.to} @change=${e=>t((t=>t.settings.night_path.to=e.target.value))} />`,n`<span>${s("brightness")}</span>`,n`<input type="number" min="1" max="100" style="width:80px" .value=${String(o.night_path.brightness)} @change=${e=>t((t=>t.settings.night_path.brightness=Number(e.target.value)||10))} />`)),g(s("h_arrival"),d?"h_arrival_hint":"h_arrival_missing",Ye(e,c("climate"),o.arrival.climate,((e,s)=>t((t=>t.settings.arrival.climate=Ze(t.settings.arrival.climate,e,s))))),Ye(e,c("light"),o.arrival.lights,((e,s)=>t((t=>t.settings.arrival.lights=Ze(t.settings.arrival.lights,e,s))))),Ie(n`<span>${s("h_arrival_km")}</span>`,n`<input type="number" min="1" max="50" style="width:80px" .value=${String(o.arrival.km)} @change=${e=>t((t=>t.settings.arrival.km=Number(e.target.value)||5))} />`)),g(s("h_outage"),"h_outage_hint",Ae(e,s("h_outage_sensor"),o.outage.sensor,{domains:["binary_sensor","sensor"]},(e=>t((t=>t.settings.outage.sensor=e))),!0),Ye(e,[...c("switch"),...c("climate"),...c("water_heater")].filter((e=>!i.entities?.[e]?.entity_category)),o.outage.shed,((e,s)=>t((t=>t.settings.outage.shed=Ze(t.settings.outage.shed,e,s)))))))}(t,o):c,t.allows("support")?We(a("installer"),n`<label class="field">${a("installer_name")}<input type="text" .value=${i.installer.name??""} placeholder="SmartNest" @change=${e=>o((t=>t.settings.installer.name=e.target.value.trim()||void 0))} /></label>`,t.allows("white_label")?n`<div class="field">
+  </div>`;return Pe(s("helpers"),g(s("h_appliances"),"h_appliances_hint",tt(e,p.slice(0,24),o.appliances.map((e=>e.power)),((e,s)=>t((t=>{t.settings.appliances=s?[...t.settings.appliances,{power:e,name:l(i,a,e).replace(/\s*(power|استهلاك|consumption)\s*/gi," ").trim()}]:t.settings.appliances.filter((t=>t.power!==e))}))))),g(s("h_night_path"),"h_night_path_hint",tt(e,c("binary_sensor",["motion","occupancy","presence"]),o.night_path.motion,((e,s)=>t((t=>t.settings.night_path.motion=st(t.settings.night_path.motion,e,s))))),tt(e,c("light"),o.night_path.lights,((e,s)=>t((t=>t.settings.night_path.lights=st(t.settings.night_path.lights,e,s))))),Ae(n`<span>${s("from")}</span>`,n`<input type="time" style="width:auto" .value=${o.night_path.from} @change=${e=>t((t=>t.settings.night_path.from=e.target.value))} />`,n`<span>${s("to")}</span>`,n`<input type="time" style="width:auto" .value=${o.night_path.to} @change=${e=>t((t=>t.settings.night_path.to=e.target.value))} />`,n`<span>${s("brightness")}</span>`,n`<input type="number" min="1" max="100" style="width:80px" .value=${String(o.night_path.brightness)} @change=${e=>t((t=>t.settings.night_path.brightness=Number(e.target.value)||10))} />`)),g(s("h_arrival"),d?"h_arrival_hint":"h_arrival_missing",tt(e,c("climate"),o.arrival.climate,((e,s)=>t((t=>t.settings.arrival.climate=st(t.settings.arrival.climate,e,s))))),tt(e,c("light"),o.arrival.lights,((e,s)=>t((t=>t.settings.arrival.lights=st(t.settings.arrival.lights,e,s))))),Ae(n`<span>${s("h_arrival_km")}</span>`,n`<input type="number" min="1" max="50" style="width:80px" .value=${String(o.arrival.km)} @change=${e=>t((t=>t.settings.arrival.km=Number(e.target.value)||5))} />`)),g(s("h_outage"),"h_outage_hint",Be(e,s("h_outage_sensor"),o.outage.sensor,{domains:["binary_sensor","sensor"]},(e=>t((t=>t.settings.outage.sensor=e))),!0),tt(e,[...c("switch"),...c("climate"),...c("water_heater")].filter((e=>!i.entities?.[e]?.entity_category)),o.outage.shed,((e,s)=>t((t=>t.settings.outage.shed=st(t.settings.outage.shed,e,s)))))))}(t,o):c,t.allows("support")?Pe(a("installer"),n`<label class="field">${a("installer_name")}<input type="text" .value=${i.installer.name??""} placeholder="SmartNest" @change=${e=>o((t=>t.settings.installer.name=e.target.value.trim()||void 0))} /></label>`,t.allows("white_label")?n`<div class="field">
                     ${a("brand_logo")}
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                       ${i.installer.brand?.logo?n`<img src=${i.installer.brand.logo} alt="" style="height:40px;max-width:120px;object-fit:contain" />`:c}
@@ -646,7 +658,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                   </div>`:c,n`<label class="field"
                 >${a("installer_phone")}<input type="tel" class="ltr" .value=${i.installer.phone??""} placeholder="972501234567" @change=${e=>o((t=>t.settings.installer.phone=e.target.value.trim()||void 0))} />
                 <span class="hint">${a("installer_phone_hint")}</span></label
-              >`):c,t.allows("alarm_screen")?We(a("emergency"),n`<label class="field">${a("police_number")}<input type="tel" class="ltr" .value=${i.emergency.police} @change=${e=>o((t=>t.settings.emergency.police=e.target.value.trim()))} /></label>`,n`<label class="field"
+              >`):c,t.allows("alarm_screen")?Pe(a("emergency"),n`<label class="field">${a("police_number")}<input type="tel" class="ltr" .value=${i.emergency.police} @change=${e=>o((t=>t.settings.emergency.police=e.target.value.trim()))} /></label>`,n`<label class="field"
                 >${a("emergency_contacts")}
                 <textarea
                   rows="3"
@@ -656,16 +668,16 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                   @change=${e=>o((t=>t.settings.emergency.contacts=String(e.target.value).split("\n").map((e=>e.split(","))).filter((e=>e.length>=2&&e[1].trim())).map((([e,t])=>({name:e.trim(),phone:t.trim()}))).slice(0,4)))}
                 ></textarea>
                 <span class="hint">${a("emergency_hint")}</span>
-              </label>`):c,We(a("weather"),Ae(t,a("weather_entity"),i.weather.entity,{domains:["weather"]},(e=>o((t=>t.settings.weather.entity=e))),!0),n`<div class="field">${a("weather_bg")} ${Ve(t,i.weather.background,(e=>o((t=>t.settings.weather.background=e))))}</div>`),function(e,t){const s=e.t,i=e.config.settings.fully,a=v(e.hass);if(!a.length)return We(s("tablet"),n`<p class="muted" style="margin:0;font-size:14px">${s("tablet_none")}</p>`);const l=ie(e.hass);return We(s("tablet"),n`<p class="muted" style="margin:0;font-size:14px">
+              </label>`):c,Pe(a("weather"),Be(t,a("weather_entity"),i.weather.entity,{domains:["weather"]},(e=>o((t=>t.settings.weather.entity=e))),!0),n`<div class="field">${a("weather_bg")} ${Qe(t,i.weather.background,(e=>o((t=>t.settings.weather.background=e))))}</div>`),function(e,t){const s=e.t,i=e.config.settings.fully,a=v(e.hass);if(!a.length)return Pe(s("tablet"),n`<p class="muted" style="margin:0;font-size:14px">${s("tablet_none")}</p>`);const l=ie(e.hass);return Pe(s("tablet"),n`<p class="muted" style="margin:0;font-size:14px">
       ${s("tablet_found",{names:a.map((e=>e.name)).join("ar"===e.lang?"، ":", ")})} ·
       ${l?n`<strong style="color:var(--success)">✓ ${s("tablet_this")}</strong>`:s("tablet_not_this")}
-    </p>`,window.fully?c:n`<p class="muted" style="margin:0;font-size:13px">${s("tablet_js_hint")}</p>`,n`<div class="field">${s("night_dim")} ${Ve(e,i.night_dim,(e=>t((t=>t.settings.fully.night_dim=e))))}</div>`,i.night_dim?n`${Ge(s("night_brightness"),i.night_brightness,1,100,(e=>t((t=>t.settings.fully.night_brightness=e))))}
-        ${Ge(s("night_off"),i.night_off_min,0,240,(e=>t((t=>t.settings.fully.night_off_min=e))))}`:c,n`<div class="field">
-      ${s("motion_wake")} ${Ve(e,i.motion_wake,(e=>t((t=>t.settings.fully.motion_wake=e))))}
+    </p>`,window.fully?c:n`<p class="muted" style="margin:0;font-size:13px">${s("tablet_js_hint")}</p>`,n`<div class="field">${s("night_dim")} ${Qe(e,i.night_dim,(e=>t((t=>t.settings.fully.night_dim=e))))}</div>`,i.night_dim?n`${Xe(s("night_brightness"),i.night_brightness,1,100,(e=>t((t=>t.settings.fully.night_brightness=e))))}
+        ${Xe(s("night_off"),i.night_off_min,0,240,(e=>t((t=>t.settings.fully.night_off_min=e))))}`:c,n`<div class="field">
+      ${s("motion_wake")} ${Qe(e,i.motion_wake,(e=>t((t=>t.settings.fully.motion_wake=e))))}
       <span class="hint">${s("motion_wake_hint")}</span>
-    </div>`)}(t,o),We(a("doorbell"),Ae(t,a("doorbell_trigger"),i.doorbell.trigger_entity,{domains:["event","binary_sensor"]},(e=>o((t=>t.settings.doorbell.trigger_entity=e))),!0),Ae(t,a("doorbell_camera"),i.doorbell.camera_entity,{domains:["camera"]},(e=>o((t=>t.settings.doorbell.camera_entity=e))),!0),Ae(t,a("doorbell_lock"),i.doorbell.lock_entity,{domains:["lock"]},(e=>o((t=>t.settings.doorbell.lock_entity=e))),!0),Ge(a("keep_days"),i.doorbell.keep_days,1,30,(e=>o((t=>t.settings.doorbell.keep_days=e)))),n`<button class="btn pressable" style="justify-self:start" @click=${s.testDoorbell}>
+    </div>`)}(t,o),Pe(a("doorbell"),Be(t,a("doorbell_trigger"),i.doorbell.trigger_entity,{domains:["event","binary_sensor"]},(e=>o((t=>t.settings.doorbell.trigger_entity=e))),!0),Be(t,a("doorbell_camera"),i.doorbell.camera_entity,{domains:["camera"]},(e=>o((t=>t.settings.doorbell.camera_entity=e))),!0),Be(t,a("doorbell_lock"),i.doorbell.lock_entity,{domains:["lock"]},(e=>o((t=>t.settings.doorbell.lock_entity=e))),!0),Be(t,a("doorbell_speaker"),i.doorbell.speaker_entity,{domains:["media_player"]},(e=>o((t=>t.settings.doorbell.speaker_entity=e))),!0),Xe(a("keep_days"),i.doorbell.keep_days,1,30,(e=>o((t=>t.settings.doorbell.keep_days=e)))),n`<button class="btn pressable" style="justify-self:start" @click=${s.testDoorbell}>
             <sn-icon icon="bell-ring" style="--icon-size:20px"></sn-icon>${a("doorbell_test")}
-          </button>`),We(a("kiosk"),n`<form
+          </button>`),Pe(a("kiosk"),n`<form
             class="field"
             @submit=${e=>{e.preventDefault();const s=e.currentTarget.querySelector("input"),i=s.value.trim();if(!/^\d{4,8}$/.test(i))return t.toast(a("kiosk_pin_invalid"));const n=F();o((e=>e.settings.kiosk={pin_hash:oe(i,n),pin_salt:n,pin_length:i.length})),s.value="",t.toast(a("kiosk_pin_saved"))}}
           >
@@ -678,7 +690,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
             <span class="hint">${a("kiosk_full_lock")}</span>
           </form>`,i.kiosk.pin_hash?n`<button class="btn pressable" style="justify-self:start" @click=${()=>o((e=>e.settings.kiosk={}))}>
                 <sn-icon icon="lock-open" style="--icon-size:20px"></sn-icon>${a("kiosk_remove_pin")}
-              </button>`:c),t.allows("broadcast")?We(a("speakers"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+              </button>`:c),t.allows("broadcast")?Pe(a("speakers"),n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
                 ${Object.keys(t.hass.states).filter((e=>e.startsWith("media_player."))).map((e=>{const s=i.speakers.includes(e);return n`<button
                       class="btn pressable ${s?"primary":""}"
                       style="justify-content:flex-start;font-weight:500"
@@ -686,7 +698,7 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                     >
                       <sn-icon icon=${s?"check":"speaker"} style="--icon-size:18px"></sn-icon>${l(t.hass,t.config,e)}
                     </button>`}))}
-              </div>`):c,t.allows("maintenance")?We(a("maintenance"),...i.maintenance.map(((e,t)=>n`<div style="display:flex;gap:8px;align-items:center">
+              </div>`):c,t.allows("maintenance")?Pe(a("maintenance"),...i.maintenance.map(((e,t)=>n`<div style="display:flex;gap:8px;align-items:center">
                   <span style="flex:1">${e.title}</span>
                   <span class="muted ltr" style="font-size:13px">${e.every_days}d</span>
                   <button class="btn pressable" style="min-height:34px;font-size:13px" @click=${()=>o((e=>e.settings.maintenance[t].last=(new Date).toISOString()))}>
@@ -702,8 +714,8 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                 <input name="title" type="text" placeholder=${a("m_title")} style="flex:2;min-width:160px" />
                 <input name="every" type="number" min="1" placeholder=${a("m_every")} style="flex:1;min-width:90px" />
                 <button class="btn primary pressable" type="submit">${a("add")}</button>
-              </form>`):c,We(a("transfer"),n`<div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn pressable" @click=${()=>q(t.config)}><sn-icon icon="export" style="--icon-size:18px"></sn-icon>${a("export_config")}</button>
+              </form>`):c,Pe(a("transfer"),n`<div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn pressable" @click=${()=>T(t.config)}><sn-icon icon="export" style="--icon-size:18px"></sn-icon>${a("export_config")}</button>
             <label class="btn pressable" style="cursor:pointer">
               <sn-icon icon="import" style="--icon-size:18px"></sn-icon>${a("import_config")}
               <input
@@ -713,14 +725,14 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                 @change=${e=>{const s=e.target.files?.[0];e.target.value="",s&&R(t,s)}}
               />
             </label>
-          </div>`),We(a("about"),n`<div style="display:flex;align-items:center;gap:14px">
+          </div>`),Pe(a("about"),n`<div style="display:flex;align-items:center;gap:14px">
             <img src="${t.assetBase}logo/smartnest-symbol-${t.dark?"white":"color"}.svg" alt="SmartNest" style="width:48px;height:48px" />
             <div style="display:grid;gap:2px">
               <strong>SmartNest</strong>
               <span class="muted" style="font-size:13px">${a("tagline")}</span>
               <span class="muted ltr" style="font-size:12px;font-family:'JetBrains Mono',monospace">${a("version")} ${s.version}</span>
               ${s.license?.licensee?n`<span class="muted" style="font-size:12px">${a("licensed_to")} ${s.license.licensee}</span>`:c}
-              <button class="btn pressable" style="justify-self:start;min-height:34px;font-size:13px;margin-top:6px" @click=${()=>T(t)}>
+              <button class="btn pressable" style="justify-self:start;min-height:34px;font-size:13px;margin-top:6px" @click=${()=>B(t)}>
                 <sn-icon icon="star" style="--icon-size:16px;color:var(--accent)"></sn-icon>${a("rate_service")}
               </button>
               ${s.license?n`<span class="muted" style="font-size:12px">
@@ -736,8 +748,20 @@ import{_ as e}from"./loader-43RavMas.js";import{r as t,n as s,t as i,i as a,b as
                         <sn-icon icon="refresh" style="--icon-size:16px"></sn-icon>${a("lic_check")}
                       </button>`:c}`:c}
             </div>
-          </div>`))}})}function Ye(e,t,s,i){return t.length?n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
+          </div>`))}})}function tt(e,t,s,i){return t.length?n`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">
     ${t.map((t=>{const a=s.includes(t);return n`<button class="btn pressable ${a?"primary":""}" style="justify-content:flex-start;font-weight:500" aria-pressed=${a} @click=${()=>i(t,!a)}>
         <sn-icon icon=${a?"check":"close"} style="--icon-size:18px"></sn-icon>${l(e.hass,e.config,t)}
       </button>`}))}
-  </div>`:n`<span class="muted" style="font-size:13px">${e.t("no_entities")}</span>`}const Ze=(e,t,s)=>s?[...new Set([...e,t])]:e.filter((e=>e!==t));export{He as addPageSheet,Ue as addWidgetSheet,Ae as entityField,Pe as multiField,Je as pageSettingsSheet,Xe as settingsSheet,Fe as widgetSettingsSheet};
+  </div>`:n`<span class="muted" style="font-size:13px">${e.t("no_entities")}</span>`}const st=(e,t,s)=>s?[...new Set([...e,t])]:e.filter((e=>e!==t));let it=class extends a{async connectedCallback(){super.connectedCallback(),this.users=await this.ctx.hass.callWS({type:"config/auth/list"}).then((e=>e.filter((e=>!e.system_generated&&e.is_active))),(()=>[]))}render(){const{t:e}=this.ctx,t=this.page.users??[];return this.users?.length?n`<div class="field">
+      ${e("page_users")}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${this.users.map((e=>{const s=t.includes(e.id);return n`<button
+            class="btn pressable ${s?"primary":""}"
+            style="min-height:36px;font-size:14px"
+            @click=${()=>this.onChange(s?t.filter((t=>t!==e.id)):[...t,e.id])}
+          >
+            ${e.name}
+          </button>`}))}
+      </div>
+      <span class="hint">${e(t.length?"page_users_some":"page_users_all")}</span>
+    </div>`:c}};it.styles=[S],Ie([s({attribute:!1})],it.prototype,"ctx",2),Ie([s({attribute:!1})],it.prototype,"page",2),Ie([s({attribute:!1})],it.prototype,"onChange",2),Ie([t()],it.prototype,"users",2),it=Ie([i("sn-page-users")],it);export{it as SnPageUsers,Ge as addPageSheet,Ve as addWidgetSheet,Be as entityField,Te as multiField,Ke as pageSettingsSheet,et as settingsSheet,Ue as widgetSettingsSheet};

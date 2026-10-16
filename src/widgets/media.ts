@@ -1,10 +1,11 @@
 import { LitElement, css, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
 import { entityName } from "../entities";
 import { shared } from "../theme";
 import "../ui/icon";
+import { vividColor } from "../color";
 import { haptic } from "../ui/haptic";
 
 // MediaPlayerEntityFeature bits
@@ -21,6 +22,8 @@ export const CINEMA_SCRIPT = "script.smartnest_cinema";
 /** Now playing, with cover art, controls, volume, "play everywhere" for speaker groups, and Cinema mode. */
 @customElement("sn-w-media")
 export class SnMedia extends LitElement {
+  @state() private artColor?: string;
+  private artSrc?: string;
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) widget!: Widget;
 
@@ -146,7 +149,13 @@ export class SnMedia extends LitElement {
     const speakers = Object.values(hass.states).filter(
       (s) => s.entity_id !== id && s.entity_id.startsWith("media_player.") && ((s.attributes.supported_features ?? 0) & GROUPING) !== 0
     );
-    return html`<div class="wrap"><div class="card glass">
+    // The cover's own colour on the play button and a soft glow around the card.
+    if (art && art !== this.artSrc) {
+      this.artSrc = art;
+      vividColor(art).then((c) => this.artSrc === art && (this.artColor = c));
+    }
+    const tint = art ? this.artColor : undefined;
+    return html`<div class="wrap"><div class="card glass" style=${tint ? `--accent:${tint};--on-accent:#fff;box-shadow:0 18px 50px -20px ${tint}, var(--shadow)` : ""}>
       ${art ? html`<div class="bg" style="background-image:url('${art}')"></div>` : nothing}
       <div class="art" style=${art ? `background-image:url('${art}')` : ""}>${art ? "" : html`<sn-icon icon="speaker"></sn-icon>`}</div>
       <div class="info">

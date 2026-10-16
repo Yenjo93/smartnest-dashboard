@@ -40,6 +40,23 @@ function readings(hass: Hass, only?: string[]): Reading[] {
 
 const COLOR = ["var(--success)", "#e9971d", "var(--alert)"];
 
+/**
+ * One number for the air, 0–100 (100 = fresh): each reading takes points off as it drifts past healthy — CO₂ above
+ * 800 ppm, fine dust above 12 µg/m³, VOCs above 220 ppb, humidity outside 40–60 %.
+ */
+export function airScore(list: Reading[]): number | undefined {
+  if (!list.length) return undefined;
+  const v = (k: Reading["key"]) => Number(list.find((r) => r.key === k)?.e.state);
+  const off = (x: number, from: number, to: number, max: number) => (Number.isNaN(x) || x <= from ? 0 : Math.min(max, ((x - from) / (to - from)) * max));
+  const h = v("humidity");
+  const loss =
+    off(v("co2"), 800, 2000, 40) +
+    off(v("pm25"), 12, 75, 40) +
+    off(v("voc"), 220, 2200, 25) +
+    (Number.isNaN(h) ? 0 : h > 60 ? off(h, 60, 85, 20) : off(-h, -40, -15, 20));
+  return Math.max(0, Math.round(100 - loss));
+}
+
 /** Air at home: CO₂, fine dust, VOCs and humidity, one plain piece of advice, and the purifier. */
 @customElement("sn-w-air")
 export class SnAir extends LitElement {
@@ -66,6 +83,35 @@ export class SnAir extends LitElement {
         display: flex;
         align-items: center;
         gap: 12px;
+      }
+      .score {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: baseline;
+        gap: 2px 10px;
+      }
+      .score > span:first-child {
+        font-size: 30px;
+        font-weight: var(--display-weight, 700);
+        color: var(--c);
+        line-height: 1;
+      }
+      .score small {
+        font-size: 13px;
+        color: var(--text-2);
+        font-weight: 500;
+      }
+      .score > span:nth-child(2) {
+        font-size: 13px;
+        color: var(--text-2);
+      }
+      .score i {
+        grid-column: 1 / -1;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--c);
+        transform-origin: var(--from, left);
+        opacity: 0.85;
       }
       .orb {
         width: 54px;
@@ -137,6 +183,16 @@ export class SnAir extends LitElement {
         <span class="orb" style="--c:${COLOR[worst]}"><sn-icon icon=${worst ? "air-filter" : "leaf"} style="--icon-size:26px"></sn-icon></span>
         <div><b>${t(worst === 0 ? "air_level_good" : worst === 1 ? "air_level_ok" : "air_level_bad")}</b><span>${t(advice)}</span></div>
       </div>
+      ${(() => {
+        const score = airScore(list);
+        return score === undefined
+          ? nothing
+          : html`<div class="score" style="--c:${score >= 75 ? COLOR[0] : score >= 50 ? COLOR[1] : COLOR[2]}">
+              <span class="ltr"><sn-num .value=${String(score)}></sn-num><small>/100</small></span>
+              <span>${t("air_score")}</span>
+              <i style="transform:scaleX(${score / 100});transform-origin:${ctx.rtl ? "right" : "left"}"></i>
+            </div>`;
+      })()}
       ${list.length
         ? html`<div class="grid">
             ${list.map(
