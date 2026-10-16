@@ -32,6 +32,9 @@ import "./widgets/frigate";
 import "./widgets/schedule";
 import "./widgets/media";
 import "./widgets/remote";
+import "./widgets/cards2";
+import "./widgets/hours";
+import "./widgets/story";
 import "./widgets/folder";
 import "./widgets/prayer";
 import "./widgets/group";
@@ -614,6 +617,24 @@ export class SnPageGrid extends LitElement {
         return html`<sn-w-prayer .ctx=${ctx} .widget=${w}></sn-w-prayer>`;
       case "folder":
         return html`<sn-w-folder .ctx=${ctx} .widget=${w}></sn-w-folder>`;
+      case "story":
+        return html`<sn-w-story .ctx=${ctx} .widget=${w}></sn-w-story>`;
+      case "hours":
+        return html`<sn-w-hours .ctx=${ctx} .widget=${w}></sn-w-hours>`;
+      case "plants":
+        return html`<sn-w-plants .ctx=${ctx} .widget=${w}></sn-w-plants>`;
+      case "pool":
+        return html`<sn-w-pool .ctx=${ctx} .widget=${w}></sn-w-pool>`;
+      case "net":
+        return html`<sn-w-net .ctx=${ctx} .widget=${w}></sn-w-net>`;
+      case "car":
+        return html`<sn-w-car .ctx=${ctx} .widget=${w}></sn-w-car>`;
+      case "solarcast":
+        return html`<sn-w-solarcast .ctx=${ctx} .widget=${w}></sn-w-solarcast>`;
+      case "bins":
+        return html`<sn-w-bins .ctx=${ctx} .widget=${w}></sn-w-bins>`;
+      case "activity":
+        return html`<sn-w-activity .ctx=${ctx} .widget=${w}></sn-w-activity>`;
       default:
         return nothing;
     }

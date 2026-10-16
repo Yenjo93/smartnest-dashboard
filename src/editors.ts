@@ -487,6 +487,60 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
             >${t("bat_low_at")}
             <input type="number" min="5" max="60" .value=${String(w.config.low ?? 20)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.low = Number(e.target.value) || 20))} />
           </label>`;
+        case "family":
+          return multiField(c, t("family_who"), w.config.entities, { domains: ["person", "device_tracker", "binary_sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)), "family_all");
+        case "hours":
+          return multiField(c, t("widget_hours"), w.config.entities, { domains: ["light", "switch", "climate", "fan", "media_player", "water_heater", "input_boolean"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)));
+        case "plants":
+          return col(
+            multiField(c, t("widget_plants"), w.config.entities, { domains: ["sensor", "plant"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids))),
+            numberField(t("plants_dry_at"), w.config.dry ?? 25, 5, 80, (v) => editWidget(c, widgetId, (x) => (x.config.dry = v)))
+          );
+        case "pool": {
+          const pick = (key: "temp" | "pump" | "light" | "heater", label: I18nKey, domains: string[]) =>
+            entityField(c, t(label), w.config[key], { domains }, (id) => editWidget(c, widgetId, (x) => (x.config[key] = id)), true);
+          return col(pick("temp", "pool_water", ["sensor"]), pick("pump", "pool_pump", ["switch"]), pick("light", "pool_light", ["light", "switch"]), pick("heater", "pool_heat", ["climate", "switch", "water_heater"]));
+        }
+        case "car":
+          return col(
+            titleField(c, widgetId, w.config.title),
+            entityField(c, t("car_pick"), w.config.entity, { domains: ["sensor", "device_tracker", "lock", "binary_sensor"] }, (id) => editWidget(c, widgetId, (x) => (x.config.entity = id)), true)
+          );
+        case "activity":
+          return numberField(t("quiet_hours"), w.config.quiet_hours ?? 6, 1, 48, (v) => editWidget(c, widgetId, (x) => (x.config.quiet_hours = v)));
+        case "bins": {
+          const bins: { name: string; color: string; day: number }[] = w.config.bins ?? [];
+          const day = (d: number) => new Date(2023, 0, 1 + d).toLocaleDateString(c.lang === "ar" ? "ar" : c.lang, { weekday: "long" });
+          return col(
+            ...bins.map(
+              (b, i) => html`<div style="display:flex;gap:8px;align-items:center">
+                <span style="width:18px;height:18px;border-radius:4px;background:${b.color}"></span>
+                <span style="flex:1">${b.name}</span><span class="muted">${day(b.day)}</span>
+                <button class="icon-btn small pressable" aria-label=${t("delete")} @click=${() => editWidget(c, widgetId, (x) => x.config.bins.splice(i, 1))}>
+                  <sn-icon icon="close" style="--icon-size:16px"></sn-icon>
+                </button>
+              </div>`
+            ),
+            html`<form
+              style="display:flex;gap:8px;flex-wrap:wrap"
+              @submit=${(e: SubmitEvent) => {
+                e.preventDefault();
+                const f = e.currentTarget as HTMLFormElement;
+                const name = (f.elements.namedItem("n") as HTMLInputElement).value.trim();
+                if (!name) return;
+                const color = (f.elements.namedItem("c") as HTMLInputElement).value;
+                const d = Number((f.elements.namedItem("d") as HTMLSelectElement).value);
+                editWidget(c, widgetId, (x) => (x.config.bins = [...(x.config.bins ?? []), { name, color, day: d }]));
+                f.reset();
+              }}
+            >
+              <input name="n" type="text" placeholder=${t("bins_name")} style="flex:1;min-width:140px" />
+              <select name="d">${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d}>${day(d)}</option>`)}</select>
+              <input name="c" type="color" value="#2bb673" style="width:44px;height:38px;padding:2px" />
+              <button class="icon-btn primary pressable" type="submit" aria-label=${t("add")}><sn-icon icon="plus" style="--icon-size:18px"></sn-icon></button>
+            </form>`
+          );
+        }
         case "folder":
           return col(
             titleField(c, widgetId, w.config.title),
@@ -611,6 +665,15 @@ const WIDGET_CHOICES: { type: WidgetType; icon: string }[] = [
   { type: "covers", icon: "blinds" },
   { type: "prayer", icon: "mosque" },
   { type: "folder", icon: "folder" },
+  { type: "story", icon: "book-open-variant" },
+  { type: "hours", icon: "progress-clock" },
+  { type: "plants", icon: "sprout" },
+  { type: "pool", icon: "pool" },
+  { type: "net", icon: "wifi" },
+  { type: "car", icon: "car" },
+  { type: "solarcast", icon: "solar" },
+  { type: "bins", icon: "trash-can" },
+  { type: "activity", icon: "motion-sensor" },
   { type: "clock", icon: "clock-outline" },
   { type: "heading", icon: "title" },
 ];

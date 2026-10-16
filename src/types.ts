@@ -225,7 +225,16 @@ export type WidgetType = "floorplan" | "tile" | "camera" | "heading" | "clock" |
   | "lights"
   | "covers"
   | "prayer"
-  | "folder";
+  | "folder"
+  | "story"
+  | "hours"
+  | "plants"
+  | "pool"
+  | "net"
+  | "car"
+  | "solarcast"
+  | "bins"
+  | "activity";
 
 export interface Widget {
   id: string;

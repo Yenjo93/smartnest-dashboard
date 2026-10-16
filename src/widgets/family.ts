@@ -2,7 +2,7 @@ import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Ctx } from "../ctx";
 import type { Widget } from "../types";
-import { entityName, relativeTime } from "../entities";
+import { stateLabel, entityName, relativeTime } from "../entities";
 import { shared } from "../theme";
 import { composeMessage } from "../message";
 import "../ui/icon";
@@ -80,13 +80,19 @@ export class SnFamily extends LitElement {
   render() {
     const { ctx } = this;
     const { hass, t } = ctx;
-    const people = Object.values(hass.states).filter((e) => e.entity_id.startsWith("person."));
+    // Chosen in the card's settings (people, phones, presence sensors), in that order; else everyone in HA's People.
+    const chosen: string[] = this.widget.config.entities ?? [];
+    const people = chosen.length
+      ? chosen.map((id) => hass.states[id]).filter((e): e is NonNullable<typeof e> => !!e)
+      : Object.values(hass.states).filter((e) => e.entity_id.startsWith("person."));
     return html`<div class="card glass" data-no-swipe>
       ${people.map((e, i) => {
-        const home = e.state === "home";
+        // A presence sensor is "home" when on; a person or phone when HA says home.
+        const home = e.entity_id.startsWith("binary_sensor.") ? e.state === "on" : e.state === "home";
         const name = entityName(hass, ctx.config, e.entity_id);
         const pic = e.attributes.entity_picture as string | undefined;
-        const where = home ? t("at_home") : e.state === "not_home" ? t("away_l") : e.state;
+        const presence = /^(person|device_tracker|binary_sensor)\./.test(e.entity_id);
+        const where = !presence ? stateLabel(t, e, ctx.lang) : home ? t("at_home") : e.state === "not_home" || e.state === "off" ? t("away_l") : e.state;
         return html`<div class="p ${home ? "home" : "away"}" style="animation-delay:${i * 50}ms">
           <div class="av" style=${pic ? `background-image:url('${hass.hassUrl(pic)}')` : ""}>${pic ? "" : name.slice(0, 1)}</div>
           <span class="name">${name}</span>

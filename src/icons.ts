@@ -1,5 +1,9 @@
 // MDI icons (same set Home Assistant uses), imported individually so the bundle only carries what we draw.
 import {
+  mdiTrashCan,
+  mdiSpeedometer,
+  mdiWifiOff,
+  mdiSprout,
   mdiFridgeAlert,
   mdiWindowOpenVariant,
   mdiWindowClosedVariant,
@@ -436,6 +440,10 @@ export const ICONS: Record<string, string> = {
   "window-closed-variant": mdiWindowClosedVariant,
   "window-open-variant": mdiWindowOpenVariant,
   "fridge-alert": mdiFridgeAlert,
+  sprout: mdiSprout,
+  "wifi-off": mdiWifiOff,
+  speedometer: mdiSpeedometer,
+  "trash-can": mdiTrashCan,
 };
 
 /** Icons offered when naming a page. */
