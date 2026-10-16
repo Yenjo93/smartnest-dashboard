@@ -144,8 +144,8 @@ async def ws_codes_add(hass: HomeAssistant, connection: websocket_api.ActiveConn
 
 
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "smartnest/codes/remove", vol.Required("id"): str})
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/codes/remove", vol.Required("code_id"): str})
 @websocket_api.async_response
 async def ws_codes_remove(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    await _codes(hass).remove(msg["id"])
+    await _codes(hass).remove(msg["code_id"])
     connection.send_result(msg["id"])

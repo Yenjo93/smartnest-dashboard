@@ -2912,7 +2912,7 @@ export class SmartNestPanel extends LitElement {
       ${this.ringingAt
         ? html`<sn-doorbell .ctx=${ctx} .at=${this.ringingAt} .silent=${this.silentBell} .onDismiss=${() => (this.ringingAt = undefined)}></sn-doorbell>`
         : nothing}
-      ${this.message && ctx.allows("messages") ? html`<sn-message .ctx=${ctx} .msg=${this.message}></sn-message>` : nothing}
+      ${this.message && ctx.allows("messages") ? html`<sn-message .ctx=${ctx} .msg=${this.message} @dismiss=${() => (this.message = undefined)}></sn-message>` : nothing}
       ${(() => {
         const alarm = ctx.allows("alarm_screen") ? Object.values(this.hass.states).find((e) => e.entity_id.startsWith("alarm_control_panel.") && e.state === "triggered") : undefined;
         return alarm && this.alarmHiddenAt !== alarm.last_changed

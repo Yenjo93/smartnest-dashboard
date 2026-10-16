@@ -500,7 +500,7 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       pushMessage();
       return { id: currentMessage.id };
     case "smartnest/message/ack":
-      if (currentMessage?.id === msg.id) currentMessage = null;
+      if (currentMessage?.id === msg.message_id) currentMessage = null;
       pushMessage();
       return null;
     case "smartnest/timer/list":
@@ -672,7 +672,7 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       return c;
     }
     case "smartnest/codes/remove":
-      localStorage.setItem("smartnest-dev-codes", JSON.stringify(JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]").filter((c: any) => c.id !== msg.id)));
+      localStorage.setItem("smartnest-dev-codes", JSON.stringify(JSON.parse(localStorage.getItem("smartnest-dev-codes") ?? "[]").filter((c: any) => c.id !== msg.code_id)));
       return null;
     case "smartnest/kv/get":
       return { value: JSON.parse(localStorage.getItem(`smartnest-dev-kv-${msg.key}`) ?? "null") };

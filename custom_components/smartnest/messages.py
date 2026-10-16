@@ -67,14 +67,15 @@ def ws_message_send(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     connection.send_result(msg["id"], {"id": sent["id"]})
 
 
-@websocket_api.websocket_command({vol.Required("type"): "smartnest/message/ack", vol.Required("id"): str})
+@websocket_api.websocket_command({vol.Required("type"): "smartnest/message/ack", vol.Required("message_id"): str})
 @callback
 def ws_message_ack(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     data = hass.data.get(DOMAIN) or {}
     current = data.get("message")
-    if current and current["id"] == msg["id"]:
+    # Not "id": that's the websocket message's own number, so the screen message's id travels as "message_id".
+    if current and current["id"] == msg["message_id"]:
         data["message"] = None
-        hass.bus.async_fire(EVENT_ACK, {"id": msg["id"], "message": current.get("message"), "user": connection.user.name if connection.user else ""})
+        hass.bus.async_fire(EVENT_ACK, {"id": current["id"], "message": current.get("message"), "user": connection.user.name if connection.user else ""})
         async_dispatcher_send(hass, SIGNAL, None)
     connection.send_result(msg["id"])
 

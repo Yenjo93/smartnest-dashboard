@@ -82,7 +82,7 @@ export class SnGuestCodes extends LitElement {
               class="btn pressable"
               style="min-height:36px;color:var(--alert-text)"
               @click=${async () => {
-                await hass.callWS({ type: "smartnest/codes/remove", id: c.id }).catch(() => undefined);
+                await hass.callWS({ type: "smartnest/codes/remove", code_id: c.id }).catch(() => undefined);
                 this.load();
               }}
             >

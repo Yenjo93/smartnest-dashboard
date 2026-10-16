@@ -116,7 +116,11 @@ export class SnMessage extends LitElement {
         <span class="ic"><sn-icon .icon=${msg.icon && ["pill", "bell", "message"].includes(msg.icon) ? msg.icon : "message"}></sn-icon></span>
         ${msg.title ? html`<span class="from">${ctx.t("message_from", { name: msg.title })}</span>` : nothing}
         <div class="text">${msg.message}</div>
-        <button class="btn primary pressable" @click=${() => ctx.hass.callWS({ type: "smartnest/message/ack", id: msg.id }).catch(() => undefined)}>
+        <button class="btn primary pressable" @click=${() => {
+          // Gone from this screen at once; the hub then clears it on every other screen.
+          this.dispatchEvent(new CustomEvent("dismiss", { bubbles: true, composed: true }));
+          ctx.hass.callWS({ type: "smartnest/message/ack", message_id: msg.id }).catch(() => undefined);
+        }}>
           ${msg.ack || ctx.t("got_it")}
         </button>
       </div>
