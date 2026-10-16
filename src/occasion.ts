@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { Occasion } from "./look";
+
 
 /**
  * The calendar's big days dress the top of the dashboard: lanterns and a crescent through Ramadan, a greeting and
@@ -8,7 +8,10 @@ import type { Occasion } from "./look";
  */
 @customElement("sn-occasion")
 export class SnOccasion extends LitElement {
-  @property() kind: Occasion = "ramadan";
+  /** What hangs from the header. */
+  @property() kind: "lanterns" | "lights" | "bunting" = "lanterns";
+  /** Bunting colours, from the theme. */
+  @property() accent = "#FF5C8A";
   @property() greeting = "";
 
   static styles = css`
@@ -107,32 +110,35 @@ export class SnOccasion extends LitElement {
 
   render() {
     switch (this.kind) {
-      case "ramadan":
+      case "lanterns":
         return html`${this.lantern("6%", 30, 30)} ${this.lantern("14%", 60, 24)} ${this.lantern("90%", 44, 28)}
           <svg style="position:absolute;top:10px;right:20%;width:30px;height:30px" viewBox="0 0 24 24" aria-hidden="true">
             ${svg`<path d="M15 3a9 9 0 1 0 6 15.5A7.5 7.5 0 1 1 15 3z" fill="#f4c04f"></path>`}
           </svg>
           ${this.greeting ? html`<span class="greet">${this.greeting}</span>` : nothing}`;
-      case "eid_fitr":
-      case "eid_adha":
-        return html`${this.lantern("8%", 36, 26)} ${this.lantern("88%", 36, 26)}
-          ${[22, 34, 66, 78].map((x, i) => html`<span class="spark" style="left:${x}%;animation-delay:-${i * 0.4}s">✨</span>`)}
-          ${this.greeting ? html`<span class="greet">${this.greeting}</span>` : nothing}`;
-      case "christmas": {
+      case "lights": {
         const colors = ["#ff5a5a", "#ffd34d", "#4dd27a", "#58a8ff"];
         return html`<svg class="lights" viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true">
-            ${svg`<path d="M0 6 Q 62 26 125 6 T 250 6 T 375 6 T 500 6 T 625 6 T 750 6 T 875 6 T 1000 6" fill="none" stroke="#2b3a2f" stroke-width="1.5"></path>`}
-            ${Array.from({ length: 24 }, (_, i) => {
-              const x = 20 + i * 41;
-              const y = 6 + Math.abs(Math.sin(((x % 125) / 125) * Math.PI)) * 10 + 6;
-              return svg`<ellipse class="bulb" cx=${x} cy=${y} rx="4" ry="6" fill=${colors[i % 4]} style="animation-delay:-${(i * 0.37) % 2.4}s"></ellipse>`;
-            })}
-          </svg>
-          ${this.greeting ? html`<span class="greet" style="top:28px">${this.greeting}</span>` : nothing}`;
+          ${svg`<path d="M0 6 Q 62 26 125 6 T 250 6 T 375 6 T 500 6 T 625 6 T 750 6 T 875 6 T 1000 6" fill="none" stroke="#2b3a2f" stroke-width="1.5"></path>`}
+          ${Array.from({ length: 24 }, (_, i) => {
+            const x = 20 + i * 41;
+            const y = 6 + Math.abs(Math.sin(((x % 125) / 125) * Math.PI)) * 10 + 6;
+            return svg`<ellipse class="bulb" cx=${x} cy=${y} rx="4" ry="6" fill=${colors[i % 4]} style="animation-delay:-${(i * 0.37) % 2.4}s"></ellipse>`;
+          })}
+        </svg>`;
       }
-      case "new_year":
-        return html`${[8, 20, 35, 50, 65, 80, 92].map((x, i) => html`<span class="spark" style="left:${x}%;animation-delay:-${i * 0.3}s">${i % 2 ? "🎆" : "✨"}</span>`)}
-          ${this.greeting ? html`<span class="greet" style="top:30px">${this.greeting}</span>` : nothing}`;
+      case "bunting": {
+        // Party flags on a string across the header.
+        const colors = [this.accent, "#4dd2ff", "#ffd166", "#7bdc8b", "#b388ff"];
+        return html`<svg class="lights" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true">
+          ${svg`<path d="M0 4 Q 250 22 500 4 T 1000 4" fill="none" stroke="rgba(120,120,120,.6)" stroke-width="1.2"></path>`}
+          ${Array.from({ length: 22 }, (_, i) => {
+            const x = 12 + i * 45.5;
+            const y = 4 + Math.sin(((x % 500) / 500) * Math.PI) * 17;
+            return svg`<path d="M${x - 12} ${y} L${x + 12} ${y} L${x} ${y + 22} Z" fill=${colors[i % colors.length]} opacity=".9"></path>`;
+          })}
+        </svg>`;
+      }
     }
   }
 }

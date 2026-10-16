@@ -35,7 +35,10 @@ import { refreshTimers } from "./live-timers";
 import { dismissNudge, findNudge, nudgeDismissed, type Nudge } from "./nudges";
 import { applyDesign } from "./design-apply";
 import "./miniplayer";
-import { dayAccent, fontStack, occasionToday } from "./look";
+import { dayAccent, fontStack } from "./look";
+import { occasionNow, themeFor, type ActiveOccasion } from "./occasions";
+import "./occfx";
+import "./occbanner";
 import { monogram, seasonNow } from "./flair";
 import { snapshotUrl } from "./widgets/camera";
 import "./ui/empty";
@@ -869,6 +872,19 @@ export class SmartNestPanel extends LitElement {
         background: rgba(0, 0, 0, 0.35);
       }
       /* Aurora: slow colour fields drifting behind the cards (2.0, when there's no wallpaper). */
+      /* An occasion's page: its sky behind everything, softened toward the theme so text on it stays readable. */
+      .occ-bg {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background-size: cover;
+      }
+      .occ-bg::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, var(--bg) 22%, transparent);
+      }
       .aurora {
         position: fixed;
         inset: 0;
@@ -1863,6 +1879,9 @@ export class SmartNestPanel extends LitElement {
   private get dark(): boolean {
     const s = this.current?.settings;
     if (!s) return this.systemDark;
+    // A night-sky occasion (Ramadan, New Year…) shows best dark; the house's own setting returns the day after.
+    const occ = !this.draft ? this.occasion() : undefined;
+    if (occ && themeFor(occ).night) return true;
     if (s.theme === "dark" || s.theme === "midnight") return true;
     if (s.theme === "light") return false;
     if (s.theme === "auto") return this.systemDark;
@@ -2081,7 +2100,9 @@ export class SmartNestPanel extends LitElement {
     if (wallOn && s!.accent_from_wallpaper && back !== this.wallSrc && !back!.includes("camera_proxy")) this.pickWallAccent(back!);
     const sun = this.hass?.states["sun.sun"];
     const dayTint = s?.accent_day && allows(this.lic.plan, "accent_day") ? dayAccent(new Date(), Number(sun?.attributes.elevation ?? NaN) || undefined, !!sun?.attributes.rising) : undefined;
-    const vars = themeVars(this.dark, wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : dayTint ?? s?.accent ?? "");
+    const occ = !this.draft ? this.occasion() : undefined;
+    const occTheme = occ && s?.occasion_colors !== false ? themeFor(occ) : undefined;
+    const vars = themeVars(this.dark, occTheme?.accent ?? (wallOn && s!.accent_from_wallpaper && this.wallAccent ? this.wallAccent : dayTint ?? s?.accent ?? ""));
     vars["--font"] = fontStack(allows(this.lic.plan, "fonts") ? s?.font : "rubik");
     if (s?.icons === "line" && allows(this.lic.plan, "icon_styles")) Object.assign(vars, { "--fill-on": "none", "--line-on": "inline" });
     else Object.assign(vars, { "--fill-on": "inline", "--line-on": "none" });
@@ -2143,6 +2164,8 @@ export class SmartNestPanel extends LitElement {
         : "0 0 #0000",
       ...(liquid ? { "--surface": this.dark ? "rgba(42,51,59,.46)" : "rgba(255,255,255,.48)" } : {}),
     });
+    // The occasion's colour runs through the glass too, faintly (after every other look has set the glass).
+    if (occTheme && vars["--surface"]) vars["--surface"] = `color-mix(in srgb, ${vars["--surface"]} 84%, ${occTheme.tint})`;
     for (const [k, v] of Object.entries(vars)) this.style.setProperty(k, v);
     this.setAttribute("dir", isRtl(this.uiLang) ? "rtl" : "ltr");
     this.setAttribute("lang", this.uiLang);
@@ -2697,11 +2720,32 @@ export class SmartNestPanel extends LitElement {
   /** 2.0: drops on the glass while it rains outside. */
   /** The calendar's big days, at the top edge. The greeting shows on the first day only. */
   private renderOccasion() {
-    const kind = occasionToday(this.now);
-    if (!kind) return nothing;
-    const t = translator(this.uiLang);
-    const first = kind !== occasionToday(new Date(this.now.getTime() - 86_400_000));
-    return html`<sn-occasion .kind=${kind} .greeting=${first || kind !== "ramadan" ? t(`occ_${kind}` as I18nKey) : ""}></sn-occasion>`;
+    const occ = this.occasion();
+    const header = occ ? themeFor(occ).header : undefined;
+    return header ? html`<sn-occasion .kind=${header} .accent=${themeFor(occ!).accent}></sn-occasion>` : nothing;
+  }
+
+  private occMemo?: { key: string; src: unknown; occ?: ActiveOccasion };
+
+  /**
+   * Today's occasion (or one being previewed on this screen from Settings). Worked out once a day per setup, not on
+   * every redraw.
+   */
+  private occasion(): ActiveOccasion | undefined {
+    const s = this.current?.settings;
+    if (!s || !allows(this.lic.plan, "occasions")) return undefined;
+    try {
+      const p = JSON.parse(localStorage.getItem("smartnest-occ-preview") ?? "null");
+      if (p && p.until > Date.now()) return p.occ as ActiveOccasion;
+    } catch {
+      /* no preview */
+    }
+    const key = this.now.toDateString();
+    const m = this.occMemo;
+    if (m && m.key === key && m.src === s) return m.occ;
+    const occ = occasionNow(s, this.now);
+    this.occMemo = { key, src: s, occ };
+    return occ;
   }
 
   private renderRainGlass(ctx: Ctx) {
@@ -2762,13 +2806,21 @@ export class SmartNestPanel extends LitElement {
     return html`<div class="app ${this.pro ? "pro" : ""} ${this.pro && !this.lite && this.sheets.length && ctx.config.settings.motion !== "off" && ctx.allows("push_back") ? "pushed" : ""} ${ctx.narrow ? "compact" : ""} ${this.kids ? "kids" : ""} ${this.tvMode ? "tv" : ""} ${(this.big || this.simple) && !this.tvMode ? "big" : ""} ${this.simple && !ctx.editing ? "simple" : ""}">
       ${this.pro && !this.lite && !this.backdrop(ctx) && ctx.config.settings.aurora && ctx.allows("aurora") ? html`<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>` : nothing}
       ${this.nightRed && this.dark && ctx.allows("night_red") ? html`<div class="redshift" aria-hidden="true"></div>` : nothing}
-      ${this.lite
+      ${(() => {
+        // An occasion dresses the whole page: its own background behind the cards, its moving layer in front of it.
+        const occ = ctx.editing ? undefined : this.occasion();
+        const th = occ ? themeFor(occ) : undefined;
+        if (!th?.bg) return nothing;
+        return html`<div class="occ-bg" aria-hidden="true" style="background:${th.bg}"></div>
+          ${!this.lite && ctx.config.settings.motion !== "off" ? html`<sn-occfx .kinds=${th.particles} .accent=${th.accent}></sn-occfx>` : nothing}`;
+      })()}
+      ${this.lite || (!ctx.editing && this.occasion())
         ? nothing
         : (() => {
         const back = this.backdrop(ctx);
         return back ? html`<div class="wall" aria-hidden="true" style="background-image:url('${back}');--dim:${ctx.config.settings.wallpaper_dim}"></div>` : nothing;
       })()}
-      ${this.pro && !this.lite && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
+      ${this.pro && !this.lite && !this.occasion() && ctx.config.settings.season_skin && ctx.allows("season_skin") && ctx.config.settings.motion === "full" && !ctx.editing
         ? html`<sn-seasonfx .season=${seasonNow()}></sn-seasonfx>`
         : nothing}
       ${this.pro && !this.lite ? html`<div class="leaks" aria-hidden="true"><i></i><i></i></div>` : nothing}
@@ -2798,6 +2850,7 @@ export class SmartNestPanel extends LitElement {
                 @pointercancel=${cur ? this.onSwipeUp : null}
               >
                 ${cur && this.guests && ctx.allows("guests") && !ctx.editing ? html`<sn-guests .ctx=${ctx}></sn-guests>` : nothing}
+                ${cur && !ctx.editing && this.occasion() ? html`<sn-occbanner .ctx=${ctx} .occ=${this.occasion()} .theme=${themeFor(this.occasion()!)}></sn-occbanner>` : nothing}
                 ${cur ? this.renderDesign(ctx) : nothing} ${cur ? this.renderNudge(ctx) : nothing}
                 <sn-page-grid .ctx=${cur ? ctx : this.parked.get(p.id) ?? ctx} .page=${p}></sn-page-grid>
               </main>`;

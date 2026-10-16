@@ -1,1 +1,1 @@
-import{_ as s}from"./chunks/loader-43RavMas.js";s((()=>import("./chunks/app-BLi5ilv7.js").then((s=>s.as))),[]);
+import{_}from"./chunks/loader-43RavMas.js";_((()=>import("./chunks/app-aojZuhbH.js").then((_=>_.av))),[]);

@@ -166,6 +166,14 @@ export interface Settings {
   quick_scenes?: string[];
   /** The camera wall's cameras, in order; empty = automatic (the dashboard's cameras, else all). */
   wall_cameras?: string[];
+  /** Calendar occasions switched off (Mawlid is off unless switched on). */
+  occasions_off?: string[];
+  /** Birthdays, anniversaries and the family's own days. */
+  family_dates?: import("./occasions").FamilyDate[];
+  /** Where the family's days are announced in the morning (a notify service); HA's notifications always. */
+  occasion_notify?: string;
+  /** The occasion recolours the dashboard (accent and glass), not only its background. */
+  occasion_colors?: boolean;
   /** 2.0 extras: a camera as the background, the album art while music plays, a welcome when someone gets home,
    *  a colour mood per page, the family's monogram instead of the logo, and seasonal skies. */
   window_camera?: string;

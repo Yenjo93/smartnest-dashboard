@@ -61,6 +61,46 @@ class Family:
         self._later(now)
         self._wake(now)
         self._ac_week(now)
+        self._family_days(now)
+
+    # ---- the family's days ----
+
+    _DAY_TEXT = {
+        "ar": {"birthday": "🎂 اليوم عيد ميلاد {name}", "anniversary": "💍 اليوم عيد زواج {name}", "custom": "🎈 اليوم: {name}", "years": " ({n} سنة)"},
+        "en": {"birthday": "🎂 Today is {name}'s birthday", "anniversary": "💍 Today is {name}'s anniversary", "custom": "🎈 Today: {name}", "years": " ({n} years)"},
+        "he": {"birthday": "🎂 היום יום ההולדת של {name}", "anniversary": "💍 היום יום הנישואין של {name}", "custom": "🎈 היום: {name}", "years": " ({n} שנים)"},
+    }
+
+    def _family_days(self, now: datetime) -> None:
+        """At 8 in the morning: today's birthdays and anniversaries, in HA's notifications and on the chosen phone."""
+        if now.hour != 8 or now.minute != 0:
+            return
+        settings = ((self.hass.data.get(DOMAIN) or {}).get("config") or {}).get("settings") or {}
+        if settings.get("occasions") is False:
+            return
+        lang = settings.get("language") if settings.get("language") in self._DAY_TEXT else "ar"
+        words = self._DAY_TEXT[lang]
+        today = now.strftime("%m-%d")
+        for day in settings.get("family_dates") or []:
+            date = str(day.get("date") or "")
+            if date[5:] != today or not day.get("name"):
+                continue
+            kind = day.get("kind") if day.get("kind") in ("birthday", "anniversary", "custom") else "custom"
+            text = words[kind].format(name=day["name"])
+            try:
+                year = int(date[:4])
+            except ValueError:
+                year = 0
+            if day.get("year_known", True) and 1900 < year <= now.year and kind != "custom":
+                text += words["years"].format(n=now.year - year)
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification", "create", {"title": "SmartNest", "message": text, "notification_id": f"smartnest_day_{day.get('id', '')}_{now.year}"}
+                )
+            )
+            target = str(settings.get("occasion_notify") or "")
+            if target.startswith("notify.") and self.hass.services.has_service("notify", target[7:]):
+                self.hass.async_create_task(self.hass.services.async_call("notify", target[7:], {"title": "SmartNest", "message": text}))
 
     # ---- the AC's week ----
 

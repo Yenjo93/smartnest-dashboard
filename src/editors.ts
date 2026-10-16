@@ -1,4 +1,5 @@
 import { FONTS } from "./look";
+import "./occasions-settings";
 import { shared } from "./theme";
 import { LitElement, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -970,7 +971,7 @@ export function settingsSheet(
               <div class="seg">${(["filled", "line"] as const).map((v) => html`<button aria-pressed=${(s.icons ?? "filled") === v} @click=${() => set((d) => (d.settings.icons = v))}>${t(v === "line" ? "icons_line" : "icons_filled")}</button>`)}</div>
             </div>`
           : nothing,
-        c.allows("occasions") ? html`<div class="field">${t("occasions")} ${toggle(c, s.occasions, (v) => set((d) => (d.settings.occasions = v)))}</div>` : nothing,
+        c.allows("occasions") ? html`<sn-occasions-settings .ctx=${c} .set=${set}></sn-occasions-settings>` : nothing,
         c.allows("burn_in") ? html`<div class="field">${t("burn_in")} ${toggle(c, s.burn_in, (v) => set((d) => (d.settings.burn_in = v)))}</div>` : nothing,
         html`<div class="field">${t("cameras_live")} ${toggle(c, s.cameras_live ?? true, (v) => set((d) => (d.settings.cameras_live = v)))}</div>`,
         c.allows("quick_scenes")
