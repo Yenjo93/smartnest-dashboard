@@ -164,6 +164,8 @@ export interface Settings {
   circadian?: string[];
   /** Scenes and scripts in a floating bar at the bottom of every page; empty = no bar. */
   quick_scenes?: string[];
+  /** The camera wall's cameras, in order; empty = automatic (the dashboard's cameras, else all). */
+  wall_cameras?: string[];
   /** 2.0 extras: a camera as the background, the album art while music plays, a welcome when someone gets home,
    *  a colour mood per page, the family's monogram instead of the logo, and seasonal skies. */
   window_camera?: string;

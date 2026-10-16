@@ -1127,6 +1127,9 @@ const en = {
   page_users_all: "Everyone. Pick people to show it only to them (a guest account sees only its pages).",
   page_users_some: "Only the people chosen (and admins).",
   quick_scenes: "Scenes bar at the bottom of every page",
+  wall_choose: "Choose the cameras",
+  wall_choose_hint: "Tap a camera to add it to the wall or take it off. The wall shows them in the order you pick them.",
+  wall_auto: "Back to automatic",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2258,6 +2261,9 @@ const ar: Record<I18nKey, string> = {
   page_users_all: "الكل. اختار أشخاص لتبين إلهم بس (حساب الضيف بيشوف صفحاته بس).",
   page_users_some: "بس الأشخاص اللي اخترتهم (والمسؤول).",
   quick_scenes: "شريط مشاهد سريع تحت بكل الصفحات",
+  wall_choose: "اختار الكاميرات",
+  wall_choose_hint: "اكبس على كاميرا لتزيدها عالشاشة أو تشيلها. بيطلعوا بالترتيب اللي اخترتهم فيه.",
+  wall_auto: "رجّعها تلقائي",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3387,6 +3393,9 @@ const he: Record<I18nKey, string> = {
   page_users_all: "כולם. בחרו אנשים כדי להציג רק להם.",
   page_users_some: "רק האנשים שנבחרו (ומנהלים).",
   quick_scenes: "סרגל סצנות בתחתית כל עמוד",
+  wall_choose: "בחר מצלמות",
+  wall_choose_hint: "הקישו על מצלמה כדי להוסיף או להסיר. הסדר לפי סדר הבחירה.",
+  wall_auto: "חזרה לאוטומטי",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

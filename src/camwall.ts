@@ -6,9 +6,12 @@ import { dashboardEntities } from "./chips";
 import { liveUrl, snapshotUrl } from "./widgets/camera";
 import { shared } from "./theme";
 import "./ui/icon";
+import { saveConfig } from "./config";
 
-/** Cameras on the dashboard first; every camera in the house if none were placed. */
+/** The cameras chosen for the wall, in their order; else the dashboard's cameras; else every camera in the house. */
 export function wallCameras(ctx: Ctx): string[] {
+  const chosen = (ctx.config.settings.wall_cameras ?? []).filter((id) => ctx.hass.states[id]);
+  if (chosen.length) return chosen;
   const placed = dashboardEntities(ctx.config).filter((id) => domainOf(id) === "camera" && ctx.hass.states[id]);
   return placed.length ? placed : Object.keys(ctx.hass.states).filter((id) => domainOf(id) === "camera");
 }
@@ -38,6 +41,8 @@ export class SnCamwall extends LitElement {
   @property({ attribute: false }) ctx!: Ctx;
   @property({ attribute: false }) onClose!: () => void;
   @state() private big?: string;
+  /** Choosing the wall's cameras (admins). */
+  @state() private choosing = false;
   @state() private bust = Date.now();
   private timer?: number;
 
@@ -53,6 +58,69 @@ export class SnCamwall extends LitElement {
         display: grid;
         grid-template-rows: auto 1fr;
         animation: fade 260ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .choose {
+        display: grid;
+        gap: 14px;
+        padding: 0 18px 18px;
+        overflow: auto;
+        color: #fff;
+      }
+      .choose .hint {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+      }
+      .pick {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 10px;
+      }
+      .pc {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        border: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #151a1e;
+        cursor: pointer;
+        opacity: 0.45;
+        transition: opacity 200ms, box-shadow 200ms;
+      }
+      .pc.on {
+        opacity: 1;
+        box-shadow: 0 0 0 3px var(--accent);
+      }
+      .pc img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .pc .n {
+        position: absolute;
+        top: 8px;
+        inset-inline-start: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: var(--on-accent);
+        font: 700 14px var(--font);
+      }
+      .pc:not(.on) .n {
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+      }
+      .pc .l {
+        position: absolute;
+        inset: auto 0 0 0;
+        padding: 6px 10px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+        color: #fff;
+        font: 600 13px var(--font);
+        text-align: start;
       }
       .top {
         display: flex;
@@ -193,6 +261,39 @@ export class SnCamwall extends LitElement {
     else this.onClose();
   };
 
+  /** Saves the wall's cameras straight away (outside edit mode too: it's the installer's own screen setting). */
+  private saveWall(ids: string[]) {
+    const { ctx } = this;
+    if (ctx.editing) return ctx.update((d) => (d.settings.wall_cameras = ids));
+    const next = { ...ctx.config, settings: { ...ctx.config.settings, wall_cameras: ids } };
+    saveConfig(ctx.hass, next).catch(() => ctx.toast(ctx.t("error")));
+  }
+
+  /** Every camera in the house: tap to put it on the wall or take it off; the wall shows them in the order picked. */
+  private renderChooser(shown: string[]) {
+    const { ctx } = this;
+    const { hass, config, t } = ctx;
+    const chosen = config.settings.wall_cameras?.length ? config.settings.wall_cameras.filter((id) => hass.states[id]) : shown;
+    const all = Object.keys(hass.states).filter((id) => domainOf(id) === "camera");
+    return html`<div class="choose">
+      <span class="hint">${t("wall_choose_hint")}</span>
+      <div class="pick">
+        ${all.map((id) => {
+          const i = chosen.indexOf(id);
+          const url = snapshotUrl(hass, id, this.bust);
+          return html`<button class="pc pressable ${i >= 0 ? "on" : ""}" @click=${() => this.saveWall(i >= 0 ? chosen.filter((x) => x !== id) : [...chosen, id])}>
+            ${url ? html`<img src=${url} alt="" />` : nothing}
+            <span class="n">${i >= 0 ? i + 1 : "+"}</span>
+            <span class="l">${entityName(hass, config, id)}</span>
+          </button>`;
+        })}
+      </div>
+      ${config.settings.wall_cameras?.length
+        ? html`<button class="btn pressable" style="justify-self:start" @click=${() => this.saveWall([])}>${t("wall_auto")}</button>`
+        : nothing}
+    </div>`;
+  }
+
   render() {
     const { ctx } = this;
     // Cameras that see movement come first and bigger.
@@ -205,12 +306,18 @@ export class SnCamwall extends LitElement {
     return html`<div class="wall" role="dialog" aria-label=${ctx.t("widget_camera")}>
       <div class="top">
         <sn-icon icon="cctv"></sn-icon>
-        <strong>${ctx.t("camera_wall")}</strong>
+        <strong>${ctx.t(this.choosing ? "wall_choose" : "camera_wall")}</strong>
+        ${ctx.isAdmin && !this.big
+          ? html`<button class="icon-btn pressable" aria-label=${ctx.t("wall_choose")} title=${ctx.t("wall_choose")} @click=${() => (this.choosing = !this.choosing)}>
+              <sn-icon icon=${this.choosing ? "check" : "pencil"}></sn-icon>
+            </button>`
+          : nothing}
         <button class="icon-btn pressable" aria-label=${ctx.t("close")} @click=${() => (this.big ? (this.big = undefined) : this.onClose())}>
           <sn-icon icon=${this.big ? "arrow-left" : "close"}></sn-icon>
         </button>
       </div>
-      <div class="grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows + (moving.size && cols > 1 ? moving.size : 0)},1fr);grid-auto-flow:dense">
+      ${this.choosing ? this.renderChooser(all) : nothing}
+      <div class="grid" style="${this.choosing ? "display:none;" : ""}grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows + (moving.size && cols > 1 ? moving.size : 0)},1fr);grid-auto-flow:dense">
         ${cams.map(
           (id, i) => html`<button class="cam pressable ${moving.has(id) && cols > 1 ? "moving" : ""}" style="animation-delay:${Math.min(i, 8) * 40}ms" @click=${() => (this.big = id)}>
             ${moving.has(id) ? html`<b class="mv">${ctx.t("cam_motion")}</b>` : nothing}
