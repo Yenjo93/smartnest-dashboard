@@ -1258,6 +1258,13 @@ const en = {
   widget_fans: "Fans",
   camera: "Camera",
   temperature: "Temperature",
+  pmap_yesterday: "Yesterday",
+  pmap_week: "7 days",
+  pmap_moving: "Out",
+  pmap_now: "now",
+  pmap_no_gps: "No GPS points in this time: the phone needs the HA app with location on",
+  pmap_setting: "Map with route when tapping a person",
+  pmap_setting_hint: "Shows where they went today, yesterday or this week (from HA's history)",
 };
 
 export type I18nKey = keyof typeof en;
@@ -2520,6 +2527,13 @@ const ar: Record<I18nKey, string> = {
   widget_fans: "المراوح",
   camera: "الكاميرا",
   temperature: "الحرارة",
+  pmap_yesterday: "مبارح",
+  pmap_week: "٧ أيام",
+  pmap_moving: "برّا",
+  pmap_now: "هلأ",
+  pmap_no_gps: "ما في نقاط GPS بهالوقت: لازم تطبيق HA عالتلفون والموقع شغّال",
+  pmap_setting: "خريطة مع المسار لما تكبس على شخص",
+  pmap_setting_hint: "بتورجي وين راح اليوم أو مبارح أو هالأسبوع (من سجل الـ HA)",
 };
 
 const he: Record<I18nKey, string> = {
@@ -3780,6 +3794,13 @@ const he: Record<I18nKey, string> = {
   widget_fans: "מאווררים",
   camera: "מצלמה",
   temperature: "טמפרטורה",
+  pmap_yesterday: "אתמול",
+  pmap_week: "7 ימים",
+  pmap_moving: "בחוץ",
+  pmap_now: "עכשיו",
+  pmap_no_gps: "אין נקודות GPS בזמן הזה: צריך את אפליקציית HA בטלפון עם מיקום פעיל",
+  pmap_setting: "מפה עם מסלול בלחיצה על אדם",
+  pmap_setting_hint: "מציג לאן הלכו היום, אתמול או השבוע (מההיסטוריה של HA)",
 };
 
 const tables: Record<Lang, Record<I18nKey, string>> = { en, ar, he };

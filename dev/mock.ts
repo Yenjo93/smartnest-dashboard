@@ -129,7 +129,9 @@ add(ent("sensor.abu_mohammad_area", "الصالة", { friendly_name: "أبو م�
 }
 add(ent("person.abu_mohammad", "home", { friendly_name: "أبو محمد" }));
 add(ent("person.um_mohammad", "not_home", { friendly_name: "أم محمد" }));
-add(ent("person.mohammad", "School", { friendly_name: "محمد" }));
+add(ent("person.mohammad", "School", { friendly_name: "محمد", latitude: 32.0853, longitude: 34.7818, gps_accuracy: 12 }));
+add(ent("zone.home", "0", { friendly_name: "Home", latitude: 32.0700, longitude: 34.7700, radius: 120 }));
+add(ent("zone.school", "1", { friendly_name: "School", latitude: 32.0853, longitude: 34.7818, radius: 150 }));
 add(ent("sensor.water_tank", "18", { friendly_name: "خزان المي", unit_of_measurement: "%" }));
 add(ent("sensor.gas_level", "64", { friendly_name: "جرة الغاز", unit_of_measurement: "%" }));
 add(ent("cover.main_gate", "closed", { friendly_name: "البوابة الرئيسية", device_class: "gate" }));
@@ -589,6 +591,20 @@ async function callWS(msg: Record<string, any>): Promise<any> {
       const out: Record<string, any[]> = {};
       for (const id of msg.entity_ids) {
         const d = id.split(".")[0];
+        if (d === "person" || d === "device_tracker") {
+          // A school run: home in the morning, a winding drive, school since 8:10.
+          const day = new Date();
+          day.setHours(7, 20, 0, 0);
+          const t0 = Math.max(new Date(msg.start_time).getTime(), day.getTime()) / 1000;
+          const pts: any[] = [{ s: "home", a: { latitude: 32.07, longitude: 34.77, gps_accuracy: 10 }, lu: t0 }];
+          for (let i = 1; i <= 24; i++) {
+            const k = i / 24;
+            pts.push({ s: "not_home", a: { latitude: 32.07 + 0.0153 * k + Math.sin(k * 7) * 0.0012, longitude: 34.77 + 0.0118 * k + Math.cos(k * 5) * 0.001, gps_accuracy: 15 }, lu: t0 + 1800 + i * 60 });
+          }
+          pts.push({ s: "School", a: { latitude: 32.0853, longitude: 34.7818, gps_accuracy: 12 }, lu: t0 + 1800 + 25 * 60 });
+          out[id] = pts.filter((p) => p.lu * 1000 <= Date.now());
+          continue;
+        }
         if (!["light", "switch", "fan", "cover", "climate", "media_player"].includes(d)) {
           Object.assign(out, history(id));
           continue;

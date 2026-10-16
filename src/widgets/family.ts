@@ -77,6 +77,21 @@ export class SnFamily extends LitElement {
     `,
   ];
 
+  /** People and phones open their map with the day's route; anything else its usual details. */
+  private open(id: string, origin: Element) {
+    const { ctx } = this;
+    if (!/^(person|device_tracker)\./.test(id) || this.widget.config.map === false) return ctx.openEntity(id, origin);
+    import("../person-map").then(
+      () =>
+        ctx.showSheet({
+          title: entityName(ctx.hass, ctx.config, id),
+          origin,
+          render: (c) => html`<sn-person-map .ctx=${c} entity=${id}></sn-person-map>`,
+        }),
+      () => ctx.openEntity(id, origin)
+    );
+  }
+
   render() {
     const { ctx } = this;
     const { hass, t } = ctx;
@@ -93,7 +108,7 @@ export class SnFamily extends LitElement {
         const pic = e.attributes.entity_picture as string | undefined;
         const presence = /^(person|device_tracker|binary_sensor)\./.test(e.entity_id);
         const where = !presence ? stateLabel(t, e, ctx.lang) : home ? t("at_home") : e.state === "not_home" || e.state === "off" ? t("away_l") : e.state;
-        return html`<div class="p ${home ? "home" : "away"}" style="animation-delay:${i * 50}ms">
+        return html`<div class="p pressable ${home ? "home" : "away"}" style="animation-delay:${i * 50}ms" @click=${(ev: Event) => this.open(e.entity_id, ev.currentTarget as Element)}>
           <div class="av" style=${pic ? `background-image:url('${hass.hassUrl(pic)}')` : ""}>${pic ? "" : name.slice(0, 1)}</div>
           <span class="name">${name}</span>
           <span class="where">${where} · ${relativeTime(t, e.last_changed)}</span>

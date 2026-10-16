@@ -488,7 +488,10 @@ function widgetBody(c: Ctx, w: Widget, widgetId: string) {
             <input type="number" min="5" max="60" .value=${String(w.config.low ?? 20)} @change=${(e: any) => editWidget(c, widgetId, (x) => (x.config.low = Number(e.target.value) || 20))} />
           </label>`;
         case "family":
-          return multiField(c, t("family_who"), w.config.entities, { domains: ["person", "device_tracker", "binary_sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)), "family_all");
+          return col(
+            multiField(c, t("family_who"), w.config.entities, { domains: ["person", "device_tracker", "binary_sensor"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)), "family_all"),
+            html`<div class="field">${t("pmap_setting")} ${toggle(c, w.config.map !== false, (v) => editWidget(c, widgetId, (x) => (x.config.map = v)))}<span class="hint">${t("pmap_setting_hint")}</span></div>`
+          );
         case "hours":
           return multiField(c, t("widget_hours"), w.config.entities, { domains: ["light", "switch", "climate", "fan", "media_player", "water_heater", "input_boolean"] }, (ids) => editWidget(c, widgetId, (x) => (x.config.entities = ids)));
         case "plants":
